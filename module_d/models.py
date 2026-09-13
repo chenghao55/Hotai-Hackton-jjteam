@@ -67,6 +67,8 @@ class Detection:
     category: ConditionCategory
     severity: Severity
     confidence: float
+
+    # 人工審核後填上
     review_state: ReviewState
     reviewed_category: ConditionCategory | None = None
     reviewed_severity: Severity | None = None
@@ -76,12 +78,14 @@ class Detection:
         self.validate()
 
     def validate(self) -> None:
+        """檢查fields是否合法的填寫"""
         _identifier(self.detection_id, "detection_id")
         _identifier(self.photo_id, "photo_id")
         _enum(self.category, ConditionCategory, "category")
         _enum(self.severity, Severity, "severity")
         _probability(self.confidence, "confidence")
         _enum(self.review_state, ReviewState, "review_state")
+
         if self.review_note is not None and not isinstance(self.review_note, str):
             raise ValueError("review_note must be a string or None")
         if self.review_state == ReviewState.CORRECTED:
