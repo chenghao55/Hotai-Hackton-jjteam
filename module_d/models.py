@@ -21,7 +21,12 @@ class Severity(str, Enum):
 
 class ReviewState(str, Enum):
     """
-    detection的審核狀態，是否需人工修正等等
+    detection的審核狀態，是否需人工修正等等\n
+    NEEDS_REVIEW:\tAI 有看到東西，但信心不夠，需要人看\n
+    AUTO_ACCEPTED:\tAI 信心夠高，系統先自動接受\n
+    CONFIRMED:\t人工看過後，確認 AI 原本判斷是對的\n
+    REJECTED:\t人工看過後，認為這個 Detection 根本不成立\n
+    CORRECTED:\t人工看過後，認為有這個問題，但 AI 的 category 或 severity 要修正
     """
 
     NEEDS_REVIEW = "needs_review" # AI 有看到東西，但信心不夠，需要人看
