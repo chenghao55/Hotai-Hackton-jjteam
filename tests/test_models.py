@@ -2,7 +2,7 @@ from dataclasses import replace
 
 import pytest
 
-from module_d import Case, CaseStatus, ConditionCategory as C, Detection, Priority, ReviewState as R, Severity as S
+from module_d import Case, CaseStatus, ConditionCategory as C, Detection, ReviewState as R, Severity as S
 
 
 def detection(**changes):
@@ -15,7 +15,6 @@ def test_enum_values():
     assert [v.value for v in C] == ["scratch", "collision_damage", "cleanliness"]
     assert [v.value for v in S] == ["minor", "moderate", "severe"]
     assert [v.value for v in R] == ["needs_review", "auto_accepted", "confirmed", "rejected", "corrected"]
-    assert [v.value for v in Priority] == ["low", "medium", "high"]
     assert [v.value for v in CaseStatus] == ["unassigned", "dispatched", "processing", "pending_payment", "completed"]
 
 
@@ -71,7 +70,7 @@ def test_noncorrected_states_have_no_reviewed_values(state):
 def test_case_defaults_and_independent_lists():
     first, second = Case("c1"), Case("c2")
     assert first.status == CaseStatus.UNASSIGNED
-    assert first.priority is None and first.payment_amount == 0
+    assert first.priority_score is None and first.payment_amount == 0
     first.detections.append(detection())
     assert second.detections == []
 
@@ -88,21 +87,55 @@ def test_invalid_payment(amount):
         Case("c", payment_amount=amount)
 
 
-@pytest.mark.parametrize("changes", [{"case_id": ""}, {"detections": ()}, {"detections": [None]}, {"priority": "high"}, {"status": "completed"}])
+@pytest.mark.parametrize("changes", [{"case_id": ""}, {"detections": ()}, {"detections": [None]}, {"priority_score": "50"}, {"status": "completed"}])
 def test_invalid_case_fields(changes):
     with pytest.raises(ValueError):
         Case(**({"case_id": "c"} | changes))
 
 
 def test_models_do_not_infer_workflow_priority_or_payment():
-    case = Case("c", [detection(review_state=R.NEEDS_REVIEW)],
-                priority=Priority.LOW, status=CaseStatus.PROCESSING, payment_amount=500)
+    case = Case(
+        "c",
+        [detection(review_state=R.NEEDS_REVIEW)],
+        priority_score=30,
+        status=CaseStatus.PROCESSING,
+        payment_amount=500,
+    )
     assert case.status == CaseStatus.PROCESSING
-    assert case.priority == Priority.LOW and case.payment_amount == 500
+    assert case.priority_score == 30 and case.payment_amount == 500
 
 
 def test_explicit_validation_rechecks_nested_mutations():
     case = Case("c", [detection()])
     case.detections[0].confidence = -1
     with pytest.raises(ValueError):
+        case.validate()
+
+
+@pytest.mark.parametrize(
+    "score",
+    [-1, 101, 1.5, 50.0, True, False, "50"],
+)
+def test_invalid_priority_score(score):
+    with pytest.raises(ValueError):
+        Case("c", priority_score=score)
+
+
+@pytest.mark.parametrize("score", [None, 0, 1, 50, 99, 100])
+def test_valid_priority_score(score):
+    assert Case("c", priority_score=score).priority_score == score
+
+
+def test_zero_score_is_distinct_from_uncalculated():
+    assert Case("uncalculated").priority_score is None
+    calculated = Case("calculated", priority_score=0)
+    assert calculated.priority_score is not None
+    assert type(calculated.priority_score) is int
+    assert calculated.priority_score == 0
+
+
+def test_score_validation_rechecks_mutations():
+    case = Case("c", priority_score=0)
+    case.priority_score = False
+    with pytest.raises(ValueError, match="priority_score"):
         case.validate()

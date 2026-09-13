@@ -29,12 +29,6 @@ class ReviewState(str, Enum):
     CORRECTED = "corrected" # 人工看過後，認為有這個問題，但 AI 的 category 或 severity 要修正
 
 
-class Priority(str, Enum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-
-
 class CaseStatus(str, Enum):
     UNASSIGNED = "unassigned"
     DISPATCHED = "dispatched"
@@ -96,7 +90,7 @@ class Detection:
 class Case:
     case_id: str
     detections: list[Detection] = field(default_factory=list)
-    priority: Priority | None = None
+    priority_score: int | None = None  # Maintenance priority score from 0 to 100; None is uncalculated.
     status: CaseStatus = CaseStatus.UNASSIGNED
     payment_amount: int = 0
 
@@ -115,8 +109,9 @@ class Case:
             if detection.detection_id in ids:
                 raise ValueError("detection_id must be unique within a Case")
             ids.add(detection.detection_id)
-        if self.priority is not None:
-            _enum(self.priority, Priority, "priority")
+        if self.priority_score is not None:
+            if type(self.priority_score) is not int or not 0 <= self.priority_score <= 100:
+                raise ValueError("priority_score must be an integer within [0, 100] or None")
         _enum(self.status, CaseStatus, "status")
         if type(self.payment_amount) is not int or self.payment_amount < 0:
             raise ValueError("payment_amount must be a nonnegative integer NTD amount")
