@@ -18,11 +18,15 @@ class Severity(str, Enum):
 
 
 class ReviewState(str, Enum):
-    NEEDS_REVIEW = "needs_review"
-    AUTO_ACCEPTED = "auto_accepted"
-    CONFIRMED = "confirmed"
-    REJECTED = "rejected"
-    CORRECTED = "corrected"
+    """
+    detection的審核狀態，是否需人工修正等等
+    """
+
+    NEEDS_REVIEW = "needs_review" # AI 有看到東西，但信心不夠，需要人看
+    AUTO_ACCEPTED = "auto_accepted" # AI 信心夠高，系統先自動接受
+    CONFIRMED = "confirmed" # 人工看過後，確認 AI 原本判斷是對的
+    REJECTED = "rejected" # 人工看過後，認為這個 Detection 根本不成立
+    CORRECTED = "corrected" # 人工看過後，認為有這個問題，但 AI 的 category 或 severity 要修正
 
 
 class Priority(str, Enum):
