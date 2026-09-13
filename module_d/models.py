@@ -38,16 +38,21 @@ class CaseStatus(str, Enum):
 
 
 def _identifier(value: str, name: str) -> None:
+    """
+    例如： `_identifier("case_001", "case_id")`合法，所以什麼都不做，否則raise exception
+    """
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} must be a nonempty string")
 
 
 def _enum(value: object, enum_type: type[Enum], name: str) -> None:
+    """傳進來的東西是不是真的屬於指定 Enum"""
     if not isinstance(value, enum_type):
         raise ValueError(f"{name} must be a {enum_type.__name__}")
 
 
 def _probability(value: float, name: str) -> None:
+    """檢查value是否為機率"""
     if (type(value) not in (int, float) or not 0 <= value <= 1
             or not isfinite(value)):
         raise ValueError(f"{name} must be a finite number within [0, 1]")
