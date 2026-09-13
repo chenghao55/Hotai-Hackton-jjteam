@@ -6,12 +6,14 @@ from math import isfinite
 
 
 class ConditionCategory(str, Enum):
+    """Enum: scratch, collision_damage, cleanliness"""
     SCRATCH = "scratch"
     COLLISION_DAMAGE = "collision_damage"
     CLEANLINESS = "cleanliness"
 
 
 class Severity(str, Enum):
+    """Enum: minor, moderate, severe"""
     MINOR = "minor"
     MODERATE = "moderate"
     SEVERE = "severe"
