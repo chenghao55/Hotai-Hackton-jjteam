@@ -13,3 +13,9 @@ __pycache__/
 
 # Local package installation metadata
 *.egg-info/
+
+# Module B generated artifacts and private source images
+artifacts/
+runs/
+tmp/
+iRent - 運用 AI 打造 iRent 智能車況管家：優化租還車體驗與營運效率/

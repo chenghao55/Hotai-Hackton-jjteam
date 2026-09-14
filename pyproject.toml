@@ -11,9 +11,16 @@ dependencies = []
 
 [project.optional-dependencies]
 test = ["pytest>=8,<10"]
+ml = [
+    "numpy>=2,<3",
+    "Pillow>=11,<14",
+    "scikit-learn>=1.6,<2",
+    "torch==2.13.0",
+    "torchvision==0.28.0",
+]
 
 [tool.setuptools.packages.find]
-include = ["module_d*"]
+include = ["module_b*", "module_d*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

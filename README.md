@@ -1,4 +1,48 @@
-# Module D — stage 2
+# Hotai modules
+
+## Module B — single-photo claim confidence
+
+Module B fine-tunes ImageNet-pretrained MobileNetV3-Large as a binary classifier.
+It accepts one JPEG/JFIF image at a time and returns only a claim score plus a
+thresholded `claim`/`no_claim` label. It does not infer photo direction,
+borrow/return stage, damage category, or severity.
+
+Source images are discovered without `ImageFolder`. Pillow applies EXIF
+orientation, converts every decoded JPEG/JFIF to RGB in memory, then preserves
+the full frame while resizing and padding to 320×320. The original files are
+not rewritten.
+
+Install the ML dependencies and train from PowerShell:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[ml,test]"
+.\.venv\Scripts\python.exe -m module_b.train `
+  --data-root "<資料根目錄>" `
+  --output-dir artifacts/module_b
+```
+
+The expected class folders are `沒有進行索賠` (negative) and `進行索賠資料`
+(positive). File names must begin with a plate matching `ABC-1234` or
+`ABC1234`; plate groups are kept intact across development and locked-test
+splits. No cloud tracker or upload is used.
+
+Load the fixed checkpoint for inference:
+
+```python
+from module_b import load_claim_model, predict_claim
+
+bundle = load_claim_model("artifacts/module_b/claim_model.pth", device="auto")
+result = predict_claim(bundle, "example.jfif", photo_id="photo-001")
+print(result.to_dict())
+```
+
+`claim_probability` is the model's sigmoid score, not a calibrated insurance
+probability or damage severity. `no_claim` is emitted only below the checkpoint's
+conservative threshold. A checkpoint marked `review_only` must never be used for
+automatic clearance; `experimental` still requires business validation because
+zero observed false negatives on this small dataset is not a production guarantee.
+
+## Module D — stage 2
 
 Pure Python dataclasses, enums, configurable policy inputs, and deterministic
 domain functions for assessment, review, numeric priority calculation, payment,
