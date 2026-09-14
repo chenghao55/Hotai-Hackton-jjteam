@@ -117,7 +117,18 @@ def start_processing(case: Case) -> None:
 
 def finish_processing(case: Case) -> None:
     _require_status(case, CaseStatus.PROCESSING, "finish_processing")
-    case.status = CaseStatus.PENDING_PAYMENT if case.payment_amount > 0 else CaseStatus.COMPLETED
+
+    if needs_review(case):
+        raise ValueError(
+            "Cannot finish processing while detections still need review"
+        )
+
+    case.status = (
+        CaseStatus.PENDING_PAYMENT
+        if case.payment_amount > 0
+        else CaseStatus.COMPLETED
+    )
+
     case.validate()
 
 
