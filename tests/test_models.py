@@ -6,7 +6,7 @@ from module_d import Case, CaseStatus, ConditionCategory as C, Detection, Review
 
 
 def detection(**changes):
-    values = dict(detection_id="d1", photo_id="p1", category=C.SCRATCH,
+    values = dict(detection_id="d1", borrow_photo_id="b1", return_photo_id="r1", category=C.SCRATCH,
                   severity=S.MINOR, confidence=0.7, review_state=R.AUTO_ACCEPTED)
     return Detection(**(values | changes))
 
@@ -30,12 +30,27 @@ def test_invalid_confidence(confidence):
 
 
 @pytest.mark.parametrize("changes", [
-    {"detection_id": " "}, {"photo_id": ""}, {"category": "scratch"},
+    {"detection_id": " "}, {"category": "scratch"},
     {"severity": None}, {"review_state": "confirmed"}, {"review_note": 4},
 ])
 def test_invalid_detection_fields(changes):
     with pytest.raises(ValueError):
         detection(**changes)
+
+
+@pytest.mark.parametrize("field", ["borrow_photo_id", "return_photo_id"])
+@pytest.mark.parametrize("value", ["", "   ", None, 123, True])
+def test_invalid_photo_references(field, value):
+    with pytest.raises(ValueError, match=field):
+        detection(**{field: value})
+
+
+@pytest.mark.parametrize("field", ["borrow_photo_id", "return_photo_id"])
+def test_photo_references_are_required(field):
+    values = vars(detection()).copy()
+    del values[field]
+    with pytest.raises(TypeError, match=field):
+        Detection(**values)
 
 
 @pytest.mark.parametrize("category,severity", [(C.SCRATCH, S.SEVERE), (C.CLEANLINESS, S.MINOR), (C.COLLISION_DAMAGE, S.MODERATE)])
@@ -78,7 +93,7 @@ def test_case_defaults_and_independent_lists():
 def test_case_ids_unique_but_same_photo_allowed():
     assert len(Case("c", [detection(), detection(detection_id="d2")]).detections) == 2
     with pytest.raises(ValueError):
-        Case("c", [detection(), detection(photo_id="p2")])
+        Case("c", [detection(), detection(borrow_photo_id="b2", return_photo_id="r2")])
 
 
 @pytest.mark.parametrize("amount", [-1, 1.5, True, "100", None])

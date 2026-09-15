@@ -12,7 +12,7 @@ from module_d import (
 
 
 def finding(state=R.AUTO_ACCEPTED, **changes):
-    values = dict(detection_id="d1", photo_id="p1", category=C.SCRATCH,
+    values = dict(detection_id="d1", borrow_photo_id="b1", return_photo_id="r1", category=C.SCRATCH,
                   severity=S.MINOR, confidence=0.7, review_state=state)
     if state == R.CORRECTED:
         values.update(reviewed_category=C.COLLISION_DAMAGE, reviewed_severity=S.SEVERE)
@@ -109,8 +109,10 @@ def test_human_review_updates_score_preserves_originals_and_identity(result, sco
     assert case.detections[0] is detection
     assert detection.review_state == result
     assert detection.review_note == "staff result"
-    assert (detection.category, detection.severity, detection.confidence, detection.photo_id) == (
-        original.category, original.severity, original.confidence, original.photo_id)
+    assert (detection.category, detection.severity, detection.confidence,
+            detection.borrow_photo_id, detection.return_photo_id) == (
+        original.category, original.severity, original.confidence,
+        original.borrow_photo_id, original.return_photo_id)
     assert case.priority_score == score
     assert case.status == T.DISPATCHED and case.payment_amount == 300
     if result != R.CORRECTED:

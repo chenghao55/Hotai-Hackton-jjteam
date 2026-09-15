@@ -21,6 +21,8 @@ Runtime code has no third-party dependencies.
   D validates confidence in [0, 1]; B's emission threshold is not D's concern.
 - Detection requires an explicit review state. Use NEEDS_REVIEW as the initial
   placeholder, then call `assess_detection(detection, policy)`.
+- Detection requires both `borrow_photo_id` and `return_photo_id` as nonempty
+  strings. Domain operations preserve these references.
 - CORRECTED stores both final reviewed values and requires a real change.
   Other states use no reviewed category/severity. Original AI values are retained.
 - Dataclasses are mutable for simplicity. Constructors validate automatically;
@@ -115,8 +117,11 @@ from module_d import (
 )
 
 policy = demo_policy()
-detection = Detection("d1", "photo1", ConditionCategory.SCRATCH,
-                      Severity.MINOR, 0.65, ReviewState.NEEDS_REVIEW)
+detection = Detection(
+    detection_id="d1", borrow_photo_id="borrow1", return_photo_id="return1",
+    category=ConditionCategory.SCRATCH, severity=Severity.MINOR,
+    confidence=0.65, review_state=ReviewState.NEEDS_REVIEW,
+)
 assess_detection(detection, policy)
 case = Case("case1", [detection])
 calculate_priority(case, policy)  # None: review is pending

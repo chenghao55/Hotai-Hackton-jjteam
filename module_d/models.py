@@ -68,7 +68,8 @@ def _probability(value: float, name: str) -> None:
 @dataclass
 class Detection:
     detection_id: str
-    photo_id: str
+    borrow_photo_id: str
+    return_photo_id: str
     category: ConditionCategory
     severity: Severity
     confidence: float
@@ -85,7 +86,8 @@ class Detection:
     def validate(self) -> None:
         """檢查fields是否合法的填寫"""
         _identifier(self.detection_id, "detection_id")
-        _identifier(self.photo_id, "photo_id")
+        _identifier(self.borrow_photo_id, "borrow_photo_id")
+        _identifier(self.return_photo_id, "return_photo_id")
         _enum(self.category, ConditionCategory, "category")
         _enum(self.severity, Severity, "severity")
         _probability(self.confidence, "confidence")
