@@ -28,7 +28,7 @@ _demo_case = Case("demo-001", [Detection(
     return_photo_id="demo-return-001",
     category=ConditionCategory.SCRATCH,
     severity=Severity.MINOR,
-    confidence=0.9,
+    confidence=0.5,
     review_state=ReviewState.NEEDS_REVIEW,
 )])
 _demo_policy = demo_policy()
