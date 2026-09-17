@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const API_BASE = "http://127.0.0.1:8000";
 
 const CATEGORY_LABEL = { scratch: "刮痕", collision_damage: "碰撞損傷", cleanliness: "清潔／汙損" };
 const SEVERITY_LABEL = { minor: "輕微", moderate: "中等", severe: "嚴重" };
@@ -12,44 +14,73 @@ const PRIORITY_TABLE = {
   collision_damage: { minor: 50, moderate: 75, severe: 95 },
   cleanliness: { minor: 10, moderate: 35, severe: 60 },
 };
+const ACTIONABLE = new Set(["auto_accepted", "confirmed", "corrected"]);
 function calcPriority(detections) {
-  const usable = detections.filter((d) => d.review_state !== "rejected");
+  const usable = detections.filter((d) => ACTIONABLE.has(d.review_state));
   if (usable.length === 0) return null;
-  return Math.max(...usable.map((d) => PRIORITY_TABLE[d.category][d.severity]));
+  return Math.max(...usable.map((d) => {
+    const cat = d.review_state === "corrected" ? d.reviewed_category : d.category;
+    const sev = d.review_state === "corrected" ? d.reviewed_severity : d.severity;
+    return PRIORITY_TABLE[cat][sev];
+  }));
 }
 
 const INITIAL_CASES = [
   // 顧客申訴案例：AI 原本判斷已經 auto_accepted，但顧客認為判斷有誤，退回未處理事件並特別標出
-  { case_id: "CASE-3041", status: "unassigned", priority_score: null, payment_amount: 0, plate: "RST-7777", out: "09:00", in: "12:30", borrower: "顏先生 · Toyota Altis",
-    detections: [{ detection_id: "DET-5999", photo_id: "photo-299", category: "scratch", severity: "minor", confidence: 0.88, review_state: "needs_review", disputed: true }] },
+  {
+    case_id: "CASE-3041", status: "unassigned", priority_score: null, payment_amount: 0, plate: "RST-7777", out: "09:00", in: "12:30", borrower: "顏先生 · Toyota Altis",
+    detections: [{ detection_id: "DET-5999", borrow_photo_id: "borrow-299", return_photo_id: "return-299", category: "scratch", severity: "minor", confidence: 0.88, review_state: "needs_review", disputed: true }]
+  },
 
   // 待處理（status: unassigned，還沒派工，通常還有 detection 待覆核）
-  { case_id: "CASE-3042", status: "unassigned", priority_score: null, payment_amount: 0, plate: "ABC-1234", out: "09:10", in: "14:20", borrower: "林先生 · Toyota Corolla",
-    detections: [{ detection_id: "DET-6001", photo_id: "photo-301", category: "scratch", severity: "moderate", confidence: 0.42, review_state: "needs_review" }] },
-  { case_id: "CASE-3043", status: "unassigned", priority_score: null, payment_amount: 0, plate: "EFG-5678", out: "08:30", in: "13:00", borrower: "黃小姐 · Honda Fit",
-    detections: [{ detection_id: "DET-6002", photo_id: "photo-302", category: "cleanliness", severity: "minor", confidence: 0.91, review_state: "auto_accepted" }] },
-  { case_id: "CASE-3044", status: "unassigned", priority_score: null, payment_amount: 0, plate: "HJK-9012", out: "07:50", in: "12:10", borrower: "吳先生 · Nissan Kicks",
-    detections: [{ detection_id: "DET-6003", photo_id: "photo-303", category: "collision_damage", severity: "moderate", confidence: 0.55, review_state: "needs_review" }] },
-  { case_id: "CASE-3045", status: "unassigned", priority_score: null, payment_amount: 0, plate: "LMN-3456", out: "09:40", in: "11:30", borrower: "張小姐 · Toyota Yaris",
-    detections: [{ detection_id: "DET-6004", photo_id: "photo-304", category: "cleanliness", severity: "severe", confidence: 0.38, review_state: "needs_review" }] },
-  { case_id: "CASE-3046", status: "unassigned", priority_score: null, payment_amount: 0, plate: "PQR-7890", out: "10:05", in: "13:45", borrower: "王先生 · Mazda 3",
-    detections: [{ detection_id: "DET-6005", photo_id: "photo-305", category: "scratch", severity: "minor", confidence: 0.63, review_state: "needs_review" }] },
+  {
+    case_id: "CASE-3042", status: "unassigned", priority_score: null, payment_amount: 0, plate: "ABC-1234", out: "09:10", in: "14:20", borrower: "林先生 · Toyota Corolla",
+    detections: [{ detection_id: "DET-6001", borrow_photo_id: "borrow-301", return_photo_id: "return-301", category: "scratch", severity: "moderate", confidence: 0.42, review_state: "needs_review" }]
+  },
+  {
+    case_id: "CASE-3043", status: "unassigned", priority_score: null, payment_amount: 0, plate: "EFG-5678", out: "08:30", in: "13:00", borrower: "黃小姐 · Honda Fit",
+    detections: [{ detection_id: "DET-6002", borrow_photo_id: "borrow-302", return_photo_id: "return-302", category: "cleanliness", severity: "minor", confidence: 0.44, review_state: "rejected" }]
+  },
+  {
+    case_id: "CASE-3044", status: "unassigned", priority_score: null, payment_amount: 0, plate: "HJK-9012", out: "07:50", in: "12:10", borrower: "吳先生 · Nissan Kicks",
+    detections: [{ detection_id: "DET-6003", borrow_photo_id: "borrow-303", return_photo_id: "return-303", category: "collision_damage", severity: "moderate", confidence: 0.55, review_state: "needs_review" }]
+  },
+  {
+    case_id: "CASE-3045", status: "unassigned", priority_score: null, payment_amount: 0, plate: "LMN-3456", out: "09:40", in: "11:30", borrower: "張小姐 · Toyota Yaris",
+    detections: [{ detection_id: "DET-6004", borrow_photo_id: "borrow-304", return_photo_id: "return-304", category: "cleanliness", severity: "severe", confidence: 0.38, review_state: "needs_review" }]
+  },
+  {
+    case_id: "CASE-3046", status: "unassigned", priority_score: null, payment_amount: 0, plate: "PQR-7890", out: "10:05", in: "13:45", borrower: "王先生 · Mazda 3",
+    detections: [{ detection_id: "DET-6005", borrow_photo_id: "borrow-305", return_photo_id: "return-305", category: "scratch", severity: "minor", confidence: 0.63, review_state: "needs_review" }]
+  },
 
   // 處理中（status: dispatched / processing / pending_payment）
-  { case_id: "CASE-3038", status: "dispatched", priority_score: 75, payment_amount: 0, plate: "STU-9990", out: "—", in: "—", borrower: "王先生 · Mazda 3",
-    detections: [{ detection_id: "DET-5998", photo_id: "photo-290", category: "collision_damage", severity: "moderate", confidence: 0.74, review_state: "confirmed" }] },
-  { case_id: "CASE-3035", status: "processing", priority_score: 60, payment_amount: 0, plate: "KLM-4521", out: "—", in: "—", borrower: "林小姐 · Honda Fit",
-    detections: [{ detection_id: "DET-5990", photo_id: "photo-280", category: "cleanliness", severity: "severe", confidence: 0.69, review_state: "confirmed" }] },
-  { case_id: "CASE-3030", status: "pending_payment", priority_score: 45, payment_amount: 2400, plate: "XYZ-1123", out: "—", in: "—", borrower: "陳先生 · Toyota Yaris",
-    detections: [{ detection_id: "DET-5980", photo_id: "photo-270", category: "scratch", severity: "moderate", confidence: 0.71, review_state: "confirmed" }] },
+  {
+    case_id: "CASE-3038", status: "dispatched", priority_score: 75, payment_amount: 0, plate: "STU-9990", out: "—", in: "—", borrower: "王先生 · Mazda 3",
+    detections: [{ detection_id: "DET-5998", borrow_photo_id: "borrow-290", return_photo_id: "return-290", category: "collision_damage", severity: "moderate", confidence: 0.74, review_state: "confirmed" }]
+  },
+  {
+    case_id: "CASE-3035", status: "processing", priority_score: 60, payment_amount: 0, plate: "KLM-4521", out: "—", in: "—", borrower: "林小姐 · Honda Fit",
+    detections: [{ detection_id: "DET-5990", borrow_photo_id: "borrow-280", return_photo_id: "return-280", category: "cleanliness", severity: "severe", confidence: 0.69, review_state: "confirmed" }]
+  },
+  {
+    case_id: "CASE-3030", status: "pending_payment", priority_score: 45, payment_amount: 2400, plate: "XYZ-1123", out: "—", in: "—", borrower: "陳先生 · Toyota Yaris",
+    detections: [{ detection_id: "DET-5980", borrow_photo_id: "borrow-270", return_photo_id: "return-270", category: "scratch", severity: "moderate", confidence: 0.71, review_state: "confirmed" }]
+  },
 
   // 已處理（status: completed）
-  { case_id: "CASE-3020", status: "completed", priority_score: 10, payment_amount: 0, plate: "STU-2345", out: "08:00", in: "10:20", borrower: "李小姐",
-    detections: [{ detection_id: "DET-5900", photo_id: "photo-200", category: "cleanliness", severity: "minor", confidence: 0.88, review_state: "auto_accepted" }] },
-  { case_id: "CASE-3015", status: "completed", priority_score: 20, payment_amount: 0, plate: "VWX-6789", out: "07:15", in: "09:40", borrower: "周先生",
-    detections: [{ detection_id: "DET-5895", photo_id: "photo-195", category: "scratch", severity: "minor", confidence: 0.95, review_state: "auto_accepted" }] },
-  { case_id: "CASE-3010", status: "completed", priority_score: 95, payment_amount: 1800, plate: "YZA-0123", out: "06:50", in: "09:00", borrower: "蔡小姐",
-    detections: [{ detection_id: "DET-5890", photo_id: "photo-190", category: "collision_damage", severity: "severe", confidence: 0.79, review_state: "confirmed" }] },
+  {
+    case_id: "CASE-3020", status: "completed", priority_score: 10, payment_amount: 0, plate: "STU-2345", out: "08:00", in: "10:20", borrower: "李小姐",
+    detections: [{ detection_id: "DET-5900", borrow_photo_id: "borrow-200", return_photo_id: "return-200", category: "cleanliness", severity: "minor", confidence: 0.88, review_state: "auto_accepted" }]
+  },
+  {
+    case_id: "CASE-3015", status: "completed", priority_score: 20, payment_amount: 0, plate: "VWX-6789", out: "07:15", in: "09:40", borrower: "周先生",
+    detections: [{ detection_id: "DET-5895", borrow_photo_id: "borrow-195", return_photo_id: "return-195", category: "scratch", severity: "minor", confidence: 0.95, review_state: "auto_accepted" }]
+  },
+  {
+    case_id: "CASE-3010", status: "completed", priority_score: 95, payment_amount: 1800, plate: "YZA-0123", out: "06:50", in: "09:00", borrower: "蔡小姐",
+    detections: [{ detection_id: "DET-5890", borrow_photo_id: "borrow-190", return_photo_id: "return-190", category: "collision_damage", severity: "severe", confidence: 0.79, review_state: "confirmed" }]
+  },
 ];
 
 function confClass(c) { return c >= 0.7 ? "conf-high" : c >= 0.5 ? "conf-mid" : "conf-low"; }
@@ -204,7 +235,10 @@ function Drawer({ item, onClose, onReview, onTransition, onCompleteWithoutAction
   if (!item) return null;
   const d = item.detections[0];
   const action = nextAction(item.status);
-  const noContentToHandle = item.status === "unassigned" && d.review_state !== "needs_review";
+  const noContentToHandle =
+    (item.status === "unassigned" || item.status === "dispatched") &&
+    item.payment_amount === 0 &&
+    item.detections.every((det) => det.review_state === "rejected");
   return (
     <>
       <div className="backdrop show" onClick={onClose}></div>
@@ -238,6 +272,7 @@ function Drawer({ item, onClose, onReview, onTransition, onCompleteWithoutAction
         </div>
 
         <div className="section-label">操作</div>
+        {connected && <div className="gap-note">目前後端只實作了「派工」，其餘操作先在前端模擬，不會真的送到後端。</div>}
         <div className="actions">
           {d.review_state === "needs_review" && (
             <>
@@ -246,7 +281,7 @@ function Drawer({ item, onClose, onReview, onTransition, onCompleteWithoutAction
               <button className="btn btn-ghost" onClick={() => onReview(item.case_id, d.detection_id, "rejected")}>否決</button>
             </>
           )}
-          {action && d.review_state !== "needs_review" && (
+          {action && !(action.key === "finish" && item.detections.some((det) => det.review_state === "needs_review")) && (
             <button className="btn btn-primary" onClick={() => onTransition(item.case_id)}>{action.label}</button>
           )}
           {noContentToHandle && (
@@ -256,8 +291,8 @@ function Drawer({ item, onClose, onReview, onTransition, onCompleteWithoutAction
             <button className="btn btn-ghost" onClick={() => onDispute(item.case_id, d.detection_id)}>模擬顧客申訴（AI判斷有誤）</button>
           )}
         </div>
-        {item.status === "unassigned" && d.review_state === "needs_review" && (
-          <div className="gap-note">案件還有 Detection 待人工覆核，需先「確認／修正／否決」才能派工或直接結案。</div>
+        {action && action.key === "finish" && item.detections.some((det) => det.review_state === "needs_review") && (
+          <div className="gap-note">還有 Detection 待人工覆核，finish_processing() 目前會拒絕完成處理，需先完成審核。</div>
         )}
       </div>
     </>
@@ -272,10 +307,38 @@ function CarThumbBig() {
   );
 }
 
+function normalizeCase(c) {
+  // 真後端回傳的 Case 沒有租車情境欄位（plate/out/in/borrower），這些原本就是我方後台自己畫面加的裝飾欄位
+  return { plate: "—", out: "—", in: "—", borrower: "（後端尚未提供借車人資訊）", ...c };
+}
+
 export default function CaseQueueConsole() {
   const [activeTab, setActiveTab] = useState("pending");
   const [cases, setCases] = useState(INITIAL_CASES);
   const [selected, setSelected] = useState(null);
+  const [connected, setConnected] = useState(null); // null = 還在檢查, true = 接上真後端, false = 用示範資料
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/cases`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setCases(data.map(normalizeCase));
+        setConnected(true);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setConnected(false);
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const pending = cases.filter((c) => c.status === "unassigned");
   const processing = cases.filter((c) => ["dispatched", "processing", "pending_payment"].includes(c.status));
@@ -291,6 +354,19 @@ export default function CaseQueueConsole() {
   }
 
   function handleTransition(case_id) {
+    const current = cases.find((c) => c.case_id === case_id);
+    // 真後端目前只做了 dispatch，接上時優先打真的 API
+    if (connected && current && current.status === "unassigned") {
+      fetch(`${API_BASE}/cases/${case_id}/dispatch`, { method: "POST" })
+        .then((res) => {
+          if (!res.ok) return res.json().then((body) => { throw new Error(body.detail || `HTTP ${res.status}`); });
+          return res.json();
+        })
+        .then((updated) => updateCase(case_id, (c) => ({ ...c, ...normalizeAndKeepDecor(c, updated) })))
+        .catch((err) => alert(`派工失敗：${err.message}`));
+      return;
+    }
+    // start_processing / finish_processing / confirm_payment：後端還沒開放，先前端模擬
     updateCase(case_id, (c) => {
       let status = c.status;
       let priority_score = c.priority_score;
@@ -300,6 +376,12 @@ export default function CaseQueueConsole() {
       else if (status === "pending_payment") status = "completed";
       return { ...c, status, priority_score };
     });
+  }
+
+  function normalizeAndKeepDecor(oldCase, updatedFromApi) {
+    // API 回傳的 Case 沒有 plate/out/in/borrower，沿用原本畫面上顯示的那些
+    const { plate, out, in: inTime, borrower } = oldCase;
+    return { plate, out, in: inTime, borrower, ...updatedFromApi };
   }
 
   // complete_without_action()：案件根本沒有需要處理的內容，直接結案
@@ -354,6 +436,9 @@ export default function CaseQueueConsole() {
         .tab.active{background:var(--surface-dark);color:var(--text-onDark);}
         .tab.active .count{background:rgba(255,255,255,0.14);}
         .gap-note{background:var(--amber-soft);color:#6B4A12;font-size:12px;line-height:1.6;padding:12px 16px;border-radius:12px;margin-bottom:16px;}
+        .conn-banner{font-size:12.5px;font-weight:600;padding:10px 16px;border-radius:12px;margin-bottom:18px;}
+        .conn-ok{background:var(--accent-lime-soft);color:var(--accent-lime-deep);}
+        .conn-off{background:var(--amber-soft);color:#6B4A12;}
         .dispute-banner{background:var(--red-deep);color:#FBEAE3;font-size:12.5px;font-weight:600;line-height:1.6;padding:12px 16px;border-radius:12px;margin-bottom:18px;}
         .table-card{background:var(--surface-light-2);border-radius:20px;padding:6px 6px 14px;}
         table{width:100%;border-collapse:collapse;}
@@ -427,6 +512,14 @@ export default function CaseQueueConsole() {
           <h1>案件佇列</h1>
           <p>review_state = needs_review 的案件進入待處理；priority_score 由 category × severity 計算，派工後才會產生。</p>
         </div>
+
+        {!loading && (
+          <div className={connected ? "conn-banner conn-ok" : "conn-banner conn-off"}>
+            {connected
+              ? `已連線到後端 ${API_BASE}，資料為即時 /cases 內容。`
+              : `無法連線到 ${API_BASE}（後端可能沒有啟動），目前顯示示範資料。`}
+          </div>
+        )}
 
         <div className="tabs">
           {tabs.map((t) => (
