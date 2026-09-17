@@ -1,8 +1,9 @@
-# Module D — stage 2
+# Module D — stage 3 (minimal API)
 
 Pure Python dataclasses, enums, configurable policy inputs, and deterministic
 domain functions for assessment, review, numeric priority calculation, payment,
-and workflow. No API, persistence, frontend, or image recognition is included.
+and workflow, with a minimal FastAPI adapter. No persistence, frontend, or image
+recognition is included.
 
 ## Run tests (PowerShell)
 
@@ -13,7 +14,46 @@ python -m venv .venv
 ```
 
 Python 3.10+ is required. Skip creating the virtual environment if it exists.
-Runtime code has no third-party dependencies.
+The domain code has no third-party dependencies. The API uses FastAPI and
+Uvicorn; API tests use HTTPX through FastAPI TestClient.
+
+## Run the development API (PowerShell)
+
+From the project root:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[test]"
+.\.venv\Scripts\python.exe -m uvicorn module_d.api:app --reload
+```
+
+Open http://127.0.0.1:8000/docs to try the two application endpoints:
+
+- `GET /cases`: HTTP 200, a JSON array of all Cases.
+- `POST /cases/{case_id}/dispatch`: no request body; calls domain
+  `dispatch_case(case)` and returns the updated Case (HTTP 200). Missing IDs
+  return HTTP 404. Domain ValueError returns HTTP 409 with the original message
+  in the JSON `detail` field.
+
+Try case ID `demo-001`. It starts UNASSIGNED with one automatically accepted
+scratch detection and a demo score of 20. The photo references are placeholders.
+Dispatching it twice produces a conflict on the second request.
+
+The process-local dictionary resets on restart/reload and is not shared between
+workers. Use one worker for this prototype. There is no persistence or API to
+create Cases yet. Tests substitute isolated stores and never consume demo data.
+
+The API uses `response_model=Case` / `list[Case]`: FastAPI's Pydantic integration
+serializes the existing standard dataclasses, including nested detections,
+string Enum values, and JSON null for None. No domain model conversion or
+duplicate business rules are introduced. Both photo reference fields are exposed.
+
+Development CORS allows HTTP origins localhost and 127.0.0.1 on ports 5173 and
+3000, methods GET/POST, and the Content-Type header. Credentials are disabled.
+These are development settings only. No other application endpoints are added.
+
+Known pre-existing mismatch: `finish_processing()` currently rejects pending
+review, but two domain tests and the older workflow description below expect it
+to allow pending review. This API step does not change that rule or those tests.
 
 ## Model contract
 

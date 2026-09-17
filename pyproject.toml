@@ -7,10 +7,10 @@ name = "hotai-module-d"
 version = "0.1.0"
 description = "Pure-Python vehicle-condition case domain models"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
 
 [project.optional-dependencies]
-test = ["pytest>=8,<10"]
+test = ["pytest>=8,<10", "httpx>=0.27,<1"]
 
 [tool.setuptools.packages.find]
 include = ["module_d*"]
