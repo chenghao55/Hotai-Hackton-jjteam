@@ -14,3 +14,12 @@ __pycache__/
 
 # Local package installation metadata
 *.egg-info/
+
+# Local package installation metadata
+*.egg-info/
+
+# UI backstage
+node_modules
+dist
+.DS_Store
+*.log
