@@ -26,21 +26,37 @@ From the project root:
 .\.venv\Scripts\python.exe -m uvicorn module_d.api:app --reload
 ```
 
-Open http://127.0.0.1:8000/docs to try the two application endpoints:
+Open http://127.0.0.1:8000/docs to try the development endpoints. The adapter
+has no persistence: its process-local dictionary resets on restart/reload and
+is not shared between workers. Use one worker for this prototype.
 
-- `GET /cases`: HTTP 200, a JSON array of all Cases.
-- `POST /cases/{case_id}/dispatch`: no request body; calls domain
-  `dispatch_case(case)` and returns the updated Case (HTTP 200). Missing IDs
-  return HTTP 404. Domain ValueError returns HTTP 409 with the original message
-  in the JSON `detail` field.
+| 指令格式                                                     | 用途說明                                                |
+| -------------------------------------------------------- | --------------------------------------------------- |
+| `GET /cases`                                             | 取得目前所有 Case                                         |
+| `GET /cases/{case_id}`                                   | 取得指定 Case                                           |
+| `POST /cases`                                            | 建立新的 Case，並建立其中的 Detection                          |
+| `POST /cases/{case_id}/dispatch`                         | 將 Case 從 `UNASSIGNED` 派送出去                          |
+| `POST /cases/{case_id}/start-processing`                 | 開始處理 Case                                           |
+| `POST /cases/{case_id}/finish-processing`                | 完成處理；依付款金額進入 `COMPLETED` 或 `PENDING_PAYMENT`        |
+| `POST /cases/{case_id}/complete-without-action`          | 在符合條件時直接將 Case 完成，不進行處理                             |
+| `PUT /cases/{case_id}/payment`                           | 修改 Case 的付款金額                                       |
+| `POST /cases/{case_id}/confirm-payment`                  | 確認付款，將 `PENDING_PAYMENT` → `COMPLETED`              |
+| `POST /cases/{case_id}/detections/{detection_id}/review` | 員工審核 Detection，可 `CONFIRMED`、`REJECTED`、`CORRECTED` |
+| `POST /cases/{case_id}/detections/{detection_id}/appeal` | 對 Detection 提出申訴／重新開啟審核，使其回到 `NEEDS_REVIEW`         |
+
+
+`POST /cases` accepts only `case_id` and AI detection fields. It does not
+accept workflow status, payment, priority, or review-state fields. Each new
+detection starts as NEEDS_REVIEW, is assessed with the demo policy, and the new
+Case priority is calculated. Invalid create input returns HTTP 422; duplicate
+case IDs return HTTP 409. Missing Case IDs return HTTP 404. Domain ValueError
+from a state-changing operation returns HTTP 409 with its message in `detail`.
 
 Try case ID `demo-001`. It starts UNASSIGNED with one automatically accepted
 scratch detection and a demo score of 20. The photo references are placeholders.
 Dispatching it twice produces a conflict on the second request.
 
-The process-local dictionary resets on restart/reload and is not shared between
-workers. Use one worker for this prototype. There is no persistence or API to
-create Cases yet. Tests substitute isolated stores and never consume demo data.
+Tests substitute isolated stores and never consume demo data.
 
 The API uses `response_model=Case` / `list[Case]`: FastAPI's Pydantic integration
 serializes the existing standard dataclasses, including nested detections,
@@ -48,8 +64,8 @@ string Enum values, and JSON null for None. No domain model conversion or
 duplicate business rules are introduced. Both photo reference fields are exposed.
 
 Development CORS allows HTTP origins localhost and 127.0.0.1 on ports 5173 and
-3000, methods GET/POST, and the Content-Type header. Credentials are disabled.
-These are development settings only. No other application endpoints are added.
+3000, methods GET/POST/PUT, and the Content-Type header. Credentials are
+disabled. These are development settings only.
 
 ## Model contract
 
