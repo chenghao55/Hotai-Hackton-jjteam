@@ -90,7 +90,7 @@ def apply_review(
 
 
 def appeal_detection(case: Case, detection_id: str, *, policy: DecisionPolicy) -> None:
-    """Reopen a finding while retaining the previous human decision as context. 會保留其一個人工review"""
+    """Reopen a finding while retaining the previous human decision as context. 會保留上一個人工review做為參考"""
     case.validate()
     policy.validate()
     detection = next((d for d in case.detections if d.detection_id == detection_id), None)
