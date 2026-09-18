@@ -5,7 +5,7 @@ import pytest
 
 from module_d import (
     Case, CaseStatus as T, ConditionCategory as C, Detection, ReviewState as R,
-    Severity as S, apply_review, assess_detection, calculate_priority,
+    Severity as S, appeal_detection, apply_review, assess_detection, calculate_priority,
     complete_without_action, confirm_payment, demo_policy, dispatch_case,
     finish_processing, needs_review, set_payment_amount, start_processing,
 )
@@ -44,21 +44,21 @@ def test_assessment_preserves_human_decision(state):
     assert detection == before
 
 
-@pytest.mark.parametrize("states", [[], [R.REJECTED], [R.NEEDS_REVIEW], [R.REJECTED, R.NEEDS_REVIEW]])
+@pytest.mark.parametrize("states", [[], [R.REJECTED]])
 def test_no_contributors_clears_previous_score(states):
     case = Case("c", [finding(state, detection_id=str(i)) for i, state in enumerate(states)], priority_score=95)
     calculate_priority(case, demo_policy())
     assert case.priority_score is None
 
 
-@pytest.mark.parametrize("state,score", [(R.AUTO_ACCEPTED, 20), (R.CONFIRMED, 20), (R.CORRECTED, 95)])
+@pytest.mark.parametrize("state,score", [(R.NEEDS_REVIEW, 20), (R.AUTO_ACCEPTED, 20), (R.CONFIRMED, 20), (R.CORRECTED, 95)])
 def test_priority_value_selection(state, score):
     case = Case("c", [finding(state)])
     calculate_priority(case, demo_policy())
     assert case.priority_score == score
 
 
-def test_highest_score_wins_ignoring_pending_and_rejected():
+def test_highest_score_wins_including_pending_ignoring_rejected():
     case = Case("c", [
         finding(detection_id="a"),
         finding(R.CONFIRMED, detection_id="b", severity=S.SEVERE),
@@ -66,10 +66,10 @@ def test_highest_score_wins_ignoring_pending_and_rejected():
         finding(R.NEEDS_REVIEW, detection_id="d", category=C.COLLISION_DAMAGE, severity=S.SEVERE),
     ])
     calculate_priority(case, demo_policy())
-    assert case.priority_score == 70
+    assert case.priority_score == 95
     case.detections.reverse()
     calculate_priority(case, demo_policy())
-    assert case.priority_score == 70
+    assert case.priority_score == 95
 
 
 @pytest.mark.parametrize("confidence", [0, 0.1, 0.7, 1])
@@ -196,8 +196,9 @@ def test_payment_locked(status):
     (finish_processing, T.PROCESSING, T.PENDING_PAYMENT, 500),
     (confirm_payment, T.PENDING_PAYMENT, T.COMPLETED, 500),
 ])
-def test_workflow_preserves_fields_and_does_not_gate_pending_review(operation, source, target, amount):
-    case = Case("c", [finding(R.NEEDS_REVIEW)], priority_score=0, status=source, payment_amount=amount)
+def test_workflow_preserves_fields_and_allows_pending_review_before_finish(operation, source, target, amount):
+    state = R.CONFIRMED if operation is finish_processing else R.NEEDS_REVIEW
+    case = Case("c", [finding(state)], priority_score=0, status=source, payment_amount=amount)
     before = deepcopy(case)
     detection = case.detections[0]
     operation(case)
@@ -284,3 +285,70 @@ def test_workflow_validates_mutated_case_before_changing_status():
     with pytest.raises(ValueError):
         dispatch_case(case)
     assert case.status == T.UNASSIGNED
+
+
+@pytest.mark.parametrize("amount", [0, 500])
+def test_finish_pending_review_is_atomic(amount):
+    case = Case("c", [finding(R.NEEDS_REVIEW)], status=T.PROCESSING, payment_amount=amount)
+    before = deepcopy(case)
+    with pytest.raises(ValueError, match="still need review"):
+        finish_processing(case)
+    assert case == before
+
+
+@pytest.mark.parametrize("state", list(R))
+def test_appeal_preserves_context_and_recalculates(state):
+    detection = finding(state, review_note="previous decision")
+    case = Case("c", [detection], status=T.PROCESSING, payment_amount=400)
+    calculate_priority(case, demo_policy())
+    before = deepcopy(case)
+    appeal_detection(case, "d1", policy=demo_policy())
+    assert case.detections[0] is detection
+    assert detection == replace(before.detections[0], review_state=R.NEEDS_REVIEW)
+    assert case.priority_score == 20
+    assert case.status == before.status and case.payment_amount == before.payment_amount
+    detection.validate()
+    appeal_detection(case, "d1", policy=demo_policy())
+    assert case.priority_score == 20
+
+
+@pytest.mark.parametrize("result,score", [(R.CONFIRMED, 20), (R.REJECTED, None), (R.CORRECTED, 35)])
+def test_review_after_appeal_replaces_context(result, score):
+    case = Case("c", [finding(R.CORRECTED, review_note="old")])
+    appeal_detection(case, "d1", policy=demo_policy())
+    apply_review(case, "d1", result, policy=demo_policy(),
+                 reviewed_category=C.CLEANLINESS, reviewed_severity=S.MODERATE,
+                 review_note="new")
+    d = case.detections[0]
+    assert d.review_state == result and d.review_note == "new"
+    assert d.reviewed_category == (C.CLEANLINESS if result == R.CORRECTED else None)
+    assert d.reviewed_severity == (S.MODERATE if result == R.CORRECTED else None)
+    assert (d.category, d.severity, d.confidence) == (C.SCRATCH, S.MINOR, 0.7)
+    assert case.priority_score == score
+
+
+@pytest.mark.parametrize("failure", ["missing", "invalid_policy"])
+def test_invalid_appeal_is_atomic(failure):
+    case = Case("c", [finding(R.CORRECTED)], priority_score=95)
+    before = deepcopy(case)
+    policy = demo_policy()
+    if failure == "invalid_policy":
+        policy.priority_score_by_condition.clear()
+    with pytest.raises(ValueError):
+        appeal_detection(case, "missing" if failure == "missing" else "d1", policy=policy)
+    assert case == before
+
+
+def test_assessment_cannot_partially_overwrite_appealed_correction():
+    case = Case("c", [finding(R.CORRECTED, confidence=0.99)])
+    appeal_detection(case, "d1", policy=demo_policy())
+    before = deepcopy(case)
+    with pytest.raises(ValueError, match="preserved human review"):
+        assess_detection(case.detections[0], demo_policy())
+    assert case == before
+
+
+def test_appealed_original_competes_with_other_scores():
+    case = Case("c", [finding(R.CORRECTED), finding(detection_id="d2", severity=S.MODERATE)])
+    appeal_detection(case, "d1", policy=demo_policy())
+    assert case.priority_score == 45

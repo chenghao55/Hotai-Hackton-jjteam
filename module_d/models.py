@@ -95,13 +95,16 @@ class Detection:
 
         if self.review_note is not None and not isinstance(self.review_note, str):
             raise ValueError("review_note must be a string or None")
-        if self.review_state == ReviewState.CORRECTED:
+        has_reviewed_values = self.reviewed_category is not None or self.reviewed_severity is not None
+        if self.review_state == ReviewState.CORRECTED or (
+            self.review_state == ReviewState.NEEDS_REVIEW and has_reviewed_values
+        ):
             _enum(self.reviewed_category, ConditionCategory, "reviewed_category")
             _enum(self.reviewed_severity, Severity, "reviewed_severity")
             if (self.reviewed_category, self.reviewed_severity) == (self.category, self.severity):
-                raise ValueError("CORRECTED requires a category or severity change")
-        elif self.reviewed_category is not None or self.reviewed_severity is not None:
-            raise ValueError("Only CORRECTED detections may contain reviewed values")
+                raise ValueError("Reviewed values require a category or severity change")
+        elif has_reviewed_values:
+            raise ValueError("Only CORRECTED or NEEDS_REVIEW detections may contain reviewed values")
 
 
 @dataclass

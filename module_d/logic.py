@@ -6,15 +6,17 @@ from .models import Case, CaseStatus, ConditionCategory, Detection, ReviewState,
 from .policy import DecisionPolicy
 
 # 在那些狀態下 可以計算Case priority
-_ACTIONABLE = frozenset({ReviewState.AUTO_ACCEPTED, ReviewState.CONFIRMED, ReviewState.CORRECTED})
+_PRIORITY_CONTRIBUTING = frozenset({ReviewState.NEEDS_REVIEW, ReviewState.AUTO_ACCEPTED, ReviewState.CONFIRMED, ReviewState.CORRECTED})
 
 
 def assess_detection(detection: Detection, policy: DecisionPolicy) -> None:
-    """判斷該detection是否需要被review. 填入`detection.review_state`; never overwrite a human decision."""
+    """AI偵測完後，判斷該detection是否需要被review. 填入`detection.review_state`; never overwrite a human decision."""
     detection.validate()
     policy.validate()
     if detection.review_state not in {ReviewState.NEEDS_REVIEW, ReviewState.AUTO_ACCEPTED}:
         raise ValueError("Initial assessment cannot overwrite a human review")
+    if detection.reviewed_category is not None or detection.reviewed_severity is not None:
+        raise ValueError("Initial assessment cannot overwrite preserved human review values")
     detection.review_state = (
         ReviewState.NEEDS_REVIEW
         if detection.confidence < policy.review_confidence_threshold
@@ -29,7 +31,7 @@ def calculate_priority(case: Case, policy: DecisionPolicy) -> None:
     policy.validate()
     scores = []
     for detection in case.detections:
-        if detection.review_state not in _ACTIONABLE:
+        if detection.review_state not in _PRIORITY_CONTRIBUTING:
             continue
         if detection.review_state == ReviewState.CORRECTED:
             key = (detection.reviewed_category, detection.reviewed_severity)
@@ -87,6 +89,24 @@ def apply_review(
     case.validate()
 
 
+def appeal_detection(case: Case, detection_id: str, *, policy: DecisionPolicy) -> None:
+    """Reopen a finding while retaining the previous human decision as context. 會保留其一個人工review"""
+    case.validate()
+    policy.validate()
+    detection = next((d for d in case.detections if d.detection_id == detection_id), None)
+    if detection is None:
+        raise ValueError(f"Unknown detection_id: {detection_id!r}")
+    proposed = replace(detection, review_state=ReviewState.NEEDS_REVIEW)
+    proposed_case = replace(
+        case, detections=[proposed if d is detection else d for d in case.detections]
+    )
+    calculate_priority(proposed_case, policy)
+    detection.review_state = proposed.review_state
+    detection.validate()
+    case.priority_score = proposed_case.priority_score
+    case.validate()
+
+
 def set_payment_amount(case: Case, amount: int) -> None:
     """Update the assessed charge before billing or completion."""
     case.validate()
@@ -137,7 +157,7 @@ def complete_without_action(case: Case) -> None:
     case.validate()
     if case.status not in {CaseStatus.UNASSIGNED, CaseStatus.DISPATCHED}:
         raise ValueError("complete_without_action requires UNASSIGNED or DISPATCHED")
-    if any(d.review_state in _ACTIONABLE for d in case.detections):
+    if any(d.review_state in _PRIORITY_CONTRIBUTING for d in case.detections):
         raise ValueError("Cannot complete without action: actionable detections remain")
     if needs_review(case):
         raise ValueError("Cannot complete without action: detections need review")

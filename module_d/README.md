@@ -51,10 +51,6 @@ Development CORS allows HTTP origins localhost and 127.0.0.1 on ports 5173 and
 3000, methods GET/POST, and the Content-Type header. Credentials are disabled.
 These are development settings only. No other application endpoints are added.
 
-Known pre-existing mismatch: `finish_processing()` currently rejects pending
-review, but two domain tests and the older workflow description below expect it
-to allow pending review. This API step does not change that rule or those tests.
-
 ## Model contract
 
 - B supplies category, severity, and confidence for each independent finding.
@@ -64,7 +60,9 @@ to allow pending review. This API step does not change that rule or those tests.
 - Detection requires both `borrow_photo_id` and `return_photo_id` as nonempty
   strings. Domain operations preserve these references.
 - CORRECTED stores both final reviewed values and requires a real change.
-  Other states use no reviewed category/severity. Original AI values are retained.
+  NEEDS_REVIEW may retain both previous corrected values after appeal; they must
+  be valid enums and differ from the AI result in at least one field. Partial
+  pairs are invalid. Other states require both fields to be None. AI values are retained.
 - Dataclasses are mutable for simplicity. Constructors validate automatically;
   `validate()` explicitly rechecks a model after changes, including nested Case
   detections. Direct assignment is not intercepted. Domain operations preserve
@@ -118,8 +116,10 @@ committing, so rejected requests do not leave partial changes.
 
 ## Workflow rules
 
-AUTO_ACCEPTED and CONFIRMED use original category/severity for priority;
-CORRECTED uses reviewed values. NEEDS_REVIEW and REJECTED do not contribute.
+NEEDS_REVIEW, AUTO_ACCEPTED, and CONFIRMED use original AI category/severity
+for priority. CORRECTED uses reviewed values. Only REJECTED does not contribute.
+Pending review contributes so staff can prioritize the review queue, even when
+previous corrected values are preserved after appeal.
 Case priority score is the highest contributing score, or None when there are
 no contributing detections. A contributing score of 0 remains 0.
 
@@ -132,19 +132,20 @@ dispatch or starting processing. Priority changes do not advance status.
 Processing finishes in PENDING_PAYMENT when payment_amount > 0, otherwise
 COMPLETED. Staff confirms payment to complete a payable Case. Payment amount
 updates are allowed before PENDING_PAYMENT/COMPLETED. Cases remain historical
-records. No appeal fields or cross-photo deduplication are included.
+records. No appeal model, review history, or cross-photo deduplication is included.
 
 | Operation | Required current status | Result |
 |---|---|---|
 | `dispatch_case` | UNASSIGNED | DISPATCHED |
 | `start_processing` | DISPATCHED | PROCESSING |
-| `finish_processing` | PROCESSING, zero charge | COMPLETED |
-| `finish_processing` | PROCESSING, positive charge | PENDING_PAYMENT |
+| `finish_processing` | PROCESSING, no pending review, zero charge | COMPLETED |
+| `finish_processing` | PROCESSING, no pending review, positive charge | PENDING_PAYMENT |
 | `complete_without_action` | UNASSIGNED or DISPATCHED, shortcut conditions above | COMPLETED |
 | `confirm_payment` | PENDING_PAYMENT | COMPLETED; assessed charge retained |
 
 Other source statuses raise ValueError. Pending review does not block dispatch,
-starting processing, or finishing processing. Workflow functions change only
+or starting processing. Finishing processing requires no NEEDS_REVIEW detections;
+otherwise ValueError is raised with all Case state preserved. Workflow functions change only
 status and preserve other fields, including the stored score and charge.
 
 ## Example
@@ -164,7 +165,7 @@ detection = Detection(
 )
 assess_detection(detection, policy)
 case = Case("case1", [detection])
-calculate_priority(case, policy)  # None: review is pending
+calculate_priority(case, policy)  # 20: pending review uses the original AI finding
 apply_review(case, "d1", ReviewState.CONFIRMED, policy=policy)
 assert case.priority_score == 20
 dispatch_case(case)
@@ -176,3 +177,20 @@ Assessment works on one Detection and cannot update an enclosing Case score.
 Call `calculate_priority` after direct ingestion/assessment changes; human review
 already recalculates it. Mutable dataclasses still permit callers to bypass
 domain rules by assigning fields directly; integrations should use operations.
+
+
+## Appealing a detection
+
+`appeal_detection(case, detection_id, *, policy)` reopens a detection as
+NEEDS_REVIEW, preserving previous reviewed category/severity and note for context.
+Original AI fields and photo references remain unchanged. The Case score is
+recalculated using original AI values for the appealed detection. Unknown IDs
+raise ValueError without changes. Appeals do not change Case status or payment.
+No source review-state restriction is imposed; repeating an appeal is allowed.
+
+The next `apply_review` replaces the note (omitting it clears it), clears reviewed
+values for CONFIRMED/REJECTED, or replaces them for CORRECTED. No history is stored.
+Initial assessment rejects pending findings containing preserved corrected values
+before mutation; these require human review. Without history fields, an appealed
+CONFIRMED/REJECTED finding is indistinguishable from other pending findings to
+initial assessment, so callers should use assessment only for initial AI results.

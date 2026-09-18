@@ -74,7 +74,7 @@ def test_invalid_corrections(changes):
 
 
 @pytest.mark.parametrize("state", [R.NEEDS_REVIEW, R.AUTO_ACCEPTED, R.CONFIRMED, R.REJECTED])
-def test_noncorrected_states_have_no_reviewed_values(state):
+def test_noncorrected_states_reject_partial_reviewed_values(state):
     assert detection(review_state=state).reviewed_category is None
     with pytest.raises(ValueError):
         detection(review_state=state, reviewed_category=C.CLEANLINESS)
@@ -154,3 +154,17 @@ def test_score_validation_rechecks_mutations():
     case.priority_score = False
     with pytest.raises(ValueError, match="priority_score"):
         case.validate()
+
+
+@pytest.mark.parametrize("category,severity", [(C.CLEANLINESS, S.MINOR), (C.SCRATCH, S.SEVERE)])
+def test_pending_review_preserves_valid_correction(category, severity):
+    d = detection(review_state=R.NEEDS_REVIEW, reviewed_category=category, reviewed_severity=severity)
+    d.validate()
+
+
+@pytest.mark.parametrize("category,severity", [
+    (C.SCRATCH, S.MINOR), ("cleanliness", S.SEVERE), (C.CLEANLINESS, "severe"),
+])
+def test_pending_review_rejects_invalid_preserved_correction(category, severity):
+    with pytest.raises(ValueError):
+        detection(review_state=R.NEEDS_REVIEW, reviewed_category=category, reviewed_severity=severity)
