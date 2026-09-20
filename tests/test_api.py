@@ -109,7 +109,12 @@ def test_only_requested_endpoints_in_openapi(client):
     response = client.get("/openapi.json")
     assert response.status_code == 200
     paths = response.json()["paths"]
-    assert set(paths) == {"/cases", "/cases/{case_id}/dispatch"}
+    assert set(paths) == {
+        "/cases",
+        "/cases/{case_id}/dispatch",
+        "/photos",
+        "/photos/{photo_id}",
+    }
     assert set(paths["/cases"]) == {"get"}
     assert set(paths["/cases/{case_id}/dispatch"]) == {"post"}
     assert client.get("/docs").status_code == 200
