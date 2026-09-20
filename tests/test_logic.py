@@ -266,8 +266,6 @@ def test_payment_locked(status):
 @pytest.mark.parametrize("operation,source,target,amount", [
     (dispatch_case, T.UNASSIGNED, T.DISPATCHED, 0),
     (start_processing, T.DISPATCHED, T.PROCESSING, 500),
-    (finish_processing, T.PROCESSING, T.COMPLETED, 0),
-    (finish_processing, T.PROCESSING, T.PENDING_PAYMENT, 500),
     (confirm_payment, T.PENDING_PAYMENT, T.COMPLETED, 500),
 ])
 def test_workflow_preserves_fields_and_does_not_gate_pending_review(operation, source, target, amount):
@@ -277,6 +275,23 @@ def test_workflow_preserves_fields_and_does_not_gate_pending_review(operation, s
     operation(case)
     assert case == replace(before, status=target)
     assert case.detections[0] is detection
+
+
+@pytest.mark.parametrize("amount", [0, 500])
+def test_finish_processing_with_pending_review_is_atomic(amount):
+    case = Case(
+        "c",
+        [finding(R.NEEDS_REVIEW)],
+        priority_score=0,
+        status=T.PROCESSING,
+        payment_amount=amount,
+    )
+    before = deepcopy(case)
+
+    with pytest.raises(ValueError, match="need review"):
+        finish_processing(case)
+
+    assert case == before
 
 
 @pytest.mark.parametrize("operation,source", [
