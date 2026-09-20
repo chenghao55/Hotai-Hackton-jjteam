@@ -65,6 +65,18 @@ def _probability(value: float, name: str) -> None:
         raise ValueError(f"{name} must be a finite number within [0, 1]")
 
 
+@dataclass(frozen=True)
+class DetectionInput:
+    """AI finding fields accepted when Module D creates a Case."""
+
+    detection_id: str
+    borrow_photo_id: str
+    return_photo_id: str
+    category: ConditionCategory
+    severity: Severity
+    confidence: float
+
+
 @dataclass
 class Detection:
     detection_id: str

@@ -13,7 +13,7 @@ dependencies = ["fastapi>=0.115,<1", "python-multipart>=0.0.9,<1", "uvicorn>=0.3
 test = ["pytest>=8,<10", "httpx>=0.27,<1"]
 
 [tool.setuptools.packages.find]
-include = ["module_d*", "module_a*"]
+include = ["module_d*", "module_a*", "module_b*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

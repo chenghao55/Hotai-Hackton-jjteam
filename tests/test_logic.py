@@ -4,8 +4,8 @@ from dataclasses import replace
 import pytest
 
 from module_d import (
-    Case, CaseStatus as T, ConditionCategory as C, Detection, ReviewState as R,
-    Severity as S, apply_review, assess_detection, calculate_priority,
+    Case, CaseStatus as T, ConditionCategory as C, Detection, DetectionInput, ReviewState as R,
+    Severity as S, apply_review, assess_detection, calculate_priority, create_case,
     complete_without_action, confirm_payment, demo_policy, dispatch_case,
     finish_processing, needs_review, set_payment_amount, start_processing,
 )
@@ -17,6 +17,80 @@ def finding(state=R.AUTO_ACCEPTED, **changes):
     if state == R.CORRECTED:
         values.update(reviewed_category=C.COLLISION_DAMAGE, reviewed_severity=S.SEVERE)
     return Detection(**(values | changes))
+
+
+def detection_input(**changes):
+    values = dict(
+        detection_id="d1",
+        borrow_photo_id="borrow-1",
+        return_photo_id="return-1",
+        category=C.SCRATCH,
+        severity=S.MINOR,
+        confidence=0.7,
+    )
+    return DetectionInput(**(values | changes))
+
+
+def test_create_case_without_detections():
+    case = create_case("case-1", [], policy=demo_policy())
+
+    assert case.case_id == "case-1"
+    assert case.detections == []
+    assert case.priority_score is None
+    assert case.status == T.UNASSIGNED
+    assert case.payment_amount == 0
+
+
+def test_create_case_builds_and_assesses_one_detection():
+    case = create_case("case-1", [detection_input()], policy=demo_policy())
+
+    detection = case.detections[0]
+    assert detection.detection_id == "d1"
+    assert detection.borrow_photo_id == "borrow-1"
+    assert detection.return_photo_id == "return-1"
+    assert detection.category == C.SCRATCH
+    assert detection.severity == S.MINOR
+    assert detection.confidence == 0.7
+    assert detection.review_state == R.AUTO_ACCEPTED
+    assert case.priority_score == 20
+    assert case.status == T.UNASSIGNED
+    assert case.payment_amount == 0
+
+
+def test_create_case_assesses_multiple_detections_and_uses_highest_priority():
+    case = create_case("case-1", [
+        detection_input(detection_id="scratch", confidence=0.69),
+        detection_input(
+            detection_id="collision",
+            category=C.COLLISION_DAMAGE,
+            severity=S.SEVERE,
+            confidence=0.9,
+        ),
+    ], policy=demo_policy())
+
+    assert [d.review_state for d in case.detections] == [R.NEEDS_REVIEW, R.AUTO_ACCEPTED]
+    assert case.priority_score == 95
+
+
+@pytest.mark.parametrize("confidence", [-0.1, 1.1, float("nan"), True])
+def test_create_case_rejects_invalid_confidence_without_mutating_inputs(confidence):
+    inputs = [detection_input(confidence=confidence)]
+    original_input = inputs[0]
+
+    with pytest.raises(ValueError, match="confidence"):
+        create_case("case-1", inputs, policy=demo_policy())
+
+    assert inputs == [original_input]
+    assert inputs[0] is original_input
+
+
+def test_create_case_rejects_duplicate_detection_ids_without_returning_a_case():
+    inputs = [detection_input(), detection_input(return_photo_id="return-2")]
+
+    with pytest.raises(ValueError, match="unique"):
+        create_case("case-1", inputs, policy=demo_policy())
+
+    assert inputs[0].detection_id == inputs[1].detection_id == "d1"
 
 
 @pytest.mark.parametrize("confidence,state", [(0.1, R.NEEDS_REVIEW), (0.6999, R.NEEDS_REVIEW), (0.7, R.AUTO_ACCEPTED), (0.9, R.AUTO_ACCEPTED)])
