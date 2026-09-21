@@ -77,11 +77,14 @@ def load_rgb_image(source: str | Path | Image.Image) -> Image.Image:
         if isinstance(source, Image.Image):
             image = source.copy()
         else:
-            with Image.open(source, formats=("JPEG",)) as opened:
+            # File suffixes are validated by the caller.  Let Pillow identify the
+            # encoded format so condition training can also consume the PNG files
+            # shipped in the official HITL archive.
+            with Image.open(source) as opened:
                 image = opened.copy()
         return ImageOps.exif_transpose(image).convert("RGB")
     except (OSError, SyntaxError, UnidentifiedImageError) as exc:
-        raise ImageDecodeError(f"Unable to decode JPEG/JFIF image: {source}") from exc
+        raise ImageDecodeError(f"Unable to decode image: {source}") from exc
 
 
 def split_locked_test(

@@ -1,46 +1,216 @@
 # Hotai modules
 
-## Module B — single-photo claim confidence
+## Module B — single-photo damage assessment
 
-Module B fine-tunes ImageNet-pretrained MobileNetV3-Large as a binary classifier.
-It accepts one JPEG/JFIF image at a time and returns only a claim score plus a
-thresholded `claim`/`no_claim` label. It does not infer photo direction,
-borrow/return stage, damage category, or severity.
+Module B uses a `512×512` LR-ASPP MobileNetV3-Large semantic segmentation model
+to detect `scratch` and `collision_damage`. `no_detected_damage` is an
+image-level state derived when neither detection passes its saved probability
+and minimum-area gates; it is not a trained damage category. One image can have
+both damage detections.
 
-Source images are discovered without `ImageFolder`. Pillow applies EXIF
-orientation, converts every decoded JPEG/JFIF to RGB in memory, then preserves
-the full frame while resizing and padding to 320×320. The original files are
-not rewritten.
+Pillow applies EXIF orientation, converts JPG/JPEG/JFIF/PNG images to RGB in
+memory, then preserves the complete frame while resizing and padding. Source
+images are never rewritten. Severity is a fixed mapping: scratch is moderate
+and collision damage is severe. Every assessment remains `needs_review` and
+`experimental_review_only`.
 
-Install the ML dependencies and train from PowerShell:
+Prepare the licensed HITL polygon manifest and train:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -e ".[ml,test]"
-.\.venv\Scripts\python.exe -m module_b.train `
-  --data-root "<資料根目錄>" `
-  --output-dir artifacts/module_b
+.\.venv\Scripts\python.exe -m module_b.prepare_condition_data `
+  --hitl-root "<extracted HITL dataset root>" `
+  --hitl-version "download-YYYY-MM-DD" `
+  --output data/condition_manifest.hitl-only.json
+
+.\.venv\Scripts\python.exe -m module_b.train_damage_segmentation `
+  --manifest data/condition_manifest.hitl-only.json `
+  --output-dir artifacts/module_b `
+  --device auto
 ```
 
-The expected class folders are `沒有進行索賠` (negative) and `進行索賠資料`
-(positive). File names must begin with a plate matching `ABC-1234` or
-`ABC1234`; plate groups are kept intact across development and locked-test
-splits. No cloud tracker or upload is used.
-
-Load the fixed checkpoint for inference:
+Recommended image-level API:
 
 ```python
-from module_b import load_claim_model, predict_claim
+from module_b import load_damage_segmentation_model, predict_damage_assessment
 
-bundle = load_claim_model("artifacts/module_b/claim_model.pth", device="auto")
-result = predict_claim(bundle, "example.jfif", photo_id="photo-001")
-print(result.to_dict())
+bundle = load_damage_segmentation_model(
+    "artifacts/module_b/damage_segmenter.pth",
+    device="auto",
+)
+assessment = predict_damage_assessment(bundle, "example.jfif", photo_id="photo-001")
+print(assessment.to_dict())
 ```
 
-`claim_probability` is the model's sigmoid score, not a calibrated insurance
-probability or damage severity. `no_claim` is emitted only below the checkpoint's
-conservative threshold. A checkpoint marked `review_only` must never be used for
-automatic clearance; `experimental` still requires business validation because
-zero observed false negatives on this small dataset is not a production guarantee.
+`damage_state` is `damage_detected` when `detections` is nonempty; otherwise it
+is `no_detected_damage`. The parallel field is deliberately named
+`claim_candidate`, not a final claim decision:
+
+| Damage state | Candidate label | Module D input |
+|---|---|---|
+| `damage_detected` | `claim_candidate` | one or more detections |
+| `no_detected_damage` | `no_claim_candidate` | empty detections |
+
+`predict_damage_conditions()` remains available when only the low-level list of
+damage findings is needed. Confidence is a model score, not a calibrated damage
+or claim probability. Full architecture, training results, and limitations are
+documented in [`module_b/ARCHITECTURE.md`](module_b/ARCHITECTURE.md) and
+[`module_b/FINE_TUNING_CONDITIONS.md`](module_b/FINE_TUNING_CONDITIONS.md).
+
+Evaluate the simplified claim-candidate rule against the private Hotai folder
+labels without tuning on them:
+
+```powershell
+.\.venv\Scripts\python.exe -m module_b.evaluate_hotai_claim_proxy `
+  --data-root "<folder containing 沒有進行索賠 and 進行索賠資料>" `
+  --checkpoint artifacts/module_b/damage_segmenter.pth
+```
+
+This measures agreement with the claim/no-claim folders, not scratch/collision
+category accuracy, because those photos do not have category annotations.
+
+### Current Hotai proxy result
+
+The existing checkpoint was evaluated once on all 293 private Hotai images
+without changing its thresholds. It predicted `damage_detected` for every image:
+
+| Unit | Accuracy | Claim recall | No-claim specificity | False positives | False negatives |
+|---|---:|---:|---:|---:|---:|
+| Image (293) | 18.1% | 100% | 0% | 240 | 0 |
+| Vehicle group (58) | 48.3% | 100% | 0% | 30 | 0 |
+
+It emitted `collision_damage` on 293 images and `scratch` on 284; no image was
+`no_detected_damage`. This is an unusable all-positive result, consistent with
+domain shift and overly permissive external-data gates. The checkpoint must not
+be used for automatic claim decisions. The complete local report is generated
+at `artifacts/module_b/hotai_claim_proxy_metrics.json`.
+
+A grouped single-photo calibration pipeline is implemented in
+`module_b.train_damage_calibrator`. It extracts 8-connected component features,
+keeps the segmenter frozen, performs five-fold out-of-fold logistic calibration,
+and selects the lowest-false-positive threshold subject to at least 95% recall.
+On the current data, no qualifying threshold improved the 100% baseline
+false-positive rate. Training therefore fails closed with
+`status=quality_gate_failed` and does not create `damage_calibrated.pth`; its
+diagnostic report is `artifacts/module_b/damage_calibration_metrics.json`.
+
+### Minimal local annotation
+
+Because claim/no-claim is not a reliable per-photo visible-damage label, launch
+the localhost-only annotation UI and label the fixed 100-image queue:
+
+```powershell
+.\.venv\Scripts\python.exe -m module_b.annotate_hotai `
+  --data-root "<folder containing 沒有進行索賠 and 進行索賠資料>" `
+  --count 100 `
+  --port 8765
+```
+
+Open `http://127.0.0.1:8765/`. For every image choose visible damage
+`yes/no/uncertain`; when yes, select `scratch`, `collision_damage`, both, or
+`uncertain_category`. Keyboard shortcuts 1–5 and Enter are available. The
+deterministic queue and annotations are saved only under `data/` and are ignored
+by Git. Restarting the same command resumes completed work.
+
+### Visible-damage gate result
+
+The completed annotation set contains 99 usable images (23 visible-damage,
+76 no-visible-damage) plus one excluded `uncertain` image. A MobileNetV3-Large
+single-photo gate was evaluated with vehicle-group-separated five-fold
+cross-validation and a locked 21-image test set. The 90% minimum OOF-recall
+setting produced the following result:
+
+| Split | Recall | Specificity | False positives | False negatives | Accuracy |
+|---|---:|---:|---:|---:|---:|
+| OOF development (78) | 94.4% | 21.7% | 47 / 60 | 1 / 18 | 38.5% |
+| Locked test (21) | 100% | 0% | 16 / 16 | 0 / 5 | 23.8% |
+
+The stricter 95% setting kept zero OOF false negatives but increased the OOF
+false-positive rate to 85%; the locked-test result was still all-positive. The
+quality gate therefore failed closed. No `damage_with_gate.pth` was created,
+and `damage_segmenter.pth` remains experimental/review-only. Exact metrics are
+written to `artifacts/module_b/visible_damage_gate_metrics.json`.
+
+Run the reproducible gate experiment with:
+
+```powershell
+.\.venv\Scripts\python.exe -m module_b.train_visible_damage_gate `
+  --queue data\hotai_annotation_queue.json `
+  --annotations data\hotai_annotations.json `
+  --base-checkpoint artifacts\module_b\damage_segmenter.pth `
+  --output-dir artifacts\module_b `
+  --device auto `
+  --minimum-oof-recall 0.90
+```
+
+This command only publishes the combined checkpoint when both OOF and locked
+test reject at least one no-damage image. A failed run saves diagnostics but
+does not expose a model as a usable artifact.
+
+### HITL + Hotai multitask model
+
+The current experimental model shares the LR-ASPP MobileNetV3-Large backbone
+between two separately supervised tasks. HITL polygons train the
+`scratch`/`collision_damage` segmentation head; the 99 usable manually labelled
+Hotai photos train an image-level visible-damage gate. The labels are never
+treated as interchangeable. Hotai training batches use balanced resampling and
+an unweighted binary loss, while validation and locked test retain their
+original distributions and vehicle-group isolation.
+
+Locked Hotai performance (21 photos):
+
+| Metric | Result |
+|---|---:|
+| Visible-damage recall | 100% (5 / 5) |
+| No-visible-damage specificity | 68.8% (11 / 16) |
+| False-positive rate | 31.2% (5 / 16) |
+| Accuracy | 76.2% (16 / 21) |
+| Balanced accuracy | 84.4% |
+
+The checkpoint passed the configured experimental gate of recall >= 80% and
+specificity >= 50% and is saved as `artifacts/module_b/damage_multitask.pth`.
+The test contains only five positive images, so this result is not yet a stable
+production estimate and the checkpoint remains `experimental_review_only`.
+
+Train it with:
+
+```powershell
+.\.venv\Scripts\python.exe -m module_b.train_multitask_damage `
+  --manifest data\condition_manifest.hitl-only.json `
+  --queue data\hotai_annotation_queue.json `
+  --annotations data\hotai_annotations.json `
+  --base-checkpoint artifacts\module_b\damage_segmenter.pth `
+  --output-dir artifacts\module_b `
+  --device auto `
+  --minimum-validation-recall 0.75 `
+  --minimum-locked-recall 0.80 `
+  --minimum-locked-specificity 0.50
+```
+
+Inference uses the existing API:
+
+```python
+from module_b import load_damage_segmentation_model, predict_damage_assessment
+
+bundle = load_damage_segmentation_model(
+    "artifacts/module_b/damage_multitask.pth",
+    device="auto",
+)
+assessment = predict_damage_assessment(bundle, "example.jfif", "photo-001")
+print(assessment.to_dict())
+```
+
+The gate first rejects likely no-damage photos. Photos that pass are sent to
+the segmentation head and may emit `scratch`, `collision_damage`, or both.
+`claim_candidate` remains a visible-damage proxy, not a final insurance claim
+decision.
+
+### Deprecated claim v1
+
+The old `load_claim_model()` and `predict_claim()` API and `claim_model.pth`
+checkpoint remain available for compatibility, but they are deprecated and do
+not participate in the v2 decision path. The old private claim dataset is not
+used by condition training.
 
 ## Module D — stage 2
 

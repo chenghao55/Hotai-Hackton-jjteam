@@ -8,14 +8,25 @@ __pycache__/
 # pytest cache
 .pytest_cache/
 
+# Local-only tests. Keep them available for development without publishing.
+tests/
+
 # Environment variables / secrets
 .env
 
 # Local package installation metadata
 *.egg-info/
 
-# Module B generated artifacts and private source images
-artifacts/
+# Module B generated artifacts and private source images. Only the reviewed
+# multitask deployment checkpoint and its matching metrics may enter Git.
+artifacts/*
+!artifacts/module_b/
+artifacts/module_b/*
+!artifacts/module_b/damage_multitask.pth
+!artifacts/module_b/multitask_damage_metrics.json
 runs/
 tmp/
+data/
+datasets/
+condition_manifest.json
 iRent - 運用 AI 打造 iRent 智能車況管家：優化租還車體驗與營運效率/
