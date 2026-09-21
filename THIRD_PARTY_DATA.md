@@ -1,8 +1,9 @@
 # Module B third-party data record
 
 Module B condition training accepts only sources whose manifest contains a
-complete license record. Raw images, downloaded archives, generated manifests,
-and checkpoints remain local and are excluded from Git.
+complete license record. Raw images, downloaded archives, and generated private
+manifests remain local and are excluded from Git. Only the reviewed deployment
+checkpoint and its matching metrics are allowed into Git.
 
 ## Approved damage source
 
