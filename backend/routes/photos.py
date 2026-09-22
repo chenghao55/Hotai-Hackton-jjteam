@@ -2,13 +2,17 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 
 from module_a import PhotoType
 
 from backend.schemas.photos import PhotoGuidanceResponse, PhotoUploadResponse
 from backend.services.photo_guidance import PhotoGuidanceService, get_photo_guidance_service
-from backend.services.photo_storage import PhotoStorageService, get_photo_storage_service
+from backend.services.photo_storage import (
+    PhotoStorageNotFoundError,
+    PhotoStorageService,
+    get_photo_storage_service,
+)
 
 
 router = APIRouter()
@@ -45,3 +49,15 @@ async def upload_photo(
 
     photo_id = storage_service.save(image, photo_type, mime_type)
     return PhotoUploadResponse(accepted=True, photo_id=photo_id, check=guidance.check)
+
+
+@router.get("/photos/{photo_id}")
+async def download_photo(
+    photo_id: str,
+    storage_service: Annotated[PhotoStorageService, Depends(get_photo_storage_service)] = None,
+) -> Response:
+    try:
+        image, info = storage_service.get(photo_id)
+    except PhotoStorageNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown photo_id: {photo_id!r}") from exc
+    return Response(content=image, media_type=info.mime_type)

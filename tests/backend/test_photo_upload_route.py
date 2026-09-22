@@ -67,6 +67,9 @@ def test_accepted_photo_is_saved_once_and_returns_photo_id(app):
             self.calls.append((image, photo_type, mime_type))
             return "saved-photo-1"
 
+        def get(self, photo_id: str):
+            raise AssertionError("upload must not retrieve a photo")
+
     storage = RecordingStorage()
     app.dependency_overrides[photo_routes.get_photo_guidance_service] = AcceptingGuidance
     app.dependency_overrides[photo_routes.get_photo_storage_service] = lambda: storage
@@ -91,6 +94,9 @@ def test_rejected_photo_does_not_call_storage_and_preserves_guidance(app):
         def save(self, image: bytes, photo_type: PhotoType, mime_type: str) -> str:
             self.called = True
             raise AssertionError("rejected photos must not be stored")
+
+        def get(self, photo_id: str):
+            raise AssertionError("upload must not retrieve a photo")
 
     storage = FailingStorage()
     app.dependency_overrides[photo_routes.get_photo_guidance_service] = RejectingGuidance
@@ -161,6 +167,9 @@ def test_return_photo_type_is_passed_to_storage(app):
         def save(self, image: bytes, photo_type: PhotoType, mime_type: str) -> str:
             self.received_type = photo_type
             return "return-photo-1"
+
+        def get(self, photo_id: str):
+            raise AssertionError("upload must not retrieve a photo")
 
     storage = RecordingStorage()
     app.dependency_overrides[photo_routes.get_photo_guidance_service] = AcceptingGuidance

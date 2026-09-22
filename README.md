@@ -165,11 +165,12 @@ HTTP Response
 - Module E photo HTTP schemas (`backend/schemas/photos.py`)
 - Module E `POST /photo-guidance` route with a replaceable stub service
 - Module E `POST /photos` final guidance and Module A storage flow
+- Module E `GET /photos/{photo_id}` binary retrieval through Module A storage
 
 Current merge-repair checkpoint:
 
 ```text
-282 passed
+287 passed
 2 warnings
 0 failed
 ```
@@ -519,12 +520,11 @@ When updating this README:
 Current E sequence:
 
 ```text
-1. Preserve GET /photos/{photo_id}
-2. Extract Case routes from module_d/api.py
-3. Run full pytest
-4. Add main.py and register routers
-5. Replace guidance stub with Module A implementation after A is merged
-6. Run end-to-end demo
+1. Extract Case routes from module_d/api.py
+2. Run full pytest
+3. Add main.py and register routers
+4. Replace guidance stub with Module A implementation after A is merged
+5. Run end-to-end demo
 ```
 
 Do not start database work before the MVP demo unless the team explicitly changes this plan.

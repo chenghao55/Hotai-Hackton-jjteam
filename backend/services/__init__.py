@@ -8,12 +8,14 @@ from .photo_guidance import (
 from .photo_storage import (
     ModuleAPhotoStorageService,
     PhotoStorageService,
+    PhotoStorageNotFoundError,
     get_photo_storage_service,
 )
 
 __all__ = [
     "PhotoGuidanceService",
     "PhotoStorageService",
+    "PhotoStorageNotFoundError",
     "StubPhotoGuidanceService",
     "ModuleAPhotoStorageService",
     "get_photo_guidance_service",
