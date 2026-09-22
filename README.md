@@ -11,30 +11,39 @@
 
 ## 1. Project scope
 
-The prototype is split into four backend responsibilities:
+This prototype is split into six explicit responsibility areas:
 
 ```text
-A = Photo storage + photo legality / shooting guidance
-B = Vehicle-condition AI
-D = Case / Detection domain decisions
-E = Backend / HTTP / integration
+A  = Photo storage + photo legality / shooting guidance
+B  = Vehicle-condition AI
+C  = Reserved / team-owned module if present; do not absorb its work silently
+D  = Case / Detection domain decisions
+E  = Backend / HTTP / integration
+UI = Frontend / user interaction
 ```
 
-Frontend/UI implementation is outside the scope of this architecture document.
-The backend should expose stable HTTP contracts to the UI without moving UI logic into A/B/D.
+Every coding agent must first identify which responsibility area owns the requested behavior.
+
+If a requested change belongs to another module, do not silently implement that logic in your own module.
 
 ---
 
-## 2. Ownership and module boundaries
+## 2. Agent responsibilities and module boundaries
 
-### Module A — Photo
+### Module A Agent — Photo
+
+**Primary mission**
+Build and maintain the photo subsystem.
 
 **Owns**
 - Saving accepted photos
 - Reading photo bytes / metadata
 - `Photo`
 - `PhotoType` (`BORROW`, `RETURN`)
-- Photo legality / shooting-guidance analysis once A's model is integrated
+- Photo legality analysis
+- Shooting-guidance analysis
+- L1–L6 guidance decision logic
+- PASS / reject decision for camera frames
 
 **Current storage API**
 ```python
@@ -43,7 +52,45 @@ get_photo(...)
 get_photo_info(...)
 ```
 
+**Current repo state**
+- Photo storage already exists.
+- Guidance/analysis implementation is not yet integrated into the repo.
+- E currently uses a replaceable guidance stub.
+
+**Guidance implementation contract**
+A must expose a stable Python-level API that E can wrap with an adapter.
+
+A should analyze one image/frame at a time and return enough information for E to map to:
+
+```text
+accepted / pass state
+level
+code
+message
+action
+```
+
+A must evaluate guidance in this priority order:
+
+```text
+L1 Lighting environment
+L2 Camera stability
+L3 Subject distance
+L4 Centering / composition
+L5 Camera height
+L6 Feature angle
+PASS
+```
+
+When multiple problems exist, return the first blocking guidance result by priority.
+
+A guidance analysis must not save the image.
+
+A should preserve existing storage APIs while adding guidance.
+
 **Must NOT own**
+- FastAPI routes
+- HTTP request/response schemas
 - Case creation
 - Damage category / severity decisions
 - Review state
@@ -51,9 +98,22 @@ get_photo_info(...)
 - Workflow
 - Payment
 
+**Agent completion checklist**
+- Existing storage API still works
+- Guidance logic is isolated from storage
+- Tests cover each L1–L6 rejection class
+- Tests cover PASS
+- Tests cover priority ordering
+- Tests verify guidance does not save photos
+- Full pytest passes
+- README updated if public API or structure changed
+
 ---
 
-### Module B — Vehicle-condition AI
+### Module B Agent — Vehicle-condition AI
+
+**Primary mission**
+Analyze accepted vehicle photos and produce vehicle-condition findings.
 
 **Owns**
 - AI analysis of vehicle photos
@@ -65,13 +125,10 @@ get_photo_info(...)
 - Converting AI findings into D-owned `DetectionInput`
 - Orchestrating the call into `module_d.create_case(...)`
 
-**Important**
-B does not own D's domain decisions.
-
-Current intended flow:
+**Intended internal flow**
 
 ```text
-photos
+accepted photos
   ↓
 Module B
   ↓
@@ -89,15 +146,69 @@ Case
 `source_photo_id` is optional provenance for a per-photo AI finding.
 When present, it must match either the borrow or return photo ID.
 
-**Must NOT own**
+**Important**
+B owns AI interpretation, not D's domain policy.
+
+B may produce:
+- category
+- severity
+- confidence
+- source photo provenance
+
+B must not decide:
 - `ReviewState`
+- Case priority
+- Case workflow
+- Payment state
+
+**Must NOT own**
+- HTTP routes
+- FastAPI application setup
+- E schemas
+- Review state
 - Priority calculation
 - Case workflow
 - Payment workflow
 
+**Agent completion checklist**
+- B still calls D through `DetectionInput` / `create_case(...)`
+- No duplicate Case-creation path is introduced
+- No D policy is reimplemented in B
+- Existing public B contracts remain backward-compatible unless explicitly changed
+- Full pytest passes
+- README updated if public API or structure changed
+
 ---
 
-### Module D — Case / Decision Domain
+### Module C Agent — Reserved / team-owned module
+
+**Primary mission**
+Only implement responsibilities explicitly assigned to Module C by the team.
+
+At the moment this README does not define a stable backend ownership contract for C.
+
+**Therefore C agents must:**
+- Read the task description carefully
+- Avoid absorbing A/B/D/E/UI responsibilities
+- Avoid changing public contracts outside C without explicit team agreement
+- Use adapters/interfaces instead of cross-module rewrites
+- Stop and report if the task requires redefining ownership
+
+**Must NOT silently become**
+- the photo subsystem
+- the vehicle-condition AI
+- the Case/domain layer
+- the HTTP backend
+- the UI layer
+
+If Module C receives a formal responsibility later, document it here before large implementation work.
+
+---
+
+### Module D Agent — Case / Decision Domain
+
+**Primary mission**
+Own the rules of the Case/Detection domain.
 
 **Owns**
 - `Case`
@@ -115,40 +226,206 @@ When present, it must match either the borrow or return photo ID.
 - `create_case(...)`
 
 Module D should remain a **pure domain layer**.
-Its final architecture should not own FastAPI routes or HTTP concerns.
+
+Its target architecture should not own FastAPI routes or HTTP concerns.
 
 **Protected rule**
 Do not modify D just to make an API or AI implementation easier.
 Adapt E/B to D unless the domain requirement itself has changed.
 
+**Current important flow**
+```text
+B
+↓
+DetectionInput[]
+↓
+D.create_case(...)
+↓
+Case
+```
+
+**Must NOT own**
+- FastAPI app creation
+- HTTP request/response models
+- CORS
+- multipart handling
+- frontend concerns
+- image storage
+- image AI
+
+**Agent completion checklist**
+- Domain invariants remain enforced in D
+- Review/priority/workflow/payment stay D-owned
+- `DetectionInput` remains D-owned
+- `source_photo_id` backward compatibility is preserved
+- Full pytest passes
+- README updated if domain/public contracts changed
+
 ---
 
-### Module E — Backend / Integration
+### Module E Agent — Backend / Integration
+
+**Primary mission**
+Expose stable HTTP APIs and wire A/B/D together.
 
 **Owns**
 - FastAPI application
 - HTTP request/response schemas
 - API routers
 - CORS/configuration
-- Wiring A/B/D together
-- In-memory MVP state
+- Dependency wiring
+- Adapters between HTTP and module-internal APIs
+- In-memory MVP Case state
 - `main.py`
 
 E must not duplicate A/B/D business logic.
 
-Example:
+**Target pattern**
 
 ```text
 HTTP Request
     ↓
 E route
     ↓
-A / B / D function
+E adapter/service
+    ↓
+A / B / D
     ↓
 E serializes result
     ↓
 HTTP Response
 ```
+
+**Current E photo routes**
+```text
+POST /photo-guidance
+POST /photos
+GET  /photos/{photo_id}
+```
+
+**Current state**
+- Photo schemas complete
+- Photo guidance route complete
+- Photo upload route complete
+- Photo retrieval route complete
+- Guidance still uses a stub until A guidance is merged
+- Case routes still live temporarily in `module_d/api.py`
+
+**Next E work**
+```text
+1. Extract Case routes from module_d/api.py
+2. Run full pytest
+3. Add main.py and register routers
+4. Replace guidance stub with Module A implementation after A is merged
+5. Run end-to-end demo
+```
+
+**Must NOT own**
+- A's image-analysis logic
+- B's vehicle-condition AI
+- D's domain policy
+- review-state decisions
+- priority logic
+- workflow rules
+- payment rules
+
+**Agent completion checklist**
+- Routes contain orchestration, not domain logic
+- Adapters are used for cross-module integration
+- Existing public HTTP contracts remain stable unless explicitly changed
+- Full pytest passes
+- README progress/checkpoint updated
+
+---
+
+### UI Agent — Frontend / User interaction
+
+**Primary mission**
+Build the user-facing flow against E's HTTP contracts.
+
+**Owns**
+- Camera/upload UI
+- Real-time guidance presentation
+- Showing guidance message/action to user
+- Borrow/return photo flow
+- API calling
+- Loading/error states
+- Case/review/payment screens if assigned by product scope
+- Client-side presentation logic
+
+**Photo guidance flow**
+
+```text
+camera frame
+↓
+POST /photo-guidance
+↓
+accepted=false
+    → show guidance message
+    → do not treat as transport error
+
+accepted=true
+    → enable / allow capture
+```
+
+**Final photo flow**
+
+```text
+user presses shutter
+↓
+POST /photos
+↓
+accepted=false
+    → show rejection guidance
+    → no photo_id
+
+accepted=true
+    → receive photo_id
+    → continue workflow
+```
+
+**Important UI rule**
+`accepted=false` from photo guidance/upload is a successful HTTP response, not an API failure.
+
+UI should distinguish:
+- HTTP/network/request failure
+- valid guidance rejection
+- valid accepted result
+
+**Must NOT own**
+- image AI
+- vehicle-condition AI
+- Case priority
+- review/workflow/payment business rules
+- backend persistence
+- Module A/B/D internal models
+
+**Agent completion checklist**
+- Uses E's public HTTP contracts
+- Does not call A/B/D directly
+- Handles `accepted=false` correctly
+- Does not infer domain state that backend already owns
+- Updates UI docs/types if E contract changes
+
+---
+
+## 2.1 Shared rule for all agents
+
+Before starting any task, every A/B/C/D/E/UI agent must answer internally:
+
+```text
+1. Which module owns this behavior?
+2. Which public contract am I consuming?
+3. Which public contract am I changing?
+4. Can an adapter solve this without changing another module?
+5. Which tests must stay green?
+```
+
+If the task crosses more than one ownership boundary, make the smallest compatible change.
+
+If more than one module's public contract must change, stop and explain the impact before silently redesigning the project.
+
+No agent should rewrite another module merely because doing so is easier locally.
 
 ---
 
@@ -278,6 +555,33 @@ Case
  ↓
 HTTP response
 ```
+
+---
+
+## 4.1 Cross-agent integration map
+
+The intended end-to-end architecture is:
+
+```text
+UI
+↓ HTTP
+E
+├─→ A   photo guidance / storage
+├─→ B   vehicle-condition AI
+└─→ D   Case/domain operations
+
+B
+↓
+D.create_case(...)
+```
+
+Important:
+- UI talks to E only.
+- E may call A/B/D.
+- B may call D through documented domain APIs.
+- A does not call D.
+- D does not call FastAPI/UI.
+- C must follow whatever ownership is formally assigned later.
 
 ---
 
