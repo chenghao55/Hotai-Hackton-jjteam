@@ -162,11 +162,12 @@ HTTP Response
 - `create_case(...)`
 - Optional `source_photo_id`
 - Review / appeal / priority / workflow / payment
+- Module E photo HTTP schemas (`backend/schemas/photos.py`)
 
 Current merge-repair checkpoint:
 
 ```text
-262 passed
+270 passed
 2 warnings
 0 failed
 ```
@@ -513,16 +514,15 @@ When updating this README:
 Current E sequence:
 
 ```text
-1. Define photo HTTP schemas
-2. Create E photo routes
-3. Add POST /photo-guidance using a stub/adaptor until A code is merged
-4. Add POST /photos using final validation + A photo storage
-5. Preserve GET /photos/{photo_id}
-6. Extract Case routes from module_d/api.py
-7. Run full pytest
-8. Add main.py and register routers
-9. Replace guidance stub with Module A implementation after A is merged
-10. Run end-to-end demo
+1. Create E photo routes
+2. Add POST /photo-guidance using a stub/adaptor until A code is merged
+3. Add POST /photos using final validation + A photo storage
+4. Preserve GET /photos/{photo_id}
+5. Extract Case routes from module_d/api.py
+6. Run full pytest
+7. Add main.py and register routers
+8. Replace guidance stub with Module A implementation after A is merged
+9. Run end-to-end demo
 ```
 
 Do not start database work before the MVP demo unless the team explicitly changes this plan.
