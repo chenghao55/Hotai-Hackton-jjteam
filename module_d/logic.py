@@ -2,11 +2,49 @@
 
 from dataclasses import replace
 
-from .models import Case, CaseStatus, ConditionCategory, Detection, ReviewState, Severity
+from .models import (
+    Case, CaseStatus, ConditionCategory, Detection, DetectionInput, ReviewState, Severity,
+)
 from .policy import DecisionPolicy
 
 # 在那些狀態下 可以計算Case priority
 _PRIORITY_CONTRIBUTING = frozenset({ReviewState.NEEDS_REVIEW, ReviewState.AUTO_ACCEPTED, ReviewState.CONFIRMED, ReviewState.CORRECTED})
+
+
+def create_case(
+    case_id: str,
+    detections: list[DetectionInput],
+    *,
+    policy: DecisionPolicy,
+) -> Case:
+    """Build a valid Case from AI findings using existing D decision rules."""
+    policy.validate()
+
+    case = Case(case_id=case_id)
+
+    if not isinstance(detections, list):
+        raise ValueError("detections must be a list of DetectionInput objects")
+
+    created_detections = []
+    for finding in detections:
+        if not isinstance(finding, DetectionInput):
+            raise ValueError("detections must be a list of DetectionInput objects")
+        detection = Detection(
+            detection_id=finding.detection_id,
+            borrow_photo_id=finding.borrow_photo_id,
+            return_photo_id=finding.return_photo_id,
+            source_photo_id=finding.source_photo_id,
+            category=finding.category,
+            severity=finding.severity,
+            confidence=finding.confidence,
+            review_state=ReviewState.NEEDS_REVIEW,
+        )
+        assess_detection(detection, policy)
+        created_detections.append(detection)
+
+    case.detections = created_detections
+    calculate_priority(case, policy)
+    return case
 
 
 def assess_detection(detection: Detection, policy: DecisionPolicy) -> None:

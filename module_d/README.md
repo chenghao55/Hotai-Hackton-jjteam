@@ -2,8 +2,8 @@
 
 Pure Python dataclasses, enums, configurable policy inputs, and deterministic
 domain functions for assessment, review, numeric priority calculation, payment,
-and workflow, with a minimal FastAPI adapter. No persistence, frontend, or image
-recognition is included.
+and workflow, with a minimal FastAPI adapter. The API delegates image recognition
+to Module B; persistence and frontend code are not included.
 
 ## Run tests (PowerShell)
 
@@ -19,10 +19,10 @@ Uvicorn; API tests use HTTPX through FastAPI TestClient.
 
 ## Run the development API (PowerShell)
 
-From the project root:
+From the project root (the `ml` extra is required by case creation):
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install -e ".[test]"
+.\.venv\Scripts\python.exe -m pip install -e ".[ml,test]"
 .\.venv\Scripts\python.exe -m uvicorn module_d.api:app --reload
 ```
 
@@ -51,17 +51,48 @@ detection starts as NEEDS_REVIEW, is assessed with the demo policy, and the new
 Case priority is calculated. Invalid create input returns HTTP 422; duplicate
 case IDs return HTTP 409. Missing Case IDs return HTTP 404. Domain ValueError
 from a state-changing operation returns HTTP 409 with its message in `detail`.
+Open http://127.0.0.1:8000/docs to try the application endpoints:
+
+- `GET /cases`: HTTP 200, a JSON array of all Cases.
+- `POST /cases`: accepts a caller-owned case ID plus one uploaded borrow photo
+  ID and one uploaded return photo ID. Module B analyzes both images, Module D
+  creates the Case, and the API returns HTTP 201.
+- `POST /cases/{case_id}/dispatch`: no request body; calls domain
+  `dispatch_case(case)` and returns the updated Case (HTTP 200). Missing IDs
+  return HTTP 404. Domain ValueError returns HTTP 409 with the original message
+  in the JSON `detail` field.
 
 Try case ID `demo-001`. It starts UNASSIGNED with one automatically accepted
 scratch detection and a demo score of 20. The photo references are placeholders.
 Dispatching it twice produces a conflict on the second request.
 
 Tests substitute isolated stores and never consume demo data.
+The process-local dictionary resets on restart/reload and is not shared between
+workers. Use one worker for this prototype. Tests substitute isolated stores
+and never consume demo data.
+
+Create a case after uploading both photos:
+
+```json
+{
+  "case_id": "rental-001",
+  "borrow_photo_id": "borrow-photo-id",
+  "return_photo_id": "return-photo-id"
+}
+```
+
+The deployment checkpoint defaults to
+`artifacts/module_b/damage_multitask.pth`. `MODULE_B_CHECKPOINT` and
+`MODULE_B_DEVICE` may override its path and device. The model is loaded lazily
+once per process. Duplicate case IDs return 409, missing photos return 404,
+incorrect photo types or undecodable images return 422, and an unavailable
+model or failed inference returns 503 without storing a partial Case.
 
 The API uses `response_model=Case` / `list[Case]`: FastAPI's Pydantic integration
 serializes the existing standard dataclasses, including nested detections,
 string Enum values, and JSON null for None. No domain model conversion or
-duplicate business rules are introduced. Both photo reference fields are exposed.
+duplicate business rules are introduced. Both photo references and the actual
+`source_photo_id` analyzed for each detection are exposed.
 
 Development CORS allows HTTP origins localhost and 127.0.0.1 on ports 5173 and
 3000, methods GET/POST/PUT, and the Content-Type header. Credentials are
@@ -69,12 +100,14 @@ disabled. These are development settings only.
 
 ## Model contract
 
-- B supplies category, severity, and confidence for each independent finding.
+- B supplies source photo ID, category, severity, and confidence for each
+  independent finding.
   D validates confidence in [0, 1]; B's emission threshold is not D's concern.
 - Detection requires an explicit review state. Use NEEDS_REVIEW as the initial
   placeholder, then call `assess_detection(detection, policy)`.
 - Detection requires both `borrow_photo_id` and `return_photo_id` as nonempty
-  strings. Domain operations preserve these references.
+  strings. `source_photo_id` must equal one of them. Domain operations preserve
+  all three references.
 - CORRECTED stores both final reviewed values and requires a real change.
   NEEDS_REVIEW may retain both previous corrected values after appeal; they must
   be valid enums and differ from the AI result in at least one field. Partial
@@ -176,6 +209,7 @@ from module_d import (
 policy = demo_policy()
 detection = Detection(
     detection_id="d1", borrow_photo_id="borrow1", return_photo_id="return1",
+    source_photo_id="return1",
     category=ConditionCategory.SCRATCH, severity=Severity.MINOR,
     confidence=0.65, review_state=ReviewState.NEEDS_REVIEW,
 )

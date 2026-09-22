@@ -65,11 +65,25 @@ def _probability(value: float, name: str) -> None:
         raise ValueError(f"{name} must be a finite number within [0, 1]")
 
 
+@dataclass(frozen=True)
+class DetectionInput:
+    """AI finding fields accepted when Module D creates a Case."""
+
+    detection_id: str
+    borrow_photo_id: str
+    return_photo_id: str
+    source_photo_id: str
+    category: ConditionCategory
+    severity: Severity
+    confidence: float
+
+
 @dataclass
 class Detection:
     detection_id: str
     borrow_photo_id: str
     return_photo_id: str
+    source_photo_id: str
     category: ConditionCategory
     severity: Severity
     confidence: float
@@ -88,6 +102,9 @@ class Detection:
         _identifier(self.detection_id, "detection_id")
         _identifier(self.borrow_photo_id, "borrow_photo_id")
         _identifier(self.return_photo_id, "return_photo_id")
+        _identifier(self.source_photo_id, "source_photo_id")
+        if self.source_photo_id not in {self.borrow_photo_id, self.return_photo_id}:
+            raise ValueError("source_photo_id must match borrow_photo_id or return_photo_id")
         _enum(self.category, ConditionCategory, "category")
         _enum(self.severity, Severity, "severity")
         _probability(self.confidence, "confidence")

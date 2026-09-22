@@ -1,0 +1,159 @@
+{
+  "status": "experimental_review_only",
+  "model_version": "lraspp-mobilenetv3-large-hotai-multitask-v1",
+  "device": "cuda",
+  "elapsed_seconds": 201.60879999998724,
+  "hotai_dataset": {
+    "total": 99,
+    "train": 61,
+    "validation": 17,
+    "locked_test": 21
+  },
+  "hitl_dataset": {
+    "total": 814,
+    "train": 488,
+    "validation": 163,
+    "locked_test": 163
+  },
+  "selected_epochs": {
+    "head": 2,
+    "joint": 9
+  },
+  "gate": {
+    "validation": {
+      "confusion_matrix": [
+        [
+          10,
+          3
+        ],
+        [
+          1,
+          3
+        ]
+      ],
+      "accuracy": 0.7647058823529411,
+      "balanced_accuracy": 0.7596153846153846,
+      "precision": 0.5,
+      "recall": 0.75,
+      "specificity": 0.7692307692307693,
+      "f1": 0.6,
+      "false_positive_count": 3,
+      "false_negative_count": 1,
+      "threshold": 0.4106065548800782,
+      "false_positive_rate": 0.23076923076923078,
+      "sample_count": 17,
+      "positive_count": 4,
+      "negative_count": 13
+    },
+    "locked_test": {
+      "confusion_matrix": [
+        [
+          11,
+          5
+        ],
+        [
+          0,
+          5
+        ]
+      ],
+      "accuracy": 0.7619047619047619,
+      "balanced_accuracy": 0.84375,
+      "precision": 0.5,
+      "recall": 1.0,
+      "specificity": 0.6875,
+      "f1": 0.6666666666666666,
+      "false_positive_count": 5,
+      "false_negative_count": 0,
+      "threshold": 0.4106065548800782,
+      "false_positive_rate": 0.3125,
+      "sample_count": 21,
+      "positive_count": 5,
+      "negative_count": 16
+    }
+  },
+  "hitl_segmentation_locked_test": {
+    "image_level": {
+      "scratch": {
+        "confusion_matrix": [
+          [
+            0,
+            59
+          ],
+          [
+            0,
+            104
+          ]
+        ],
+        "precision": 0.6380368098159509,
+        "recall": 1.0,
+        "f1": 0.7790262172284644,
+        "f2": 0.8981001727115716,
+        "false_negative_count": 0,
+        "probability_threshold": 0.25,
+        "min_area_pixels": 16
+      },
+      "collision_damage": {
+        "confusion_matrix": [
+          [
+            0,
+            5
+          ],
+          [
+            0,
+            158
+          ]
+        ],
+        "precision": 0.9693251533742331,
+        "recall": 1.0,
+        "f1": 0.9844236760124611,
+        "f2": 0.9937106918238993,
+        "false_negative_count": 0,
+        "probability_threshold": 0.45000000000000007,
+        "min_area_pixels": 16
+      }
+    },
+    "pixel_confusion_matrix": [
+      [
+        38260876,
+        270272,
+        1564930
+      ],
+      [
+        38058,
+        40588,
+        17092
+      ],
+      [
+        1205223,
+        92988,
+        1239445
+      ]
+    ],
+    "pixel_iou": {
+      "background": 0.9255314287771129,
+      "scratch": 0.08842740055512224,
+      "collision_damage": 0.30085967883897724
+    }
+  },
+  "config": {
+    "seed": 20260914,
+    "gate_image_size": 320,
+    "gate_batch_size": 8,
+    "segmentation_batch_size": 2,
+    "workers": 0,
+    "head_epochs": 12,
+    "finetune_epochs": 24,
+    "patience": 6,
+    "head_learning_rate": 0.001,
+    "backbone_learning_rate": 1e-05,
+    "gate_learning_rate": 0.0001,
+    "segmentation_head_learning_rate": 0.0001,
+    "weight_decay": 0.0001,
+    "segmentation_loss_weight": 0.5,
+    "hotai_validation_fraction": 0.2,
+    "hotai_test_fraction": 0.2,
+    "minimum_validation_recall": 0.75,
+    "minimum_locked_recall": 0.8,
+    "minimum_locked_specificity": 0.5
+  }
+}
