@@ -65,7 +65,7 @@ def test_case_serialization(client, score):
         "payment_amount": 123, "detections": [{
             "detection_id": "d1", "borrow_photo_id": "borrow1", "return_photo_id": "return1",
             "category": "scratch", "severity": "minor", "confidence": 0.65,
-            "review_state": "needs_review", "reviewed_category": None,
+            "review_state": "needs_review", "source_photo_id": None, "reviewed_category": None,
             "reviewed_severity": None, "review_note": None,
         }],
     }]

@@ -72,10 +72,10 @@ class DetectionInput:
     detection_id: str
     borrow_photo_id: str
     return_photo_id: str
-    source_photo_id: str
     category: ConditionCategory
     severity: Severity
     confidence: float
+    source_photo_id: str | None = None
 
 
 @dataclass
@@ -83,7 +83,6 @@ class Detection:
     detection_id: str
     borrow_photo_id: str
     return_photo_id: str
-    source_photo_id: str
     category: ConditionCategory
     severity: Severity
     confidence: float
@@ -93,6 +92,8 @@ class Detection:
     reviewed_category: ConditionCategory | None = None
     reviewed_severity: Severity | None = None
     review_note: str | None = None
+    # Optional provenance for a per-photo Module B finding.
+    source_photo_id: str | None = None
 
     def __post_init__(self) -> None:
         self.validate()
@@ -102,9 +103,10 @@ class Detection:
         _identifier(self.detection_id, "detection_id")
         _identifier(self.borrow_photo_id, "borrow_photo_id")
         _identifier(self.return_photo_id, "return_photo_id")
-        _identifier(self.source_photo_id, "source_photo_id")
-        if self.source_photo_id not in {self.borrow_photo_id, self.return_photo_id}:
-            raise ValueError("source_photo_id must match borrow_photo_id or return_photo_id")
+        if self.source_photo_id is not None:
+            _identifier(self.source_photo_id, "source_photo_id")
+            if self.source_photo_id not in {self.borrow_photo_id, self.return_photo_id}:
+                raise ValueError("source_photo_id must match borrow_photo_id or return_photo_id")
         _enum(self.category, ConditionCategory, "category")
         _enum(self.severity, Severity, "severity")
         _probability(self.confidence, "confidence")
