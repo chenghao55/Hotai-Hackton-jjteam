@@ -1,5 +1,6 @@
 # Python virtual environment
 .venv/
+.venv-api/
 
 # Python cache
 __pycache__/
@@ -30,3 +31,13 @@ data/
 datasets/
 condition_manifest.json
 iRent - 運用 AI 打造 iRent 智能車況管家：優化租還車體驗與營運效率/
+
+# Runtime uploads and local-only drafts must never be published.
+photos/
+module_b/SOCAR_DATA_REQUEST_DRAFT.md
+
+# 三方套件檔
+**/node_modules/
+**/dist/
+**/build/
+**/.vite/

@@ -502,4 +502,23 @@ HITL、Hotai 圖片、annotation queue 與人工標註依資料治理規則不�
 - HITL collision negatives 極少，category false positive 仍可能很高。
 - confidence 是模型分數，不是實際理賠機率或損傷嚴重程度。
 - 模型不比較借車前後照片，也不知道既有損傷。
-- Module D 尚未正式串接；B 只提供結構化候選結果。
+- 模型不比較借車照與還車照；backend 目前將兩張照片分別執行單張推論。
+
+## 15. Backend adapter 與 Module D 串接
+
+`DamageModelAnalyzer` 保留既有單張模型 API，僅負責把 backend 提供的
+`list[tuple[photo_id, bytes]]` 逐張轉交給 `predict_damage_conditions()`。每筆結果
+會轉成 `AIFinding`，內容包含唯一 `detection_id`、`source_photo_id`、Module D enum
+形式的 category/severity，以及原始 confidence。
+
+`CaseBuildingModuleB` 驗證輸入中恰好有一張 borrow 和一張 return，將兩個案件照片
+引用與 finding 的實際來源一起轉成 `DetectionInput`。Module D 接著依
+`DecisionPolicy.review_confidence_threshold` 決定 `needs_review` 或
+`auto_accepted` 並計算 priority；因此單張模型結果裡原有的 review-only 欄位不直接
+寫入 Case。
+
+FastAPI 的 `POST /cases` 接收呼叫端提供的 `case_id`、`borrow_photo_id` 和
+`return_photo_id`。模型 checkpoint 採 lazy singleton 載入，預設使用
+`artifacts/module_b/damage_multitask.pth`，可由 `MODULE_B_CHECKPOINT` 與
+`MODULE_B_DEVICE` 覆寫。兩張照片只是獨立分析，不能把結果解讀成前後差異或責任
+判定。

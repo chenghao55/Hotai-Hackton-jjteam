@@ -35,7 +35,7 @@ Recommended image-level API:
 from module_b import load_damage_segmentation_model, predict_damage_assessment
 
 bundle = load_damage_segmentation_model(
-    "artifacts/module_b/damage_segmenter.pth",
+    "artifacts/module_b/damage_multitask.pth",
     device="auto",
 )
 assessment = predict_damage_assessment(bundle, "example.jfif", photo_id="photo-001")
@@ -56,6 +56,15 @@ damage findings is needed. Confidence is a model score, not a calibrated damage
 or claim probability. Full architecture, training results, and limitations are
 documented in [`module_b/ARCHITECTURE.md`](module_b/ARCHITECTURE.md) and
 [`module_b/FINE_TUNING_CONDITIONS.md`](module_b/FINE_TUNING_CONDITIONS.md).
+
+### Backend integration
+
+The FastAPI backend accepts uploaded borrow/return photos and exposes
+`POST /cases`. Module B analyzes both photos independently, records each
+finding's `source_photo_id`, and passes category, fixed severity, and confidence
+to Module D. Module D owns review-state and priority decisions. This integration
+does not compare before/after pixels and does not determine whether a visible
+condition was caused during the rental.
 
 Evaluate the simplified claim-candidate rule against the private Hotai folder
 labels without tuning on them:
@@ -216,7 +225,8 @@ used by condition training.
 
 Pure Python dataclasses, enums, configurable policy inputs, and deterministic
 domain functions for assessment, review, numeric priority calculation, payment,
-and workflow. No API, persistence, frontend, or image recognition is included.
+and workflow. The development API delegates image recognition to Module B;
+persistence and frontend code are not included.
 
 ## Run tests (PowerShell)
 
@@ -329,8 +339,12 @@ from module_d import (
 )
 
 policy = demo_policy()
-detection = Detection("d1", "photo1", ConditionCategory.SCRATCH,
-                      Severity.MINOR, 0.65, ReviewState.NEEDS_REVIEW)
+detection = Detection(
+    detection_id="d1", borrow_photo_id="borrow1", return_photo_id="return1",
+    source_photo_id="return1", category=ConditionCategory.SCRATCH,
+    severity=Severity.MINOR, confidence=0.65,
+    review_state=ReviewState.NEEDS_REVIEW,
+)
 assess_detection(detection, policy)
 case = Case("case1", [detection])
 calculate_priority(case, policy)  # None: review is pending
