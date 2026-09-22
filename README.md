@@ -164,11 +164,12 @@ HTTP Response
 - Review / appeal / priority / workflow / payment
 - Module E photo HTTP schemas (`backend/schemas/photos.py`)
 - Module E `POST /photo-guidance` route with a replaceable stub service
+- Module E `POST /photos` final guidance and Module A storage flow
 
 Current merge-repair checkpoint:
 
 ```text
-276 passed
+282 passed
 2 warnings
 0 failed
 ```
@@ -210,8 +211,11 @@ backend/
 ├── routes/
 │   ├── cases.py
 │   └── photos.py
-└── schemas/
-    └── photos.py
+├── schemas/
+│   └── photos.py
+└── services/
+    ├── photo_guidance.py
+    └── photo_storage.py
 
 module_a/
 module_b/
@@ -515,13 +519,12 @@ When updating this README:
 Current E sequence:
 
 ```text
-1. Add POST /photos using final validation + A photo storage
-2. Preserve GET /photos/{photo_id}
-3. Extract Case routes from module_d/api.py
-4. Run full pytest
-5. Add main.py and register routers
-6. Replace guidance stub with Module A implementation after A is merged
-7. Run end-to-end demo
+1. Preserve GET /photos/{photo_id}
+2. Extract Case routes from module_d/api.py
+3. Run full pytest
+4. Add main.py and register routers
+5. Replace guidance stub with Module A implementation after A is merged
+6. Run end-to-end demo
 ```
 
 Do not start database work before the MVP demo unless the team explicitly changes this plan.
