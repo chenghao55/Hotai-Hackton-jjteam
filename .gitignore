@@ -11,6 +11,9 @@ __pycache__/
 
 # Local-only tests. Keep them available for development without publishing.
 tests/
+!tests/
+!tests/backend/
+!tests/backend/*.py
 
 # Environment variables / secrets
 .env
