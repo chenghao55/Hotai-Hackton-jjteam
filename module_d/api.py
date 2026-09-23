@@ -1,8 +1,6 @@
-"""Compatibility app for legacy imports; canonical Case HTTP code lives in backend."""
+"""Legacy compatibility imports for the canonical Module E application."""
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
+from backend.main import app
 from backend.routes.cases import (
     appeal_detection,
     complete_without_action,
@@ -27,24 +25,6 @@ from backend.state.cases import cases
 
 from . import logic
 from .policy import demo_policy
-
-
-app = FastAPI()
-
-# Development-only compatibility configuration until backend/main.py exists.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-    ],
-    allow_methods=["GET", "POST", "PUT"],
-    allow_headers=["Content-Type"],
-    allow_credentials=False,
-)
-app.include_router(router)
 
 
 __all__ = [

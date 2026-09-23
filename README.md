@@ -310,11 +310,12 @@ GET  /photos/{photo_id}
 - Photo retrieval route complete
 - Guidance still uses a stub until A guidance is merged
 - Case schemas, in-memory state, and routes are extracted into `backend/`
-- `module_d/api.py` is now a thin compatibility app that mounts the E router
+- `backend/main.py` is the canonical Module E composition root
+- `module_d/api.py` is a legacy compatibility layer that reuses the canonical app
 
 **Next E work**
 ```text
-1. Add main.py and register routers
+1. Design the production Case creation flow
 2. Replace guidance stub with Module A implementation after A is merged
 3. Run end-to-end demo
 ```
@@ -443,11 +444,12 @@ No agent should rewrite another module merely because doing so is easier locally
 - Module E `POST /photos` final guidance and Module A storage flow
 - Module E `GET /photos/{photo_id}` binary retrieval through Module A storage
 - Module E Case HTTP schemas, in-memory state, and routes
+- Module E composition root at `backend.main:app`
 
-Current merge-repair checkpoint:
+Current full-suite checkpoint:
 
 ```text
-288 passed
+296 passed
 2 warnings
 0 failed
 ```
@@ -456,17 +458,15 @@ The two warnings are third-party FastAPI/Starlette deprecation warnings and are 
 
 ### Temporary / transitional
 
-`module_d/api.py` remains as a thin compatibility adapter until `backend/main.py` exists.
+`module_d/api.py` remains for legacy import compatibility only.
 
 This is **temporary**.
 
 It currently only:
-- creates the legacy development FastAPI app
-- applies the existing development CORS configuration
-- mounts the canonical `backend.routes.cases` router
+- reuses the canonical `backend.main.app` instance
 - re-exports legacy schema/state/endpoint names for import compatibility
 
-Canonical Case HTTP schemas, state, and endpoint implementations now live under `backend/`.
+The canonical app, development CORS configuration, HTTP schemas, state, and endpoint implementations now live under `backend/`.
 
 The existing `POST /cases` development endpoint is also temporary.
 It directly receives detections and creates a Case.
@@ -486,6 +486,7 @@ Target direction:
 
 ```text
 backend/
+├── main.py
 ├── routes/
 │   ├── cases.py
 │   └── photos.py
@@ -511,23 +512,23 @@ During E1:
 - Do not rewrite B
 - Keep tests green
 
-### E2 — Add `main.py`
+### E2 — Add `main.py` (complete)
 
-`main.py` becomes the composition root:
+`backend/main.py` is the composition root:
 
 ```text
-main.py
+backend/main.py
   ↓
 create FastAPI app
   ↓
-load config / dependencies
+apply development CORS configuration
   ↓
-register routers
-  ↓
-wire Module A / B / D
+register photo and Case routers
 ```
 
 `main.py` should be a wiring layer, not a place for business logic.
+
+The canonical ASGI import path is `backend.main:app`.
 
 ### E3 — Persistence
 
@@ -827,7 +828,7 @@ When updating this README:
 Current E sequence:
 
 ```text
-1. Add main.py and register routers
+1. Design the production Case creation flow
 2. Replace guidance stub with Module A implementation after A is merged
 3. Run end-to-end demo
 ```
