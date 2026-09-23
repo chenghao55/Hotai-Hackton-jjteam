@@ -2,18 +2,35 @@ from copy import deepcopy
 from unittest.mock import Mock
 
 import pytest
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
 
-from module_d import api, logic
+import backend.routes.cases as api
+from backend.state.cases import cases
+from module_d import logic
 from module_d.models import Case, CaseStatus, ConditionCategory, Detection, ReviewState, Severity
 
 
 @pytest.fixture
-def client(monkeypatch):
-    # Each test owns its store; never mutate the manual-testing demo data.
-    monkeypatch.setattr(api, "cases", {})
-    with TestClient(api.app) as client:
+def client():
+    # Canonical Case API tests mount the E-owned router without creating main.py.
+    app = FastAPI()
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:5173", "http://localhost:3000",
+            "http://127.0.0.1:5173", "http://127.0.0.1:3000",
+        ],
+        allow_methods=["GET", "POST", "PUT"],
+        allow_headers=["Content-Type"],
+        allow_credentials=False,
+    )
+    app.include_router(api.router)
+    cases.clear()
+    with TestClient(app) as client:
         yield client
+    cases.clear()
 
 
 def test_empty_list(client):

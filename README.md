@@ -309,15 +309,14 @@ GET  /photos/{photo_id}
 - Photo upload route complete
 - Photo retrieval route complete
 - Guidance still uses a stub until A guidance is merged
-- Case routes still live temporarily in `module_d/api.py`
+- Case schemas, in-memory state, and routes are extracted into `backend/`
+- `module_d/api.py` is now a thin compatibility app that mounts the E router
 
 **Next E work**
 ```text
-1. Extract Case routes from module_d/api.py
-2. Run full pytest
-3. Add main.py and register routers
-4. Replace guidance stub with Module A implementation after A is merged
-5. Run end-to-end demo
+1. Add main.py and register routers
+2. Replace guidance stub with Module A implementation after A is merged
+3. Run end-to-end demo
 ```
 
 **Must NOT own**
@@ -443,11 +442,12 @@ No agent should rewrite another module merely because doing so is easier locally
 - Module E `POST /photo-guidance` route with a replaceable stub service
 - Module E `POST /photos` final guidance and Module A storage flow
 - Module E `GET /photos/{photo_id}` binary retrieval through Module A storage
+- Module E Case HTTP schemas, in-memory state, and routes
 
 Current merge-repair checkpoint:
 
 ```text
-287 passed
+288 passed
 2 warnings
 0 failed
 ```
@@ -456,17 +456,17 @@ The two warnings are third-party FastAPI/Starlette deprecation warnings and are 
 
 ### Temporary / transitional
 
-`module_d/api.py` still contains the development FastAPI adapter.
+`module_d/api.py` remains as a thin compatibility adapter until `backend/main.py` exists.
 
 This is **temporary**.
 
-It currently mixes:
-- FastAPI app creation
-- `/cases` routes
-- in-memory `cases`
-- HTTP schemas
+It currently only:
+- creates the legacy development FastAPI app
+- applies the existing development CORS configuration
+- mounts the canonical `backend.routes.cases` router
+- re-exports legacy schema/state/endpoint names for import compatibility
 
-Do not treat this file layout as the target architecture.
+Canonical Case HTTP schemas, state, and endpoint implementations now live under `backend/`.
 
 The existing `POST /cases` development endpoint is also temporary.
 It directly receives detections and creates a Case.
@@ -490,10 +490,13 @@ backend/
 │   ├── cases.py
 │   └── photos.py
 ├── schemas/
+│   ├── cases.py
 │   └── photos.py
-└── services/
+├── services/
     ├── photo_guidance.py
-    └── photo_storage.py
+│   └── photo_storage.py
+└── state/
+    └── cases.py
 
 module_a/
 module_b/
@@ -824,11 +827,9 @@ When updating this README:
 Current E sequence:
 
 ```text
-1. Extract Case routes from module_d/api.py
-2. Run full pytest
-3. Add main.py and register routers
-4. Replace guidance stub with Module A implementation after A is merged
-5. Run end-to-end demo
+1. Add main.py and register routers
+2. Replace guidance stub with Module A implementation after A is merged
+3. Run end-to-end demo
 ```
 
 Do not start database work before the MVP demo unless the team explicitly changes this plan.
