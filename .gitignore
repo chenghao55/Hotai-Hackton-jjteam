@@ -8,3 +8,6 @@ data/
 *.pt
 *.xlsx
 .env
+.runtime/
+.venv/
+.pnpm-store/

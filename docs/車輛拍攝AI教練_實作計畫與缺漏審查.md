@@ -1,8 +1,8 @@
 # 車輛借還車 AI 拍攝教練：實作計畫與交接缺漏審查
 
-日期：2026-09-25｜版本：第一版原型 v0.1／規劃 v0.4｜狀態：照片 API、畫質檢查、YOLO 常駐工作程式與 L3–L5 規則已實作；本機尚未成功執行真實模型推論或完成模板校正。
+日期：2026-09-25｜版本：第一版原型 v0.1／規劃 v0.4｜狀態：照片 API、畫質檢查、YOLO 常駐工作程式與 L3–L5 規則已實作；`best.pt` 已在本機載入並完成 CPU 合成影像推論，模板仍待真實照片校正。
 
-第一版程式入口為 `src/capture-api.cjs`，影像解碼／EXIF 校正為 `src/image-decode.cjs`，畫質檢查為 `src/photo-quality.cjs`，模型推論為 `src/yolo-client.cjs`＋`src/yolo_worker.py`，漏斗裁決為 `src/capture-decision.cjs`。欄位契約見 `docs/照片API契約.md`。合成影像與模擬偵測結果測試已通過；這不等於 `best.pt` 的真實照片準確率驗證。模板仍標記 `uncalibrated`，因此不能自動建議可拍攝。
+第一版程式入口為 `src/capture-api.cjs`，影像解碼／EXIF 校正為 `src/image-decode.cjs`，畫質檢查為 `src/photo-quality.cjs`，模型推論為 `src/yolo-client.cjs`＋`src/yolo_worker.py`，漏斗裁決為 `src/capture-decision.cjs`。欄位契約見 `docs/照片API契約.md`。合成影像與模擬偵測結果測試已通過，真實模型已用合成影像跑通 `/ready` 與照片 API；這不等於真實車輛照片的準確率驗證。模板仍標記 `uncalibrated`，因此不能自動建議可拍攝。
 
 ## 1. 結論與範圍
 

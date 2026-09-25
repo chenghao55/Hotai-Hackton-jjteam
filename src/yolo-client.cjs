@@ -11,7 +11,9 @@ class InferenceError extends Error {
 }
 
 class YoloClient {
-  constructor({python=process.env.CAPTURE_PYTHON||'python',
+  constructor({python=process.env.CAPTURE_PYTHON||(
+    fs.existsSync(path.join(__dirname,'../.venv/Scripts/python.exe'))
+      ? path.join(__dirname,'../.venv/Scripts/python.exe') : 'python'),
     modelPath=process.env.CAPTURE_MODEL_PATH||path.join(os.homedir(),'Downloads','best.pt'),
     timeoutMs=10000}={}) {
     this.python=python;this.modelPath=modelPath;this.timeoutMs=timeoutMs;
@@ -21,10 +23,14 @@ class YoloClient {
     if(this.process) return;
     if(!fs.existsSync(this.modelPath)){this.reason='MODEL_FILE_MISSING';return;}
     this.modelVersion='best-'+createHash('sha256').update(fs.readFileSync(this.modelPath)).digest('hex').slice(0,12);
+    fs.mkdirSync(path.join(__dirname,'../.runtime/config'),{recursive:true});
+    fs.mkdirSync(path.join(__dirname,'../.runtime/matplotlib'),{recursive:true});
     this.reason='MODEL_STARTING';
     const child=spawn(this.python,['-u',path.join(__dirname,'yolo_worker.py')],{
       stdio:['pipe','pipe','pipe'],windowsHide:true,
-      env:{...process.env,CAPTURE_MODEL_PATH:this.modelPath}});
+      env:{...process.env,CAPTURE_MODEL_PATH:this.modelPath,
+        YOLO_CONFIG_DIR:process.env.YOLO_CONFIG_DIR||path.join(__dirname,'../.runtime/config'),
+        MPLCONFIGDIR:process.env.MPLCONFIGDIR||path.join(__dirname,'../.runtime/matplotlib')}});
     this.process=child;
     child.stdout.setEncoding('utf8');
     child.stdout.on('data',chunk=>this.onData(chunk));
