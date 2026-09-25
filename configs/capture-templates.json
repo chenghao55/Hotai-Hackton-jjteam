@@ -1,0 +1,1051 @@
+{
+  "version": "capture-templates-v0.4-draft",
+  "calibration_status": "uncalibrated",
+  "coordinate_space": "exif_corrected_unmirrored_image_normalized_xyxy",
+  "ignored_model_class_ids": [
+    1
+  ],
+  "model_classes": {
+    "0": "car",
+    "1": "car-coach-yolo",
+    "2": "headlight",
+    "3": "license_plate",
+    "4": "rear_seat_bench",
+    "5": "steering_wheel",
+    "6": "wheel"
+  },
+  "vehicle_types": [
+    "sedan",
+    "suv"
+  ],
+  "shot_types": [
+    "exterior_front_left",
+    "exterior_front_right",
+    "exterior_rear_left",
+    "exterior_rear_right",
+    "interior_front",
+    "interior_rear"
+  ],
+  "thresholds": {
+    "detection_confidence": 0.35,
+    "association_fraction": 0.7,
+    "max_match_error": 1,
+    "min_runner_up_gap": 0.2,
+    "max_per_anchor_error": 2,
+    "min_confident_features": 3
+  },
+  "templates": [
+    {
+      "id": "sedan_exterior_front_left",
+      "vehicle_type": "sedan",
+      "shot_type": "exterior_front_left",
+      "label": "左前 45°",
+      "reference_box": [
+        0.1,
+        0.27,
+        0.9,
+        0.85
+      ],
+      "body_center_tolerance": [
+        0.08,
+        0.1
+      ],
+      "body_width_range": [
+        0.6,
+        0.93
+      ],
+      "body_height_range": [
+        0.34,
+        0.7
+      ],
+      "edge_margin": 0.025,
+      "reference_class_id": 0,
+      "anchors": [
+        {
+          "id": "plate",
+          "class_id": 3,
+          "box": [
+            0.205,
+            0.625,
+            0.34,
+            0.69
+          ],
+          "required": true,
+          "tolerance": [
+            0.12,
+            0.14,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "near_wheel",
+          "class_id": 6,
+          "box": [
+            0.435,
+            0.64,
+            0.565,
+            0.855
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "far_wheel",
+          "class_id": 6,
+          "box": [
+            0.795,
+            0.545,
+            0.885,
+            0.73
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "near_headlight",
+          "class_id": 2,
+          "box": [
+            0.36,
+            0.485,
+            0.5,
+            0.56
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.14,
+            0.18,
+            0.18
+          ]
+        },
+        {
+          "id": "far_headlight",
+          "class_id": 2,
+          "box": [
+            0.115,
+            0.465,
+            0.19,
+            0.515
+          ],
+          "required": false,
+          "tolerance": [
+            0.16,
+            0.16,
+            0.2,
+            0.2
+          ]
+        }
+      ],
+      "relationships": [
+        [
+          "plate",
+          "near_wheel"
+        ],
+        [
+          "near_wheel",
+          "far_wheel"
+        ]
+      ],
+      "min_valid_features": 4,
+      "notes": "near/far 為模板錨點名稱，不是模型前後輪類別。"
+    },
+    {
+      "id": "sedan_exterior_front_right",
+      "vehicle_type": "sedan",
+      "shot_type": "exterior_front_right",
+      "label": "右前 45°",
+      "reference_box": [
+        0.1,
+        0.27,
+        0.9,
+        0.85
+      ],
+      "body_center_tolerance": [
+        0.08,
+        0.1
+      ],
+      "body_width_range": [
+        0.6,
+        0.93
+      ],
+      "body_height_range": [
+        0.34,
+        0.7
+      ],
+      "edge_margin": 0.025,
+      "reference_class_id": 0,
+      "anchors": [
+        {
+          "id": "plate",
+          "class_id": 3,
+          "box": [
+            0.6599999999999999,
+            0.625,
+            0.795,
+            0.69
+          ],
+          "required": true,
+          "tolerance": [
+            0.12,
+            0.14,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "near_wheel",
+          "class_id": 6,
+          "box": [
+            0.43500000000000005,
+            0.64,
+            0.565,
+            0.855
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "far_wheel",
+          "class_id": 6,
+          "box": [
+            0.11499999999999999,
+            0.545,
+            0.20499999999999996,
+            0.73
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "near_headlight",
+          "class_id": 2,
+          "box": [
+            0.5,
+            0.485,
+            0.64,
+            0.56
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.14,
+            0.18,
+            0.18
+          ]
+        },
+        {
+          "id": "far_headlight",
+          "class_id": 2,
+          "box": [
+            0.81,
+            0.465,
+            0.885,
+            0.515
+          ],
+          "required": false,
+          "tolerance": [
+            0.16,
+            0.16,
+            0.2,
+            0.2
+          ]
+        }
+      ],
+      "relationships": [
+        [
+          "plate",
+          "near_wheel"
+        ],
+        [
+          "near_wheel",
+          "far_wheel"
+        ]
+      ],
+      "min_valid_features": 4,
+      "notes": "near/far 為模板錨點名稱，不是模型前後輪類別。"
+    },
+    {
+      "id": "sedan_exterior_rear_left",
+      "vehicle_type": "sedan",
+      "shot_type": "exterior_rear_left",
+      "label": "左後 45°",
+      "reference_box": [
+        0.1,
+        0.27,
+        0.9,
+        0.85
+      ],
+      "body_center_tolerance": [
+        0.08,
+        0.1
+      ],
+      "body_width_range": [
+        0.6,
+        0.93
+      ],
+      "body_height_range": [
+        0.34,
+        0.7
+      ],
+      "edge_margin": 0.025,
+      "reference_class_id": 0,
+      "anchors": [
+        {
+          "id": "plate",
+          "class_id": 3,
+          "box": [
+            0.65,
+            0.56,
+            0.78,
+            0.63
+          ],
+          "required": true,
+          "tolerance": [
+            0.12,
+            0.14,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "near_wheel",
+          "class_id": 6,
+          "box": [
+            0.43500000000000005,
+            0.64,
+            0.565,
+            0.855
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "far_wheel",
+          "class_id": 6,
+          "box": [
+            0.11499999999999999,
+            0.545,
+            0.20499999999999996,
+            0.73
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        }
+      ],
+      "relationships": [
+        [
+          "plate",
+          "near_wheel"
+        ],
+        [
+          "near_wheel",
+          "far_wheel"
+        ]
+      ],
+      "min_valid_features": 3,
+      "notes": "尾燈僅為線稿示意，不以 headlight 代替尾燈偵測。"
+    },
+    {
+      "id": "sedan_exterior_rear_right",
+      "vehicle_type": "sedan",
+      "shot_type": "exterior_rear_right",
+      "label": "右後 45°",
+      "reference_box": [
+        0.1,
+        0.27,
+        0.9,
+        0.85
+      ],
+      "body_center_tolerance": [
+        0.08,
+        0.1
+      ],
+      "body_width_range": [
+        0.6,
+        0.93
+      ],
+      "body_height_range": [
+        0.34,
+        0.7
+      ],
+      "edge_margin": 0.025,
+      "reference_class_id": 0,
+      "anchors": [
+        {
+          "id": "plate",
+          "class_id": 3,
+          "box": [
+            0.22,
+            0.56,
+            0.35,
+            0.63
+          ],
+          "required": true,
+          "tolerance": [
+            0.12,
+            0.14,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "near_wheel",
+          "class_id": 6,
+          "box": [
+            0.435,
+            0.64,
+            0.565,
+            0.855
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "far_wheel",
+          "class_id": 6,
+          "box": [
+            0.795,
+            0.545,
+            0.885,
+            0.73
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        }
+      ],
+      "relationships": [
+        [
+          "plate",
+          "near_wheel"
+        ],
+        [
+          "near_wheel",
+          "far_wheel"
+        ]
+      ],
+      "min_valid_features": 3,
+      "notes": "尾燈僅為線稿示意，不以 headlight 代替尾燈偵測。"
+    },
+    {
+      "id": "suv_exterior_front_left",
+      "vehicle_type": "suv",
+      "shot_type": "exterior_front_left",
+      "label": "左前 45°",
+      "reference_box": [
+        0.1,
+        0.2,
+        0.9,
+        0.85
+      ],
+      "body_center_tolerance": [
+        0.08,
+        0.1
+      ],
+      "body_width_range": [
+        0.6,
+        0.93
+      ],
+      "body_height_range": [
+        0.43,
+        0.78
+      ],
+      "edge_margin": 0.025,
+      "reference_class_id": 0,
+      "anchors": [
+        {
+          "id": "plate",
+          "class_id": 3,
+          "box": [
+            0.205,
+            0.59,
+            0.34,
+            0.6549999999999999
+          ],
+          "required": true,
+          "tolerance": [
+            0.12,
+            0.14,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "near_wheel",
+          "class_id": 6,
+          "box": [
+            0.435,
+            0.605,
+            0.565,
+            0.82
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "far_wheel",
+          "class_id": 6,
+          "box": [
+            0.795,
+            0.51,
+            0.885,
+            0.695
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "near_headlight",
+          "class_id": 2,
+          "box": [
+            0.36,
+            0.44999999999999996,
+            0.5,
+            0.525
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.14,
+            0.18,
+            0.18
+          ]
+        },
+        {
+          "id": "far_headlight",
+          "class_id": 2,
+          "box": [
+            0.115,
+            0.43000000000000005,
+            0.19,
+            0.48
+          ],
+          "required": false,
+          "tolerance": [
+            0.16,
+            0.16,
+            0.2,
+            0.2
+          ]
+        }
+      ],
+      "relationships": [
+        [
+          "plate",
+          "near_wheel"
+        ],
+        [
+          "near_wheel",
+          "far_wheel"
+        ]
+      ],
+      "min_valid_features": 4,
+      "notes": "near/far 為模板錨點名稱，不是模型前後輪類別。"
+    },
+    {
+      "id": "suv_exterior_front_right",
+      "vehicle_type": "suv",
+      "shot_type": "exterior_front_right",
+      "label": "右前 45°",
+      "reference_box": [
+        0.1,
+        0.2,
+        0.9,
+        0.85
+      ],
+      "body_center_tolerance": [
+        0.08,
+        0.1
+      ],
+      "body_width_range": [
+        0.6,
+        0.93
+      ],
+      "body_height_range": [
+        0.43,
+        0.78
+      ],
+      "edge_margin": 0.025,
+      "reference_class_id": 0,
+      "anchors": [
+        {
+          "id": "plate",
+          "class_id": 3,
+          "box": [
+            0.6599999999999999,
+            0.59,
+            0.795,
+            0.6549999999999999
+          ],
+          "required": true,
+          "tolerance": [
+            0.12,
+            0.14,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "near_wheel",
+          "class_id": 6,
+          "box": [
+            0.43500000000000005,
+            0.605,
+            0.565,
+            0.82
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "far_wheel",
+          "class_id": 6,
+          "box": [
+            0.11499999999999999,
+            0.51,
+            0.20499999999999996,
+            0.695
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "near_headlight",
+          "class_id": 2,
+          "box": [
+            0.5,
+            0.44999999999999996,
+            0.64,
+            0.525
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.14,
+            0.18,
+            0.18
+          ]
+        },
+        {
+          "id": "far_headlight",
+          "class_id": 2,
+          "box": [
+            0.81,
+            0.43000000000000005,
+            0.885,
+            0.48
+          ],
+          "required": false,
+          "tolerance": [
+            0.16,
+            0.16,
+            0.2,
+            0.2
+          ]
+        }
+      ],
+      "relationships": [
+        [
+          "plate",
+          "near_wheel"
+        ],
+        [
+          "near_wheel",
+          "far_wheel"
+        ]
+      ],
+      "min_valid_features": 4,
+      "notes": "near/far 為模板錨點名稱，不是模型前後輪類別。"
+    },
+    {
+      "id": "suv_exterior_rear_left",
+      "vehicle_type": "suv",
+      "shot_type": "exterior_rear_left",
+      "label": "左後 45°",
+      "reference_box": [
+        0.1,
+        0.2,
+        0.9,
+        0.85
+      ],
+      "body_center_tolerance": [
+        0.08,
+        0.1
+      ],
+      "body_width_range": [
+        0.6,
+        0.93
+      ],
+      "body_height_range": [
+        0.43,
+        0.78
+      ],
+      "edge_margin": 0.025,
+      "reference_class_id": 0,
+      "anchors": [
+        {
+          "id": "plate",
+          "class_id": 3,
+          "box": [
+            0.65,
+            0.525,
+            0.78,
+            0.595
+          ],
+          "required": true,
+          "tolerance": [
+            0.12,
+            0.14,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "near_wheel",
+          "class_id": 6,
+          "box": [
+            0.43500000000000005,
+            0.605,
+            0.565,
+            0.82
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "far_wheel",
+          "class_id": 6,
+          "box": [
+            0.11499999999999999,
+            0.51,
+            0.20499999999999996,
+            0.695
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        }
+      ],
+      "relationships": [
+        [
+          "plate",
+          "near_wheel"
+        ],
+        [
+          "near_wheel",
+          "far_wheel"
+        ]
+      ],
+      "min_valid_features": 3,
+      "notes": "尾燈僅為線稿示意，不以 headlight 代替尾燈偵測。"
+    },
+    {
+      "id": "suv_exterior_rear_right",
+      "vehicle_type": "suv",
+      "shot_type": "exterior_rear_right",
+      "label": "右後 45°",
+      "reference_box": [
+        0.1,
+        0.2,
+        0.9,
+        0.85
+      ],
+      "body_center_tolerance": [
+        0.08,
+        0.1
+      ],
+      "body_width_range": [
+        0.6,
+        0.93
+      ],
+      "body_height_range": [
+        0.43,
+        0.78
+      ],
+      "edge_margin": 0.025,
+      "reference_class_id": 0,
+      "anchors": [
+        {
+          "id": "plate",
+          "class_id": 3,
+          "box": [
+            0.22,
+            0.525,
+            0.35,
+            0.595
+          ],
+          "required": true,
+          "tolerance": [
+            0.12,
+            0.14,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "near_wheel",
+          "class_id": 6,
+          "box": [
+            0.435,
+            0.605,
+            0.565,
+            0.82
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        },
+        {
+          "id": "far_wheel",
+          "class_id": 6,
+          "box": [
+            0.795,
+            0.51,
+            0.885,
+            0.695
+          ],
+          "required": true,
+          "tolerance": [
+            0.14,
+            0.13,
+            0.16,
+            0.16
+          ]
+        }
+      ],
+      "relationships": [
+        [
+          "plate",
+          "near_wheel"
+        ],
+        [
+          "near_wheel",
+          "far_wheel"
+        ]
+      ],
+      "min_valid_features": 3,
+      "notes": "尾燈僅為線稿示意，不以 headlight 代替尾燈偵測。"
+    },
+    {
+      "id": "shared_interior_front_left_door",
+      "vehicle_type": "shared",
+      "shot_type": "interior_front",
+      "entry_side": "left",
+      "label": "前排 · 左門",
+      "reference_box": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "reference_class_id": null,
+      "evaluation_mode": "geometry",
+      "anchors": [
+        {
+          "id": "steering",
+          "class_id": 5,
+          "box": [
+            0.115,
+            0.26,
+            0.29,
+            0.49
+          ],
+          "required": true,
+          "tolerance": [
+            0.15,
+            0.16,
+            0.22,
+            0.22
+          ]
+        }
+      ],
+      "relationships": [],
+      "min_valid_features": 1,
+      "notes": "左駕車，從左前門往內拍；方向盤僅為駕駛區定位證據，不證明前排完整。"
+    },
+    {
+      "id": "shared_interior_front_right_door",
+      "vehicle_type": "shared",
+      "shot_type": "interior_front",
+      "entry_side": "right",
+      "label": "前排 · 右門",
+      "reference_box": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "reference_class_id": null,
+      "evaluation_mode": "guide_only",
+      "anchors": [
+        {
+          "id": "steering",
+          "class_id": 5,
+          "box": [
+            0.7,
+            0.23,
+            0.82,
+            0.38
+          ],
+          "required": false,
+          "tolerance": [
+            0.15,
+            0.16,
+            0.22,
+            0.22
+          ]
+        }
+      ],
+      "relationships": [],
+      "min_valid_features": 0,
+      "notes": "左駕車，從右前門往內拍；方向盤可遮擋，僅選用。現有模型缺前排座椅類別，不能自動驗證完整前排。"
+    },
+    {
+      "id": "shared_interior_rear_left_door",
+      "vehicle_type": "shared",
+      "shot_type": "interior_rear",
+      "entry_side": "left",
+      "label": "後排 · 左門",
+      "reference_box": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "reference_class_id": null,
+      "evaluation_mode": "geometry",
+      "anchors": [
+        {
+          "id": "rear_bench",
+          "class_id": 4,
+          "box": [
+            0.22,
+            0.19,
+            0.89,
+            0.85
+          ],
+          "required": true,
+          "tolerance": [
+            0.15,
+            0.15,
+            0.25,
+            0.25
+          ]
+        }
+      ],
+      "relationships": [],
+      "min_valid_features": 1,
+      "notes": "由側門斜拍整排後座；椅背與坐墊形成透視梯形，不採正面對稱模板。"
+    },
+    {
+      "id": "shared_interior_rear_right_door",
+      "vehicle_type": "shared",
+      "shot_type": "interior_rear",
+      "entry_side": "right",
+      "label": "後排 · 右門",
+      "reference_box": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "reference_class_id": null,
+      "evaluation_mode": "geometry",
+      "anchors": [
+        {
+          "id": "rear_bench",
+          "class_id": 4,
+          "box": [
+            0.11,
+            0.19,
+            0.78,
+            0.85
+          ],
+          "required": true,
+          "tolerance": [
+            0.15,
+            0.15,
+            0.25,
+            0.25
+          ]
+        }
+      ],
+      "relationships": [],
+      "min_valid_features": 1,
+      "notes": "由側門斜拍整排後座；椅背與坐墊形成透視梯形，不採正面對稱模板。"
+    }
+  ]
+}

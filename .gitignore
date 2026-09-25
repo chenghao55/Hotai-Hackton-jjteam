@@ -1,0 +1,10 @@
+tmp/
+node_modules/
+__pycache__/
+*.pyc
+output/
+evaluation/
+data/
+*.pt
+*.xlsx
+.env
