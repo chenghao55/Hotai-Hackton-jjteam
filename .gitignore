@@ -14,6 +14,10 @@ tests/
 !tests/
 !tests/backend/
 !tests/backend/*.py
+!tests/module_a/
+!tests/module_a/*.py
+!tests/module_b/
+!tests/module_b/*.py
 
 # Environment variables / secrets
 .env

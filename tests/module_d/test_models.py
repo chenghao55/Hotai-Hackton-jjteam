@@ -38,11 +38,16 @@ def test_invalid_detection_fields(changes):
         detection(**changes)
 
 
-@pytest.mark.parametrize("field", ["borrow_photo_id", "return_photo_id"])
+@pytest.mark.parametrize("value", ["", "   ", 123, True])
+def test_invalid_borrow_photo_reference(value):
+    with pytest.raises(ValueError, match="borrow_photo_id"):
+        detection(borrow_photo_id=value)
+
+
 @pytest.mark.parametrize("value", ["", "   ", None, 123, True])
-def test_invalid_photo_references(field, value):
-    with pytest.raises(ValueError, match=field):
-        detection(**{field: value})
+def test_invalid_return_photo_reference(value):
+    with pytest.raises(ValueError, match="return_photo_id"):
+        detection(return_photo_id=value)
 
 
 @pytest.mark.parametrize("field", ["borrow_photo_id", "return_photo_id"])
@@ -51,6 +56,38 @@ def test_photo_references_are_required(field):
     del values[field]
     with pytest.raises(TypeError, match=field):
         Detection(**values)
+
+
+def test_return_only_detection_accepts_explicit_none_borrow_reference():
+    result = detection(
+        borrow_photo_id=None,
+        return_photo_id="return-only",
+        source_photo_id="return-only",
+    )
+
+    assert result.borrow_photo_id is None
+    assert result.return_photo_id == "return-only"
+    assert result.source_photo_id == "return-only"
+
+
+@pytest.mark.parametrize("source_photo_id", ["borrow-1", "return-1"])
+def test_paired_detection_source_may_match_either_evidence_photo(source_photo_id):
+    result = detection(
+        borrow_photo_id="borrow-1",
+        return_photo_id="return-1",
+        source_photo_id=source_photo_id,
+    )
+
+    assert result.source_photo_id == source_photo_id
+
+
+def test_return_only_detection_rejects_unrelated_source_photo():
+    with pytest.raises(ValueError, match="evidence photo ID"):
+        detection(
+            borrow_photo_id=None,
+            return_photo_id="return-only",
+            source_photo_id="unrelated",
+        )
 
 
 @pytest.mark.parametrize("category,severity", [(C.SCRATCH, S.SEVERE), (C.CLEANLINESS, S.MINOR), (C.COLLISION_DAMAGE, S.MODERATE)])

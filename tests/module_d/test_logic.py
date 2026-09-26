@@ -4,9 +4,9 @@ from dataclasses import replace
 import pytest
 
 from module_d import (
-    Case, CaseStatus as T, ConditionCategory as C, Detection, ReviewState as R,
+    Case, CaseStatus as T, ConditionCategory as C, Detection, DetectionInput, ReviewState as R,
     Severity as S, appeal_detection, apply_review, assess_detection, calculate_priority,
-    complete_without_action, confirm_payment, demo_policy, dispatch_case,
+    complete_without_action, confirm_payment, create_case, demo_policy, dispatch_case,
     finish_processing, needs_review, set_payment_amount, start_processing,
 )
 
@@ -17,6 +17,31 @@ def finding(state=R.AUTO_ACCEPTED, **changes):
     if state == R.CORRECTED:
         values.update(reviewed_category=C.COLLISION_DAMAGE, reviewed_severity=S.SEVERE)
     return Detection(**(values | changes))
+
+
+def test_create_case_preserves_return_only_evidence():
+    case = create_case(
+        "return-only-case",
+        [
+            DetectionInput(
+                detection_id="return-finding",
+                borrow_photo_id=None,
+                return_photo_id="return-extra",
+                source_photo_id="return-extra",
+                category=C.COLLISION_DAMAGE,
+                severity=S.SEVERE,
+                confidence=0.8,
+            )
+        ],
+        policy=demo_policy(),
+    )
+
+    detection = case.detections[0]
+    assert detection.borrow_photo_id is None
+    assert detection.return_photo_id == "return-extra"
+    assert detection.source_photo_id == "return-extra"
+    assert detection.review_state == R.AUTO_ACCEPTED
+    assert case.priority_score == 95
 
 
 @pytest.mark.parametrize("confidence,state", [(0.1, R.NEEDS_REVIEW), (0.6999, R.NEEDS_REVIEW), (0.7, R.AUTO_ACCEPTED), (0.9, R.AUTO_ACCEPTED)])

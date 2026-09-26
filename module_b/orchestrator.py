@@ -1,6 +1,8 @@
 """Module B orchestration from uploaded photo bytes to a Module D Case."""
 
-from module_a import PhotoType, get_photo_info
+from dataclasses import dataclass
+
+from module_a import CaptureSlot, PhotoNotFoundError, PhotoType, get_photo_info
 from module_d import Case, DetectionInput, create_case
 from module_d.policy import DecisionPolicy
 
@@ -8,49 +10,126 @@ from .analyzer import AIFinding, AIAnalyzer
 from .interface import ModuleB
 
 
+@dataclass(frozen=True)
+class _EvidencePair:
+    borrow_photo_id: str | None
+    return_photo_id: str
+
+
 class CaseBuildingModuleB(ModuleB):
     """Delegates AI findings and all Case-domain decisions to their owners."""
 
     def __init__(self, analyzer: AIAnalyzer, *, policy: DecisionPolicy) -> None:
+        """Store the AI analyzer and decision policy used for every case."""
         self._analyzer = analyzer
         self._policy = policy
 
     def analyze(self, case_id: str, photos: list[tuple[str, bytes]]) -> Case:
-        borrow_photo_id, return_photo_id = self._photo_pair(photos)
+        """Analyze uploaded photos, pair their evidence, and create a Case."""
+        evidence_by_photo_id = self._group_photos_by_slot(photos)
         findings = self._analyzer.analyze(photos)
         detection_inputs = [
-            self._to_detection_input(finding, borrow_photo_id, return_photo_id)
+            self._to_detection_input(finding, evidence_by_photo_id)
             for finding in findings
         ]
         return create_case(case_id, detection_inputs, policy=self._policy)
 
     @staticmethod
-    def _photo_pair(photos: list[tuple[str, bytes]]) -> tuple[str, str]:
-        borrow_ids: list[str] = []
-        return_ids: list[str] = []
-        for photo_id, _ in photos:
-            photo = get_photo_info(photo_id)
-            if photo.photo_type == PhotoType.BORROW:
-                borrow_ids.append(photo_id)
-            elif photo.photo_type == PhotoType.RETURN:
-                return_ids.append(photo_id)
+    def _group_photos_by_slot(
+        photos: list[tuple[str, bytes]],
+    ) -> dict[str, _EvidencePair]:
+        """Match each photo to its borrow/return evidence pair by capture slot.
 
-        if len(borrow_ids) != 1 or len(return_ids) != 1:
-            raise ValueError("photos must contain exactly one borrow photo and one return photo")
-        return borrow_ids[0], return_ids[0]
+        Fixed slots require one borrow and one return image; OTHER_DAMAGE accepts
+        return-only evidence.
+        """
+        if not isinstance(photos, list):
+            raise TypeError("photos must be a list of (photo_id, bytes) pairs")
+        if not photos:
+            raise ValueError("photos must not be empty")
+
+        fixed_slots: dict[CaptureSlot, dict[PhotoType, str]] = {}
+        other_damage_returns: list[str] = []
+        seen_photo_ids: set[str] = set()
+
+        for photo in photos:
+            if not isinstance(photo, tuple) or len(photo) != 2:
+                raise ValueError("photos must contain only (photo_id, bytes) pairs")
+            photo_id, image_bytes = photo
+            if not isinstance(photo_id, str) or not photo_id.strip():
+                raise ValueError("photo_id must be a nonempty string")
+            if photo_id in seen_photo_ids:
+                raise ValueError(f"duplicate photo_id: {photo_id!r}")
+            if not isinstance(image_bytes, bytes):
+                raise TypeError("photo bytes must be bytes")
+            seen_photo_ids.add(photo_id)
+
+            try:
+                info = get_photo_info(photo_id)
+            except PhotoNotFoundError as exc:
+                raise ValueError(
+                    f"unknown or invalid photo metadata for photo_id: {photo_id!r}"
+                ) from exc
+
+            if (
+                info.photo_id != photo_id
+                or not isinstance(info.photo_type, PhotoType)
+                or not isinstance(info.capture_slot, CaptureSlot)
+            ):
+                raise ValueError(f"invalid photo metadata for photo_id: {photo_id!r}")
+
+            if info.capture_slot == CaptureSlot.OTHER_DAMAGE:
+                if info.photo_type != PhotoType.RETURN:
+                    raise ValueError("OTHER_DAMAGE photos must be return photos")
+                other_damage_returns.append(photo_id)
+                continue
+
+            slot_photos = fixed_slots.setdefault(info.capture_slot, {})
+            if info.photo_type in slot_photos:
+                raise ValueError(
+                    f"duplicate {info.photo_type.value} photo for capture slot "
+                    f"{info.capture_slot.value!r}"
+                )
+            slot_photos[info.photo_type] = photo_id
+
+        evidence_by_photo_id: dict[str, _EvidencePair] = {}
+        for capture_slot, slot_photos in fixed_slots.items():
+            borrow_photo_id = slot_photos.get(PhotoType.BORROW)
+            return_photo_id = slot_photos.get(PhotoType.RETURN)
+            if borrow_photo_id is None:
+                raise ValueError(
+                    f"missing matching borrow photo for capture slot {capture_slot.value!r}"
+                )
+            if return_photo_id is None:
+                raise ValueError(
+                    f"missing matching return photo for capture slot {capture_slot.value!r}"
+                )
+            pair = _EvidencePair(borrow_photo_id, return_photo_id)
+            evidence_by_photo_id[borrow_photo_id] = pair
+            evidence_by_photo_id[return_photo_id] = pair
+
+        for return_photo_id in other_damage_returns:
+            evidence_by_photo_id[return_photo_id] = _EvidencePair(None, return_photo_id)
+
+        return evidence_by_photo_id
 
     @staticmethod
     def _to_detection_input(
         finding: AIFinding,
-        borrow_photo_id: str,
-        return_photo_id: str,
+        evidence_by_photo_id: dict[str, _EvidencePair],
     ) -> DetectionInput:
+        """Attach a finding to its photo evidence for Module D case creation."""
         if not isinstance(finding, AIFinding):
             raise ValueError("AI analyzer must return only AIFinding objects")
+        evidence = evidence_by_photo_id.get(finding.source_photo_id)
+        if evidence is None:
+            raise ValueError(
+                "AI finding source_photo_id must match one of the analyzed photos"
+            )
         return DetectionInput(
             detection_id=finding.detection_id,
-            borrow_photo_id=borrow_photo_id,
-            return_photo_id=return_photo_id,
+            borrow_photo_id=evidence.borrow_photo_id,
+            return_photo_id=evidence.return_photo_id,
             source_photo_id=finding.source_photo_id,
             category=finding.category,
             severity=finding.severity,

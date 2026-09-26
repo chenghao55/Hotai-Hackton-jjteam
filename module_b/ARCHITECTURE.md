@@ -511,14 +511,15 @@ HITL、Hotai 圖片、annotation queue 與人工標註依資料治理規則不�
 會轉成 `AIFinding`，內容包含唯一 `detection_id`、`source_photo_id`、Module D enum
 形式的 category/severity，以及原始 confidence。
 
-`CaseBuildingModuleB` 驗證輸入中恰好有一張 borrow 和一張 return，將兩個案件照片
-引用與 finding 的實際來源一起轉成 `DetectionInput`。Module D 接著依
-`DecisionPolicy.review_confidence_threshold` 決定 `needs_review` 或
-`auto_accepted` 並計算 priority；因此單張模型結果裡原有的 review-only 欄位不直接
-寫入 Case。
+`CaseBuildingModuleB` 使用 Module A 的 `PhotoType` 與 `CaptureSlot` metadata 驗證
+multi-photo input。每個有出現的固定 slot 都必須恰好有一張 borrow 與一張 return；
+同 slot 重複或缺少任一側都會拒絕。`RETURN + OTHER_DAMAGE` 可出現多張，不要求
+borrow counterpart，並轉成 `borrow_photo_id=None` 的 return-only `DetectionInput`。
+其他 finding 則依 `source_photo_id` 取得同 slot 的 borrow/return evidence pair。
 
-FastAPI 的 `POST /cases` 接收呼叫端提供的 `case_id`、`borrow_photo_id` 和
-`return_photo_id`。模型 checkpoint 採 lazy singleton 載入，預設使用
-`artifacts/module_b/damage_multitask.pth`，可由 `MODULE_B_CHECKPOINT` 與
-`MODULE_B_DEVICE` 覆寫。兩張照片只是獨立分析，不能把結果解讀成前後差異或責任
-判定。
+Module D 接著依 `DecisionPolicy.review_confidence_threshold` 決定 `needs_review` 或
+`auto_accepted` 並計算 priority；因此 B 不重作 D 的 review 或 priority 規則。
+
+CaptureSlot pairing 目前只用於 photo-set 結構驗證與 evidence ID 對應。所有合法照片
+仍各自送入現有單張 damage model，包括 `FUEL_PARKING_CARD` 與 `OTHER_DAMAGE`；目前
+沒有 filtering，也沒有真正的 borrow/return 視覺差異比較或責任判定。

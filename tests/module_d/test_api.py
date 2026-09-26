@@ -97,6 +97,28 @@ def test_get_existing_and_missing_case(client):
     assert "missing" in response.json()["detail"]
 
 
+def test_return_only_detection_serializes_null_borrow_photo_id(client):
+    detection = Detection(
+        "return-only",
+        None,
+        "return-extra",
+        ConditionCategory.COLLISION_DAMAGE,
+        Severity.SEVERE,
+        0.8,
+        ReviewState.AUTO_ACCEPTED,
+        source_photo_id="return-extra",
+    )
+    api.cases["return-only-case"] = Case("return-only-case", [detection])
+
+    response = client.get("/cases/return-only-case")
+
+    assert response.status_code == 200
+    returned = response.json()["detections"][0]
+    assert returned["borrow_photo_id"] is None
+    assert returned["return_photo_id"] == "return-extra"
+    assert returned["source_photo_id"] == "return-extra"
+
+
 def test_create_case_assesses_and_scores_detections(client):
     response = client.post("/cases", json=create_payload())
     assert response.status_code == 201

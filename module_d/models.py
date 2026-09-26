@@ -70,7 +70,7 @@ class DetectionInput:
     """AI finding fields accepted when Module D creates a Case."""
 
     detection_id: str
-    borrow_photo_id: str
+    borrow_photo_id: str | None
     return_photo_id: str
     category: ConditionCategory
     severity: Severity
@@ -81,7 +81,7 @@ class DetectionInput:
 @dataclass
 class Detection:
     detection_id: str
-    borrow_photo_id: str
+    borrow_photo_id: str | None
     return_photo_id: str
     category: ConditionCategory
     severity: Severity
@@ -101,12 +101,16 @@ class Detection:
     def validate(self) -> None:
         """檢查fields是否合法的填寫"""
         _identifier(self.detection_id, "detection_id")
-        _identifier(self.borrow_photo_id, "borrow_photo_id")
+        if self.borrow_photo_id is not None:
+            _identifier(self.borrow_photo_id, "borrow_photo_id")
         _identifier(self.return_photo_id, "return_photo_id")
         if self.source_photo_id is not None:
             _identifier(self.source_photo_id, "source_photo_id")
-            if self.source_photo_id not in {self.borrow_photo_id, self.return_photo_id}:
-                raise ValueError("source_photo_id must match borrow_photo_id or return_photo_id")
+            evidence_photo_ids = {self.return_photo_id}
+            if self.borrow_photo_id is not None:
+                evidence_photo_ids.add(self.borrow_photo_id)
+            if self.source_photo_id not in evidence_photo_ids:
+                raise ValueError("source_photo_id must match an evidence photo ID")
         _enum(self.category, ConditionCategory, "category")
         _enum(self.severity, Severity, "severity")
         _probability(self.confidence, "confidence")

@@ -6,14 +6,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from module_d.models import ConditionCategory, Severity
 
-from .damage_inference import (
-    DamageSegmentationBundle,
-    load_damage_segmentation_model,
-    predict_damage_conditions,
-)
+if TYPE_CHECKING:
+    from .damage_inference import DamageSegmentationBundle
 
 
 @dataclass(frozen=True)
@@ -39,6 +37,8 @@ class DamageModelAnalyzer(AIAnalyzer):
     """Adapt the deployed single-photo damage model to the backend contract."""
 
     def __init__(self, model_bundle: DamageSegmentationBundle) -> None:
+        from .damage_inference import DamageSegmentationBundle
+
         if not isinstance(model_bundle, DamageSegmentationBundle):
             raise TypeError("model_bundle must be a DamageSegmentationBundle")
         self._model_bundle = model_bundle
@@ -50,9 +50,15 @@ class DamageModelAnalyzer(AIAnalyzer):
         *,
         device: str = "auto",
     ) -> DamageModelAnalyzer:
+        from .damage_inference import load_damage_segmentation_model
+
         return cls(load_damage_segmentation_model(checkpoint_path, device=device))
 
     def analyze(self, photos: list[tuple[str, bytes]]) -> list[AIFinding]:
+        """photo: list[tuple(id, binary file)]"""
+        
+        from .damage_inference import predict_damage_conditions
+
         if not isinstance(photos, list):
             raise TypeError("photos must be a list of (photo_id, bytes) pairs")
 

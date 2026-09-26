@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 
-from module_a import PhotoType
+from module_a import CaptureSlot, PhotoType
 
 from backend.schemas.photos import PhotoGuidanceResponse, PhotoUploadResponse
 from backend.services.photo_guidance import PhotoGuidanceService, get_photo_guidance_service
@@ -33,6 +33,7 @@ async def photo_guidance(
 async def upload_photo(
     file: UploadFile = File(...),
     photo_type: PhotoType = Form(...),
+    capture_slot: CaptureSlot = Form(...),
     guidance_service: Annotated[PhotoGuidanceService, Depends(get_photo_guidance_service)] = None,
     storage_service: Annotated[PhotoStorageService, Depends(get_photo_storage_service)] = None,
 ) -> PhotoUploadResponse:
@@ -47,7 +48,10 @@ async def upload_photo(
     if not guidance.accepted:
         return PhotoUploadResponse(accepted=False, photo_id=None, check=guidance.check)
 
-    photo_id = storage_service.save(image, photo_type, mime_type)
+    try:
+        photo_id = storage_service.save(image, photo_type, capture_slot, mime_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return PhotoUploadResponse(accepted=True, photo_id=photo_id, check=guidance.check)
 
 

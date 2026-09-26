@@ -12,12 +12,37 @@ class PhotoType(str, Enum):
     RETURN = "return"
 
 
+class CaptureSlot(str, Enum):
+    FRONT_LEFT = "front_left"
+    FRONT_RIGHT = "front_right"
+    REAR_LEFT = "rear_left"
+    REAR_RIGHT = "rear_right"
+    REAR = "rear"
+    INTERIOR_FRONT = "interior_front"
+    INTERIOR_REAR = "interior_rear"
+    FUEL_PARKING_CARD = "fuel_parking_card"
+    OTHER_DAMAGE = "other_damage"
+
+
+def _validate_photo_metadata(photo_type: PhotoType, capture_slot: CaptureSlot) -> None:
+    if not isinstance(photo_type, PhotoType):
+        raise ValueError("photo_type must be a PhotoType")
+    if not isinstance(capture_slot, CaptureSlot):
+        raise ValueError("capture_slot must be a CaptureSlot")
+    if photo_type == PhotoType.BORROW and capture_slot == CaptureSlot.OTHER_DAMAGE:
+        raise ValueError("OTHER_DAMAGE is only valid for return photos")
+
+
 @dataclass(frozen=True)
 class Photo:
     photo_id: str
     photo_type: PhotoType
+    capture_slot: CaptureSlot
     mime_type: str
     file_path: Path
+
+    def __post_init__(self) -> None:
+        _validate_photo_metadata(self.photo_type, self.capture_slot)
 
 
 class PhotoNotFoundError(LookupError):
@@ -50,6 +75,8 @@ def _load_photo(photo_id: str) -> Photo:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         stored_photo_id = metadata["photo_id"]
         photo_type = PhotoType(metadata["photo_type"])
+        capture_slot = CaptureSlot(metadata["capture_slot"])
+        _validate_photo_metadata(photo_type, capture_slot)
         mime_type = metadata["mime_type"]
         _validate_mime_type(mime_type)
     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
@@ -61,6 +88,7 @@ def _load_photo(photo_id: str) -> Photo:
     photo = Photo(
         photo_id=stored_photo_id,
         photo_type=photo_type,
+        capture_slot=capture_slot,
         mime_type=mime_type,
         file_path=PHOTOS_DIR / f"{stored_photo_id}.bin",
     )
@@ -69,12 +97,16 @@ def _load_photo(photo_id: str) -> Photo:
     return photo
 
 
-def save_photo(file_bytes: bytes, photo_type: PhotoType, mime_type: str) -> str:
+def save_photo(
+    file_bytes: bytes,
+    photo_type: PhotoType,
+    capture_slot: CaptureSlot,
+    mime_type: str,
+) -> str:
     """Store image bytes and minimal metadata, returning a unique stable ID."""
     if not isinstance(file_bytes, bytes):
         raise TypeError("file_bytes must be bytes")
-    if not isinstance(photo_type, PhotoType):
-        raise ValueError("photo_type must be a PhotoType")
+    _validate_photo_metadata(photo_type, capture_slot)
     _validate_mime_type(mime_type)
 
     PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
@@ -82,6 +114,7 @@ def save_photo(file_bytes: bytes, photo_type: PhotoType, mime_type: str) -> str:
     photo = Photo(
         photo_id=photo_id,
         photo_type=photo_type,
+        capture_slot=capture_slot,
         mime_type=mime_type,
         file_path=PHOTOS_DIR / f"{photo_id}.bin",
     )
@@ -90,6 +123,7 @@ def save_photo(file_bytes: bytes, photo_type: PhotoType, mime_type: str) -> str:
         json.dumps({
             "photo_id": photo.photo_id,
             "photo_type": photo.photo_type.value,
+            "capture_slot": photo.capture_slot.value,
             "mime_type": photo.mime_type,
         }),
         encoding="utf-8",
