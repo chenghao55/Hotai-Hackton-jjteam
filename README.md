@@ -1,5 +1,7 @@
 # Hotai iRent AI Prototype
 
+Coding agents must read [AGENTS.md](AGENTS.md) and [docs/STATUS.md](docs/STATUS.md) before changing the repository. `AGENTS.md` contains the shared workflow and ownership rules; `docs/STATUS.md` contains the latest verified team-level status and test checkpoint.
+
 > **Purpose of this README**
 >
 > This file is the architecture contract for both human teammates and coding agents.
