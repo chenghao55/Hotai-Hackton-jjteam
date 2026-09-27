@@ -17,7 +17,7 @@ class YoloClient {
     modelPath=process.env.CAPTURE_MODEL_PATH||path.join(os.homedir(),'Downloads','best.pt'),
     timeoutMs=10000}={}) {
     this.python=python;this.modelPath=modelPath;this.timeoutMs=timeoutMs;
-    this.ready=false;this.process=null;this.buffer='';this.pending=null;this.queue=[];this.reason='MODEL_NOT_STARTED';this.modelVersion=null;
+    this.ready=false;this.process=null;this.buffer='';this.pending=null;this.queue=[];this.reason='MODEL_NOT_STARTED';this.modelVersion=null;this.classIds=[];
   }
   start() {
     if(this.process) return;
@@ -51,7 +51,7 @@ class YoloClient {
     while((e=this.buffer.indexOf('\n'))>=0){
       const raw=this.buffer.slice(0,e);this.buffer=this.buffer.slice(e+1);
       let message;try{message=JSON.parse(raw);}catch{continue;}
-      if(message.type==='ready'){this.ready=true;this.reason=null;this.pump();continue;}
+      if(message.type==='ready'){this.ready=true;this.reason=null;this.classIds=message.class_ids;this.pump();continue;}
       if(message.type==='unavailable'){this.reason=message.code||'MODEL_LOAD_FAILED';this.process?.kill();continue;}
       if(!this.pending||message.id!==this.pending.id)continue;
       const job=this.pending;this.pending=null;clearTimeout(job.timer);

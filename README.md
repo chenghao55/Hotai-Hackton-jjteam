@@ -1,6 +1,17 @@
 # 車輛借還車拍攝 AI 教練
 
-這個專案提供 `POST /api/v1/capture/analyze`，接收一張原始相機照片與前端指定的槽位，回傳光線、清晰度、距離／完整度、置中和特徵構圖建議。車外支援轎車／休旅車的四個車角；車內支援從左／右側門拍前排或後排。現有 `best.pt` 的 class 1 會在推論輸出中忽略，其他 class ID 保持原狀。
+這個專案提供 `POST /api/v1/capture/analyze`，接收一張原始相機照片與前端指定的槽位，回傳光線、清晰度、距離／完整度、置中和特徵構圖建議。車外支援轎車／休旅車的四個車角；車內支援從左／右側門拍前排或後排。`best.pt` 內部仍有 7 類；服務忽略原始 class 1，並將其餘類別轉為下列對外 ID。
+
+| 對外 class_id | 類別 | `best.pt` 原始 ID |
+|---:|---|---:|
+| 0 | car | 0 |
+| 1 | headlight | 2 |
+| 2 | license_plate | 3 |
+| 3 | rear_seat_bench | 4 |
+| 4 | steering_wheel | 5 |
+| 5 | wheel | 6 |
+
+`car-coach-yolo`（原始 ID 1）不輸出。車牌類別沿用模型中的正確拼法 `license_plate`；服務沒有修改或重訓 `best.pt`。
 
 ## 在 VS Code 啟動
 

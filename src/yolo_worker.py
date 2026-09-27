@@ -8,6 +8,7 @@ import io
 import json
 import os
 import sys
+from pathlib import Path
 
 
 def emit(payload):
@@ -21,12 +22,21 @@ try:
     from ultralytics import YOLO
 
     model = YOLO(os.environ["CAPTURE_MODEL_PATH"])
-    expected = {0: "car", 1: "car-coach-yolo", 2: "headlight", 3: "license_plate",
-                4: "rear_seat_bench", 5: "steering_wheel", 6: "wheel"}
+    config_path = Path(__file__).resolve().parents[1] / "configs" / "capture-templates.json"
+    with config_path.open(encoding="utf-8") as file:
+        config = json.load(file)
+    expected = {int(k): v for k, v in config["raw_model_classes"].items()}
+    service_names = {int(k): v for k, v in config["model_classes"].items()}
+    raw_to_service = {int(k): v for k, v in config["raw_to_service_class_id"].items()}
     names = {int(k): v for k, v in model.names.items()}
-    if names != expected:
+    if names != expected or set(raw_to_service) != set(expected) or set(
+        value for value in raw_to_service.values() if value is not None
+    ) != set(service_names) or any(
+        service_names[service_id] != names[raw_id]
+        for raw_id, service_id in raw_to_service.items() if service_id is not None
+    ):
         raise ValueError("MODEL_CLASSES_MISMATCH")
-    emit({"type": "ready", "class_ids": list(names)})
+    emit({"type": "ready", "class_ids": list(service_names), "class_names": service_names})
 except Exception as exc:
     emit({"type": "unavailable", "code": str(exc) if str(exc) == "MODEL_CLASSES_MISMATCH" else "MODEL_LOAD_FAILED"})
     sys.exit(1)
@@ -46,8 +56,9 @@ for line in sys.stdin:
                                 verbose=False, device=os.environ.get("CAPTURE_DEVICE") or None)
         detections = []
         for box in results[0].boxes:
-            class_id = int(box.cls.item())
-            if class_id == 1:
+            raw_class_id = int(box.cls.item())
+            class_id = raw_to_service[raw_class_id]
+            if class_id is None:
                 continue
             x1, y1, x2, y2 = (float(value) for value in box.xyxy[0].tolist())
             detections.append({"class_id": class_id, "confidence": float(box.conf.item()),

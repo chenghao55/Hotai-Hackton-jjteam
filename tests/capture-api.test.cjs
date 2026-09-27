@@ -86,6 +86,8 @@ test('multipart API validates image and metadata, returns structured advice',asy
   t.after(()=>new Promise(resolve=>server.close(resolve)));
   const base=`http://127.0.0.1:${server.address().port}`;
   let r=await fetch(base+'/ready');assert.equal(r.status,200);
+  assert.deepEqual((await r.json()).service_classes,
+    {'0':'car','1':'headlight','2':'license_plate','3':'rear_seat_bench','4':'steering_wheel','5':'wheel'});
   const form=new FormData();form.append('metadata',JSON.stringify(metadata()));
   form.append('image',new Blob([png('black')],{type:'image/png'}),'frame.png');
   r=await fetch(base+'/api/v1/capture/analyze',{method:'POST',body:form});

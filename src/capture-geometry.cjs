@@ -79,14 +79,14 @@ function scoreTemplate(template, detections, reference, thresholds) {
 }
 function analyzeGeometry(input, config=defaults) {
   validate(input,config);
-  const detections = input.detections.filter(d => !config.ignored_model_class_ids.includes(d.class_id) && d.confidence>=config.thresholds.detection_confidence);
+  const detections = input.detections.filter(d => d.confidence>=config.thresholds.detection_confidence);
   const templates = config.templates.filter(t => (t.vehicle_type===input.vehicle_type || t.vehicle_type==='shared') &&
     (input.shot_type.startsWith('exterior_') ? t.shot_type.startsWith('exterior_') : t.shot_type===input.shot_type && t.entry_side===input.entry_side));
   const target = templates.find(t=>t.shot_type===input.shot_type);
   if (!target) throw new Error('TEMPLATE_NOT_FOUND');
   const base = {rules_version:config.version,calibration_status:config.calibration_status,vehicle_type:input.vehicle_type,
     requested_slot:input.shot_type,entry_side:input.entry_side??null,classification_is_advisory:true,geometry_passed:false,can_capture:false,
-    ignored_class_ids:config.ignored_model_class_ids,checks:{L3:'not_evaluated',L4:'not_evaluated',L5:'not_evaluated'}};
+    ignored_raw_model_class_ids:config.ignored_raw_model_class_ids,checks:{L3:'not_evaluated',L4:'not_evaluated',L5:'not_evaluated'}};
   const stop = (code, level, status='fail', detail={}) => ({...base,status,code,failed_level:level,...detail});
   if (target.evaluation_mode==='guide_only') {
     base.checks={L3:'not_applicable',L4:'not_applicable',L5:'unknown'};

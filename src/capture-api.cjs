@@ -4,6 +4,7 @@ const http=require('node:http');
 const {decodeImage,ImageError}=require('./image-decode.cjs');
 const {analyzeCapture,validateMetadata,StabilityTracker}=require('./capture-decision.cjs');
 const {YoloClient,InferenceError}=require('./yolo-client.cjs');
+const {defaults:rules}=require('./capture-geometry.cjs');
 const {randomUUID}=require('node:crypto');
 
 const MAX_BODY=11*1024*1024;
@@ -38,7 +39,8 @@ function createServer({detector=new YoloClient(),tracker=new StabilityTracker()}
       const url=new URL(request.url,'http://localhost');
       if(request.method==='GET'&&url.pathname==='/health')return send(200,{status:'alive'});
       if(request.method==='GET'&&url.pathname==='/ready')return send(detector.ready?200:503,
-        {ready:!!detector.ready,code:detector.ready?'READY':detector.reason||'MODEL_NOT_READY',model_version:detector.modelVersion||null});
+        {ready:!!detector.ready,code:detector.ready?'READY':detector.reason||'MODEL_NOT_READY',
+          model_version:detector.modelVersion||null,service_classes:rules.model_classes});
       if(request.method!=='POST'||url.pathname!=='/api/v1/capture/analyze')return send(404,{request_id:requestId,code:'NOT_FOUND'});
       const body=await readBody(request);
       const {metadata,imageBuffer}=await parseMultipart(body,request.headers['content-type']||'');

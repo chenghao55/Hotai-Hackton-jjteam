@@ -1,18 +1,14 @@
 {
-  "version": "capture-templates-v0.4-draft",
+  "version": "capture-templates-v0.5-six-class",
   "calibration_status": "uncalibrated",
   "coordinate_space": "exif_corrected_unmirrored_image_normalized_xyxy",
-  "ignored_model_class_ids": [
-    1
-  ],
   "model_classes": {
     "0": "car",
-    "1": "car-coach-yolo",
-    "2": "headlight",
-    "3": "license_plate",
-    "4": "rear_seat_bench",
-    "5": "steering_wheel",
-    "6": "wheel"
+    "1": "headlight",
+    "2": "license_plate",
+    "3": "rear_seat_bench",
+    "4": "steering_wheel",
+    "5": "wheel"
   },
   "vehicle_types": [
     "sedan",
@@ -63,7 +59,7 @@
       "anchors": [
         {
           "id": "plate",
-          "class_id": 3,
+          "class_id": 2,
           "box": [
             0.205,
             0.625,
@@ -80,7 +76,7 @@
         },
         {
           "id": "near_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.435,
             0.64,
@@ -97,7 +93,7 @@
         },
         {
           "id": "far_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.795,
             0.545,
@@ -114,7 +110,7 @@
         },
         {
           "id": "near_headlight",
-          "class_id": 2,
+          "class_id": 1,
           "box": [
             0.36,
             0.485,
@@ -131,7 +127,7 @@
         },
         {
           "id": "far_headlight",
-          "class_id": 2,
+          "class_id": 1,
           "box": [
             0.115,
             0.465,
@@ -188,7 +184,7 @@
       "anchors": [
         {
           "id": "plate",
-          "class_id": 3,
+          "class_id": 2,
           "box": [
             0.6599999999999999,
             0.625,
@@ -205,7 +201,7 @@
         },
         {
           "id": "near_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.43500000000000005,
             0.64,
@@ -222,7 +218,7 @@
         },
         {
           "id": "far_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.11499999999999999,
             0.545,
@@ -239,7 +235,7 @@
         },
         {
           "id": "near_headlight",
-          "class_id": 2,
+          "class_id": 1,
           "box": [
             0.5,
             0.485,
@@ -256,7 +252,7 @@
         },
         {
           "id": "far_headlight",
-          "class_id": 2,
+          "class_id": 1,
           "box": [
             0.81,
             0.465,
@@ -313,7 +309,7 @@
       "anchors": [
         {
           "id": "plate",
-          "class_id": 3,
+          "class_id": 2,
           "box": [
             0.65,
             0.56,
@@ -330,7 +326,7 @@
         },
         {
           "id": "near_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.43500000000000005,
             0.64,
@@ -347,7 +343,7 @@
         },
         {
           "id": "far_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.11499999999999999,
             0.545,
@@ -404,7 +400,7 @@
       "anchors": [
         {
           "id": "plate",
-          "class_id": 3,
+          "class_id": 2,
           "box": [
             0.22,
             0.56,
@@ -421,7 +417,7 @@
         },
         {
           "id": "near_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.435,
             0.64,
@@ -438,7 +434,7 @@
         },
         {
           "id": "far_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.795,
             0.545,
@@ -495,7 +491,7 @@
       "anchors": [
         {
           "id": "plate",
-          "class_id": 3,
+          "class_id": 2,
           "box": [
             0.205,
             0.59,
@@ -512,7 +508,7 @@
         },
         {
           "id": "near_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.435,
             0.605,
@@ -529,7 +525,7 @@
         },
         {
           "id": "far_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.795,
             0.51,
@@ -546,7 +542,7 @@
         },
         {
           "id": "near_headlight",
-          "class_id": 2,
+          "class_id": 1,
           "box": [
             0.36,
             0.44999999999999996,
@@ -563,7 +559,7 @@
         },
         {
           "id": "far_headlight",
-          "class_id": 2,
+          "class_id": 1,
           "box": [
             0.115,
             0.43000000000000005,
@@ -620,7 +616,7 @@
       "anchors": [
         {
           "id": "plate",
-          "class_id": 3,
+          "class_id": 2,
           "box": [
             0.6599999999999999,
             0.59,
@@ -637,7 +633,7 @@
         },
         {
           "id": "near_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.43500000000000005,
             0.605,
@@ -654,7 +650,7 @@
         },
         {
           "id": "far_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.11499999999999999,
             0.51,
@@ -671,7 +667,7 @@
         },
         {
           "id": "near_headlight",
-          "class_id": 2,
+          "class_id": 1,
           "box": [
             0.5,
             0.44999999999999996,
@@ -688,7 +684,7 @@
         },
         {
           "id": "far_headlight",
-          "class_id": 2,
+          "class_id": 1,
           "box": [
             0.81,
             0.43000000000000005,
@@ -745,7 +741,7 @@
       "anchors": [
         {
           "id": "plate",
-          "class_id": 3,
+          "class_id": 2,
           "box": [
             0.65,
             0.525,
@@ -762,7 +758,7 @@
         },
         {
           "id": "near_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.43500000000000005,
             0.605,
@@ -779,7 +775,7 @@
         },
         {
           "id": "far_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.11499999999999999,
             0.51,
@@ -836,7 +832,7 @@
       "anchors": [
         {
           "id": "plate",
-          "class_id": 3,
+          "class_id": 2,
           "box": [
             0.22,
             0.525,
@@ -853,7 +849,7 @@
         },
         {
           "id": "near_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.435,
             0.605,
@@ -870,7 +866,7 @@
         },
         {
           "id": "far_wheel",
-          "class_id": 6,
+          "class_id": 5,
           "box": [
             0.795,
             0.51,
@@ -916,7 +912,7 @@
       "anchors": [
         {
           "id": "steering",
-          "class_id": 5,
+          "class_id": 4,
           "box": [
             0.115,
             0.26,
@@ -953,7 +949,7 @@
       "anchors": [
         {
           "id": "steering",
-          "class_id": 5,
+          "class_id": 4,
           "box": [
             0.7,
             0.23,
@@ -990,7 +986,7 @@
       "anchors": [
         {
           "id": "rear_bench",
-          "class_id": 4,
+          "class_id": 3,
           "box": [
             0.22,
             0.19,
@@ -1027,7 +1023,7 @@
       "anchors": [
         {
           "id": "rear_bench",
-          "class_id": 4,
+          "class_id": 3,
           "box": [
             0.11,
             0.19,
@@ -1047,5 +1043,26 @@
       "min_valid_features": 1,
       "notes": "由側門斜拍整排後座；椅背與坐墊形成透視梯形，不採正面對稱模板。"
     }
+  ],
+  "raw_model_classes": {
+    "0": "car",
+    "1": "car-coach-yolo",
+    "2": "headlight",
+    "3": "license_plate",
+    "4": "rear_seat_bench",
+    "5": "steering_wheel",
+    "6": "wheel"
+  },
+  "raw_to_service_class_id": {
+    "0": 0,
+    "1": null,
+    "2": 1,
+    "3": 2,
+    "4": 3,
+    "5": 4,
+    "6": 5
+  },
+  "ignored_raw_model_class_ids": [
+    1
   ]
 }

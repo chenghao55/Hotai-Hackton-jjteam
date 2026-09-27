@@ -1,6 +1,6 @@
 # 車輛借還車 AI 拍攝教練：實作計畫與交接缺漏審查
 
-日期：2026-09-25｜版本：第一版原型 v0.1／規劃 v0.4｜狀態：照片 API、畫質檢查、YOLO 常駐工作程式與 L3–L5 規則已實作；`best.pt` 已在本機載入並完成 CPU 合成影像推論，模板仍待真實照片校正。
+日期：2026-09-27｜版本：第一版原型 v0.1／模板 v0.5｜狀態：照片 API、畫質檢查、YOLO 常駐工作程式與 L3–L5 規則已實作；`best.pt` 已在本機載入並完成 CPU 合成影像推論，對外類別為六類，模板仍待真實照片校正。
 
 第一版程式入口為 `src/capture-api.cjs`，影像解碼／EXIF 校正為 `src/image-decode.cjs`，畫質檢查為 `src/photo-quality.cjs`，模型推論為 `src/yolo-client.cjs`＋`src/yolo_worker.py`，漏斗裁決為 `src/capture-decision.cjs`。欄位契約見 `docs/照片API契約.md`。合成影像與模擬偵測結果測試已通過，真實模型已用合成影像跑通 `/ready` 與照片 API；這不等於真實車輛照片的準確率驗證。模板仍標記 `uncalibrated`，因此不能自動建議可拍攝。
 
@@ -20,7 +20,7 @@
 - 前端指定 shot_type 和 vehicle_type，四模板比較只協助找錯槽；最佳誤差與第二名差距都要符合門檻，不明確就拒判。
 - 內裝改為從側門往內斜拍，新增 entry_side=left/right。前後排各拍一張不變，使用四套左右門取景模板。
 - 車內採左駕假設。右前門可能看不到方向盤，改為選用；目前缺前排座椅類別，該情境僅能引導、不能自動證明前排完整。
-- 使用者已確認 class_id=1 可移除：推論規則停用此類，其餘原 ID 不重編；未重訓或修改 best.pt。
+- 使用者已確認 `best.pt` 原始 class_id=1 可停用；推論出口將其餘原始 ID 0、2–6 轉為對外 ID 0–5。權重本身未重訓或修改。
 - OCR 延後至拍攝教練完成，再決定是否加上。
 - 已交付 configs/capture-templates.json、照片 API、畫質與 YOLO 接口、src/capture-geometry.cjs、src/geometry-server.cjs、SVG／圖片圖稿與互動預覽。全部模板為 uncalibrated，不冒充資料校正結果。
 - 試算表唯讀稽核完成，共 27,367 筆；分類欄標明常有誤，尚缺車型與框標註；原圖抽樣下載受環境阻擋。
@@ -34,24 +34,26 @@
 - 第 8 頁提供的是 AI 結果最小 schema 與人工覆核 payload，沒有照片上傳協定、圖片欄位、格式／尺寸、六個視角代碼或即時影格規則。
 - 專案最初附帶的 `model.py`／`train.py` 是二元 CNN 範例，與 YOLO 服務無關，現已從此分支的追蹤檔案移除；原始 `requirements.txt` 也已改為拍攝教練的依賴清單。
 
-### 2.2 best.pt 靜態檢查
+### 2.2 best.pt 原始類別與服務類別
 
-檔案大小：6,253,098 bytes。封存中繼資料指向 yolov8n.pt、detect 任務、Ultralytics 8.4.158、imgsz=640、epochs 設定 50。這些是模型檔的紀錄，不等同本地已成功載入或重跑訓練。
+檔案大小：6,253,098 bytes。封存中繼資料指向 yolov8n.pt、detect 任務、Ultralytics 8.4.158、imgsz=640、epochs 設定 50。模型已在本機成功載入並用合成影像做 CPU 推論；尚未重跑訓練或用真實車輛照片驗證準確率。
 
-| class_id | 模型內名稱 | 規劃用途 |
-|---|---|---|
-| 0 | car | 車身定位與構圖 |
-| 1 | headlight | 頭燈；是否包含尾燈必須查標註 |
-| 2 | license_plate | 車牌位置，沒有 OCR 能力 |
-| 3 | rear_seat_bench | 後排座椅定位 |
-| 4 | steering_wheel | 方向盤定位 |
-| 5 | wheel | 輪子；沒有前輪／後輪子類別 |
+| 服務／API class_id | 類別 | `best.pt` 原始 ID | 用途 |
+|---:|---|---:|---|
+| 0 | car | 0 | 車身定位與構圖 |
+| 1 | headlight | 2 | 頭燈；是否包含尾燈必須查標註 |
+| 2 | license_plate | 3 | 車牌位置，沒有 OCR 能力 |
+| 3 | rear_seat_bench | 4 | 後排座椅定位 |
+| 4 | steering_wheel | 5 | 方向盤定位 |
+| 5 | wheel | 6 | 輪子；沒有前輪／後輪子類別 |
+
+重要差異：`best.pt` 仍含原始 ID 1 `car-coach-yolo`，服務不輸出這一類；`src/yolo_worker.py` 將其餘原始 0、2–6 轉為服務 0–5。`configs/capture-templates.json` 和幾何 API 只接收轉換後 ID。`lecense_plate` 視為 `license_plate` 的拼字誤植，對外名稱沿用模型名稱。
 
 封存 train_metrics：precision=0.9728、recall=0.98214、mAP50=0.97781、mAP50-95=0.91945。這些是原驗證紀錄，尚未核對各類別、資料分割、現場表現或重現性；不能轉述成「教練準確率 97.8%」。
 
 SHA-256：f828065b603db9e3ba912a7adc127e2b1b449c2fcac9a32b4dceb06818c93648。
 
-本次未執行模型推論。系統 Python／PDF 渲染執行元件無法啟動；已用替代方式讀取文件全部文字與模型序列化中的純資料欄位。PDF 視覺版面尚未渲染核對，不影響本計畫所引用的逐頁文字內容，但不宣稱已完成視覺 QA。
+初次規劃時系統 Python 無法啟動；後續已在 `Role_A/.venv` 建立 Python，成功執行模型載入與合成影像推論。PDF 內容已逐頁讀取文字，但視覺版面尚未渲染核對。
 
 ## 3. 六張照片的拍攝契約
 
@@ -233,7 +235,7 @@ capture_phase 為 checkout／return；mode 為 preview／final。case_id 由 D �
 
 ### 7.1 必須先做的稽核
 
-1. 核對 data.yaml、class_id 對照與各類別圖片／框數；class 1 已停用，未來重訓時才整理標註與重新編碼。
+1. 核對 data.yaml、原始／對外 class_id 對照與各類別圖片／框數；原始 class 1 已停用，未來重訓時才整理標註與權重本身的類別結構。
 2. 查 headlight 是否包含尾燈；若命名與標註不一致，先清理定義，再決定保留、拆類或重訓。
 3. 取得原訓練設定、results.csv、逐類 PR／confusion matrix、資料切分方式及各類樣本。
 4. 載入 best.pt，檢查 model.names，跑固定六視角／失敗樣本，測量 CPU／GPU 延遲與各類別漏檢。
@@ -318,7 +320,7 @@ OCR 輸出文字、信心與 match／mismatch／unknown；模糊、過小、反�
 | 優先 | 缺口 | 負責／交接 | 完成條件 |
 |---|---|---|---|
 | P0 | 照片輸入規格尚未存在 | A＋C＋D | 格式、尺寸、傳輸、preview／final、錯誤 schema 確認 |
-| 已處理 | 停用多出的 class 1 | A | 推論規則已忽略，其他類別原 ID 不变；未重訓權重 |
+| 已處理 | 停用原始 class 1、建立對外六類 ID | A | 原始 ID 1 不輸出，原始 0、2–6 轉為服務 0–5；未重訓權重 |
 | P0 | 四角及前後排覆蓋標準未定 | A＋C＋E | 六張模板、正反例與 slot 定義 |
 | P0 | 四角模板、頭燈／尾燈語意與幾何可分性未確認 | A＋E | 既有資料離線評估、各槽容許範圍及歧義拒判；精確高度不列入第一版 |
 | P0 | 未執行、unknown、信心與 risk 所有權未定 | A＋B＋D | 統一 schema 可無歧義表達，版本化 |
@@ -332,7 +334,7 @@ OCR 輸出文字、信心與 match／mismatch／unknown；模糊、過小、反�
 
 ## 12. 開工前待補資訊
 
-已確認車外四張為四個約 45° 車角、車型分轎車／休旅車。class 1 已獲使用者確認停用，保留其他原始 ID。內裝由前端另附左門／右門 entry_side。
+已確認車外四張為四個約 45° 車角、車型分轎車／休旅車。`best.pt` 原始 class 1 已獲使用者確認停用，對外 ID 改為六類連續編號。內裝由前端另附左門／右門 entry_side。
 
 後續實作所需：data.yaml 與標註樣本／原訓練報表；六視角合格與失敗照片；預計 CPU／GPU 與同時使用人數；C 的相機畫面比例／torch／IMU 能力；D 的案件、驗證與照片儲存契約；E 的匿名借還配對資料及驗收標準。缺少資料時可先完成服務骨架與契約，不能完成真實模型與門檻驗收。
 
