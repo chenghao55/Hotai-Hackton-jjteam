@@ -41,14 +41,11 @@
 | class_id | 模型內名稱 | 規劃用途 |
 |---|---|---|
 | 0 | car | 車身定位與構圖 |
-| 1 | car-coach-yolo | 使用者已確認移除；推論規則忽略此 ID，權重保持原狀 |
-| 2 | headlight | 頭燈；是否包含尾燈必須查標註 |
-| 3 | license_plate | 車牌位置，沒有 OCR 能力 |
-| 4 | rear_seat_bench | 後排座椅定位 |
-| 5 | steering_wheel | 方向盤定位 |
-| 6 | wheel | 輪子；沒有前輪／後輪子類別 |
-
-重要差異：模型實際是 7 類，不能直接照使用者口述的 6 類硬編 class_id。使用者已確認停用類別 1；目前只在推論規則忽略，不能直接刪 names 造成其他 ID 位移。
+| 1 | headlight | 頭燈；是否包含尾燈必須查標註 |
+| 2 | license_plate | 車牌位置，沒有 OCR 能力 |
+| 3 | rear_seat_bench | 後排座椅定位 |
+| 4 | steering_wheel | 方向盤定位 |
+| 5 | wheel | 輪子；沒有前輪／後輪子類別 |
 
 封存 train_metrics：precision=0.9728、recall=0.98214、mAP50=0.97781、mAP50-95=0.91945。這些是原驗證紀錄，尚未核對各類別、資料分割、現場表現或重現性；不能轉述成「教練準確率 97.8%」。
 
