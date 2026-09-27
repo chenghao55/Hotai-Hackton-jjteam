@@ -26,3 +26,7 @@
 格式或欄位錯誤回 413／415／422，舊預覽影格回 409，過載回 429，模型不可用回 503；錯誤體有 `request_id`、`code`、`message`、`retryable`。`GET /health` 表示程序存活；`GET /ready` 表示模型確實載入。
 
 正式照片仍需重新分析；不能沿用預覽結果。`image.sha256` 可供 D 實作照片冪等與配對，但此服務尚未保存案件、照片或完成身分授權。`case_id` 的存取驗證和正式照片存證必須由 D 的入口處理。總覽 PDF 的 `vehicle_change`、`damage_type`、`cleanliness`、`risk_level` 是後續比較、B 或 D 的責任，拍攝教練不捏造這些值。
+
+快門採兩條路徑。當 L1–L5 全部通過且模板已用實拍資料校正，第一張符合條件的預覽影格即回 `status=ready`、`guidance.can_capture=true`、`guidance.review_required=false`、`capture_quality.passed=true`。若持續對齊 20 秒仍有構圖問題，但 L1 光線、L2 清晰度通過且外觀車身或內裝關鍵物件可辨識，回 `status=manual_capture_available`、`guidance.code=MANUAL_REVIEW_AVAILABLE`、`can_capture=true`、`review_required=true`、`capture_quality.passed=false`、`recommended_action=human_review`；原始未通過原因保留在 `capture_quality.primary_issue`。右側前門的前排照片是例外：模型缺前排座椅類別，即使沒有方向盤偵測，也可在畫質通過且等待期滿後進人工審理。過暗、模糊、車外主體缺失、車身裁切或疑似拍錯槽位，都不因等待時間而自動開放快門。
+
+等待時間定義在 `configs/capture-templates.json` 的 `manual_review_after_ms`。前端應以同一 `case_id`、`capture_session_id` 和槽位連續送 `mode=preview`，使 `frame_id` 遞增；回應的 `guidance.manual_review_remaining_ms` 可用來顯示人工審理快門倒數。預覽中斷超過 60 秒會重設計時。按下快門後，應以 `mode=final` 再送正式原圖；正式回應的 `status=needs_review` 與 `review_required=true` 表示應由 D 保存照片並建立人工審理待辦，**不代表本服務已完成照片上傳或人工派件**。正式照片若品質變差，仍會拒絕。`can_capture` 只代表可以拍攝／提交照片，只有 `capture_quality.passed=true` 才代表 AI 檢核合格。

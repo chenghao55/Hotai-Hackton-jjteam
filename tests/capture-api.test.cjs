@@ -56,6 +56,82 @@ test('a valid sharp frame runs model and uncalibrated template cannot grant PASS
   assert.equal(result.capture_quality.checks.L1,'pass');
   assert.equal(result.capture_quality.checks.L5,'unknown');
 });
+test('aligned calibrated preview enables shutter on the first passing frame',async()=>{
+  const b=png();
+  const base=require('../configs/capture-templates.json');
+  const config={...base,calibration_status:'calibrated',
+    templates:base.templates.filter(t=>t.id==='sedan_exterior_front_left')};
+  const result=await analyzeCapture({metadata:metadata(),imageBuffer:b,decoded:decodeImage(b),
+    detector:detector(goodDetections()),config});
+  assert.equal(result.status,'ready');
+  assert.equal(result.guidance.can_capture,true);
+  assert.equal(result.guidance.review_required,false);
+  assert.equal(result.capture_quality.passed,true);
+});
+test('after sustained alignment trouble, shutter opens with a mandatory human review flag',async()=>{
+  const b=png(),tracker=new StabilityTracker({manualAfterMs:20000});
+  let tick=0;
+  const args={imageBuffer:b,decoded:decodeImage(b),detector:detector(goodDetections()),tracker,
+    now:()=>tick};
+  const first=await analyzeCapture({...args,metadata:metadata()});
+  assert.equal(first.guidance.can_capture,false);
+  assert.equal(first.guidance.manual_review_remaining_ms,20000);
+  tick=20000;
+  const second=await analyzeCapture({...args,metadata:metadata({frame_id:2})});
+  assert.equal(second.status,'manual_capture_available');
+  assert.equal(second.guidance.code,'MANUAL_REVIEW_AVAILABLE');
+  assert.equal(second.guidance.can_capture,true);
+  assert.equal(second.guidance.review_required,true);
+  assert.equal(second.capture_quality.passed,false);
+  assert.equal(second.capture_quality.primary_issue,'TEMPLATE_NOT_CALIBRATED');
+  assert.equal(second.recommended_action,'human_review');
+  const final=await analyzeCapture({...args,metadata:metadata({frame_id:3,mode:'final'})});
+  assert.equal(final.status,'needs_review');
+  assert.equal(final.guidance.review_required,true);
+});
+test('a timed-out session cannot bypass dark-image or missing-subject gates',async()=>{
+  const tracker=new StabilityTracker({manualAfterMs:20000});
+  let tick=0;
+  const b=png('black');
+  const args={imageBuffer:b,decoded:decodeImage(b),detector:detector(goodDetections()),tracker,
+    now:()=>tick};
+  await analyzeCapture({...args,metadata:metadata()});
+  tick=20000;
+  const dark=await analyzeCapture({...args,metadata:metadata({frame_id:2})});
+  assert.equal(dark.guidance.can_capture,false);
+  assert.equal(dark.guidance.code,'TOO_DARK');
+  const sharp=png();
+  const missing=await analyzeCapture({...args,imageBuffer:sharp,decoded:decodeImage(sharp),
+    detector:detector(),metadata:metadata({frame_id:3})});
+  assert.equal(missing.guidance.can_capture,false);
+  assert.equal(missing.guidance.code,'SUBJECT_NOT_DETECTED');
+});
+test('the manual-review timer resets after a long preview interruption',async()=>{
+  const b=png(),tracker=new StabilityTracker({manualAfterMs:20000,sessionIdleMs:60000});
+  let tick=0;
+  const args={imageBuffer:b,decoded:decodeImage(b),detector:detector(goodDetections()),tracker,
+    now:()=>tick};
+  await analyzeCapture({...args,metadata:metadata()});
+  tick=61000;
+  const resumed=await analyzeCapture({...args,metadata:metadata({frame_id:2})});
+  assert.equal(resumed.guidance.can_capture,false);
+  assert.equal(resumed.guidance.manual_review_remaining_ms,20000);
+});
+test('final photo must pass its own quality checks even after manual shutter unlocks',async()=>{
+  const b=png(),tracker=new StabilityTracker({manualAfterMs:20000});
+  let tick=0;
+  const args={imageBuffer:b,decoded:decodeImage(b),detector:detector(goodDetections()),tracker,
+    now:()=>tick};
+  await analyzeCapture({...args,metadata:metadata()});
+  tick=20000;
+  const unlocked=await analyzeCapture({...args,metadata:metadata({frame_id:2})});
+  assert.equal(unlocked.guidance.can_capture,true);
+  const dark=png('black');
+  const final=await analyzeCapture({...args,imageBuffer:dark,decoded:decodeImage(dark),
+    metadata:metadata({frame_id:3,mode:'final'})});
+  assert.equal(final.guidance.can_capture,false);
+  assert.equal(final.guidance.code,'TOO_DARK');
+});
 test('bright background with dark subject returns backlight advice',async()=>{
   const p=new PNG({width:256,height:256});
   for(let y=0;y<256;y++)for(let x=0;x<256;x++){
