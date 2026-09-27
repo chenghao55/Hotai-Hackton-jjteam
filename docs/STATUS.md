@@ -6,7 +6,7 @@ This file records shared repository status. It is not an individual agent checkp
 
 - Verified on: 2026-09-28
 - Verified against: current `main` worktree
-- Full Python suite: **341 passed, 2 warnings, 0 failed**
+- Full Python suite: **349 passed, 2 warnings, 0 failed**
 - Command: `python -m pytest -q`
 - The two warnings are existing FastAPI/Starlette dependency deprecation warnings.
 
@@ -53,14 +53,17 @@ Completed:
 - `AIAnalyzer`, `DamageModelAnalyzer`, and `AIFinding` exist.
 - `CaseBuildingModuleB.analyze(case_id, photos)` is the high-level entry point and returns a Module D `Case`.
 - The orchestration path is `AIFinding -> DetectionInput -> module_d.create_case()`.
-- Multi-photo `CaptureSlot` evidence pairing is implemented from Module A metadata; list order is not used as provenance.
-- Fixed capture slots require a BORROW/RETURN pair.
+- Multi-photo evidence mapping is implemented from Module A metadata; list order is not used as provenance.
+- Exterior damage slots accept a complete BORROW/RETURN pair or RETURN-only evidence.
+- BORROW-only fixed damage slots and duplicate sides remain invalid.
 - Multiple RETURN `OTHER_DAMAGE` photos are supported as return-only evidence.
+- `FUEL_PARKING_CARD`, `INTERIOR_FRONT`, and `INTERIOR_REAR` are excluded from damage-model input.
 - Findings preserve their true `source_photo_id`.
 
 Current limitation:
 
-- The included analyzer evaluates photos individually. The evidence pairing is structurally correct, but true before/after visual comparison remains model work.
+- The included analyzer evaluates model-relevant photos individually. Complete-pair evidence
+  mapping is structurally correct, but true before/after visual comparison remains model work.
 
 ## Module C
 
@@ -119,7 +122,9 @@ Intended integration:
 
 ## Integration blockers and gaps
 
-- The earlier return-only evidence blocker is resolved. Module D accepts an explicitly supplied `borrow_photo_id=None`, and Module B uses it only for RETURN `OTHER_DAMAGE` evidence.
+- Return-only damage evidence is supported end to end. Module D accepts an explicitly supplied
+  `borrow_photo_id=None`, and Module B uses it for RETURN exterior/damage photos without
+  fabricating borrow evidence.
 - The real Module A shooting-guidance implementation must replace `StubPhotoGuidanceService` when it is available.
 - `UI_client` must migrate from its prototype analysis call to the canonical Module E photo and Case-creation flow.
 
@@ -133,9 +138,10 @@ Intended integration:
 
 Repository inspection found three differences from the supplied starting notes:
 
-- Module B multi-photo `CaptureSlot` pairing is already implemented.
+- Module B now follows the deployed single-image model: return-only exterior evidence is valid,
+  while card and interior photos are filtered out before inference.
 - Module D already supports nullable borrow evidence for generic return-only detections, so that contract is no longer blocking integration.
-- The confirmed full pytest checkpoint is now 341 passed.
+- The confirmed full pytest checkpoint is now 349 passed.
 
 ## Status-recording rule
 

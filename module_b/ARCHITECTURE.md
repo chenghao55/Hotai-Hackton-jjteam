@@ -512,14 +512,20 @@ HITL、Hotai 圖片、annotation queue 與人工標註依資料治理規則不�
 形式的 category/severity，以及原始 confidence。
 
 `CaseBuildingModuleB` 使用 Module A 的 `PhotoType` 與 `CaptureSlot` metadata 驗證
-multi-photo input。每個有出現的固定 slot 都必須恰好有一張 borrow 與一張 return；
-同 slot 重複或缺少任一側都會拒絕。`RETURN + OTHER_DAMAGE` 可出現多張，不要求
-borrow counterpart，並轉成 `borrow_photo_id=None` 的 return-only `DetectionInput`。
-其他 finding 則依 `source_photo_id` 取得同 slot 的 borrow/return evidence pair。
+multi-photo input。模型支援的固定車身 slot 可傳完整 borrow/return pair，也可只傳
+return；borrow-only 仍會拒絕，同 slot 的重複 borrow 或 return 也會拒絕。return-only
+finding 會轉成 `borrow_photo_id=None` 的 `DetectionInput`。完整 pair 的 finding 則依
+必填的 `source_photo_id` 取得同 slot 的 borrow/return evidence pair。
+
+`RETURN + OTHER_DAMAGE` 維持可出現多張、不要求 borrow counterpart 的規則，每張
+照片都有獨立的 return-only evidence。`FUEL_PARKING_CARD`、`INTERIOR_FRONT` 與
+`INTERIOR_REAR` 仍可存在於 Module A，但不屬於目前 damage model 的輸入 domain，
+所以 orchestrator 會驗證 metadata 後將它們排除，不傳給 analyzer。
 
 Module D 接著依 `DecisionPolicy.review_confidence_threshold` 決定 `needs_review` 或
 `auto_accepted` 並計算 priority；因此 B 不重作 D 的 review 或 priority 規則。
 
-CaptureSlot pairing 目前只用於 photo-set 結構驗證與 evidence ID 對應。所有合法照片
-仍各自送入現有單張 damage model，包括 `FUEL_PARKING_CARD` 與 `OTHER_DAMAGE`；目前
-沒有 filtering，也沒有真正的 borrow/return 視覺差異比較或責任判定。
+CaptureSlot metadata 目前只用於 analyzer filtering、photo-set 結構驗證與 evidence ID
+對應。`FRONT_LEFT`、`FRONT_RIGHT`、`REAR_LEFT`、`REAR_RIGHT`、`REAR` 與
+`OTHER_DAMAGE` 會逐張送入現有單張 damage model。完整 pair 的兩張照片仍各自推論；
+目前沒有真正的 borrow/return 視覺差異比較或責任判定。

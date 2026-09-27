@@ -16,6 +16,27 @@ class _EvidencePair:
     return_photo_id: str
 
 
+@dataclass(frozen=True)
+class _PreparedPhotos:
+    analyzer_photos: list[tuple[str, bytes]]
+    evidence_by_photo_id: dict[str, _EvidencePair]
+
+
+_DAMAGE_FIXED_SLOTS = frozenset({
+    CaptureSlot.FRONT_LEFT,
+    CaptureSlot.FRONT_RIGHT,
+    CaptureSlot.REAR_LEFT,
+    CaptureSlot.REAR_RIGHT,
+    CaptureSlot.REAR,
+})
+
+_AUXILIARY_SLOTS = frozenset({
+    CaptureSlot.FUEL_PARKING_CARD,
+    CaptureSlot.INTERIOR_FRONT,
+    CaptureSlot.INTERIOR_REAR,
+})
+
+
 class CaseBuildingModuleB(ModuleB):
     """Delegates AI findings and all Case-domain decisions to their owners."""
 
@@ -25,23 +46,24 @@ class CaseBuildingModuleB(ModuleB):
         self._policy = policy
 
     def analyze(self, case_id: str, photos: list[tuple[str, bytes]]) -> Case:
-        """Analyze uploaded photos, pair their evidence, and create a Case."""
-        evidence_by_photo_id = self._group_photos_by_slot(photos)
-        findings = self._analyzer.analyze(photos)
+        """Analyze model-relevant photos, attach evidence, and create a Case."""
+        prepared = self._prepare_photos(photos)
+        findings = self._analyzer.analyze(prepared.analyzer_photos)
         detection_inputs = [
-            self._to_detection_input(finding, evidence_by_photo_id)
+            self._to_detection_input(finding, prepared.evidence_by_photo_id)
             for finding in findings
         ]
         return create_case(case_id, detection_inputs, policy=self._policy)
 
     @staticmethod
-    def _group_photos_by_slot(
+    def _prepare_photos(
         photos: list[tuple[str, bytes]],
-    ) -> dict[str, _EvidencePair]:
-        """Match each photo to its borrow/return evidence pair by capture slot.
+    ) -> _PreparedPhotos:
+        """Validate metadata and prepare model inputs with their evidence.
 
-        Fixed slots require one borrow and one return image; OTHER_DAMAGE accepts
-        return-only evidence.
+        Damage slots accept either a complete borrow/return pair or return-only
+        evidence. Auxiliary card and interior slots are valid stored photos but
+        are outside the deployed damage model's input domain.
         """
         if not isinstance(photos, list):
             raise TypeError("photos must be a list of (photo_id, bytes) pairs")
@@ -51,6 +73,7 @@ class CaseBuildingModuleB(ModuleB):
         fixed_slots: dict[CaptureSlot, dict[PhotoType, str]] = {}
         other_damage_returns: list[str] = []
         seen_photo_ids: set[str] = set()
+        analyzer_photos: list[tuple[str, bytes]] = []
 
         for photo in photos:
             if not isinstance(photo, tuple) or len(photo) != 2:
@@ -82,7 +105,14 @@ class CaseBuildingModuleB(ModuleB):
                 if info.photo_type != PhotoType.RETURN:
                     raise ValueError("OTHER_DAMAGE photos must be return photos")
                 other_damage_returns.append(photo_id)
+                analyzer_photos.append(photo)
                 continue
+
+            if info.capture_slot in _AUXILIARY_SLOTS:
+                continue
+
+            if info.capture_slot not in _DAMAGE_FIXED_SLOTS:
+                raise ValueError(f"unsupported capture slot: {info.capture_slot.value!r}")
 
             slot_photos = fixed_slots.setdefault(info.capture_slot, {})
             if info.photo_type in slot_photos:
@@ -91,27 +121,25 @@ class CaseBuildingModuleB(ModuleB):
                     f"{info.capture_slot.value!r}"
                 )
             slot_photos[info.photo_type] = photo_id
+            analyzer_photos.append(photo)
 
         evidence_by_photo_id: dict[str, _EvidencePair] = {}
         for capture_slot, slot_photos in fixed_slots.items():
             borrow_photo_id = slot_photos.get(PhotoType.BORROW)
             return_photo_id = slot_photos.get(PhotoType.RETURN)
-            if borrow_photo_id is None:
-                raise ValueError(
-                    f"missing matching borrow photo for capture slot {capture_slot.value!r}"
-                )
             if return_photo_id is None:
                 raise ValueError(
                     f"missing matching return photo for capture slot {capture_slot.value!r}"
                 )
             pair = _EvidencePair(borrow_photo_id, return_photo_id)
-            evidence_by_photo_id[borrow_photo_id] = pair
+            if borrow_photo_id is not None:
+                evidence_by_photo_id[borrow_photo_id] = pair
             evidence_by_photo_id[return_photo_id] = pair
 
         for return_photo_id in other_damage_returns:
             evidence_by_photo_id[return_photo_id] = _EvidencePair(None, return_photo_id)
 
-        return evidence_by_photo_id
+        return _PreparedPhotos(analyzer_photos, evidence_by_photo_id)
 
     @staticmethod
     def _to_detection_input(

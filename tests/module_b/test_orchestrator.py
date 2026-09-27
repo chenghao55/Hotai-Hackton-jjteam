@@ -129,13 +129,29 @@ def test_missing_matching_return_is_invalid(photo_metadata):
         build(RecordingAnalyzer()).analyze("case-1", photos)
 
 
-def test_missing_matching_borrow_is_invalid(photo_metadata):
+@pytest.mark.parametrize(
+    "capture_slot",
+    [
+        CaptureSlot.FRONT_LEFT,
+        CaptureSlot.FRONT_RIGHT,
+        CaptureSlot.REAR_LEFT,
+        CaptureSlot.REAR_RIGHT,
+        CaptureSlot.REAR,
+    ],
+)
+def test_return_only_damage_slot_is_valid(photo_metadata, capture_slot):
     photos = [
-        add_photo(photo_metadata, "return-front", PhotoType.RETURN, CaptureSlot.FRONT_LEFT)
+        add_photo(photo_metadata, "return-photo", PhotoType.RETURN, capture_slot)
     ]
+    analyzer = RecordingAnalyzer([finding("return-photo")])
 
-    with pytest.raises(ValueError, match="missing matching borrow.*front_left"):
-        build(RecordingAnalyzer()).analyze("case-1", photos)
+    case = build(analyzer).analyze("case-1", photos)
+
+    assert analyzer.received == photos
+    detection = case.detections[0]
+    assert detection.borrow_photo_id is None
+    assert detection.return_photo_id == "return-photo"
+    assert detection.source_photo_id == "return-photo"
 
 
 def test_duplicate_borrow_for_fixed_slot_is_invalid(photo_metadata):
@@ -151,7 +167,6 @@ def test_duplicate_borrow_for_fixed_slot_is_invalid(photo_metadata):
 
 def test_duplicate_return_for_fixed_slot_is_invalid(photo_metadata):
     photos = [
-        add_photo(photo_metadata, "borrow-front", PhotoType.BORROW, CaptureSlot.FRONT_LEFT),
         add_photo(photo_metadata, "return-front-1", PhotoType.RETURN, CaptureSlot.FRONT_LEFT),
         add_photo(photo_metadata, "return-front-2", PhotoType.RETURN, CaptureSlot.FRONT_LEFT),
     ]
@@ -189,7 +204,7 @@ def test_borrow_other_damage_metadata_is_invalid(photo_metadata):
         build(RecordingAnalyzer()).analyze("case-1", [("invalid-extra", b"image")])
 
 
-def test_mixed_pairs_and_other_damage_are_all_sent_once_to_analyzer(photo_metadata):
+def test_only_damage_model_slots_are_sent_once_to_analyzer_in_input_order(photo_metadata):
     photos = [
         add_photo(photo_metadata, "return-extra-1", PhotoType.RETURN, CaptureSlot.OTHER_DAMAGE),
         add_photo(photo_metadata, "borrow-fuel", PhotoType.BORROW, CaptureSlot.FUEL_PARKING_CARD),
@@ -202,8 +217,42 @@ def test_mixed_pairs_and_other_damage_are_all_sent_once_to_analyzer(photo_metada
 
     build(analyzer).analyze("case-1", photos)
 
-    assert analyzer.received == photos
-    assert len({photo_id for photo_id, _ in analyzer.received}) == len(photos)
+    assert analyzer.received == [photos[0], photos[2], photos[4], photos[5]]
+    assert len({photo_id for photo_id, _ in analyzer.received}) == len(analyzer.received)
+
+
+@pytest.mark.parametrize(
+    "capture_slot",
+    [
+        CaptureSlot.FUEL_PARKING_CARD,
+        CaptureSlot.INTERIOR_FRONT,
+        CaptureSlot.INTERIOR_REAR,
+    ],
+)
+def test_auxiliary_slots_are_valid_but_filtered_from_analyzer(photo_metadata, capture_slot):
+    photos = [
+        add_photo(photo_metadata, "auxiliary-photo", PhotoType.RETURN, capture_slot)
+    ]
+    analyzer = RecordingAnalyzer()
+
+    case = build(analyzer).analyze("case-1", photos)
+
+    assert analyzer.received == []
+    assert case.detections == []
+
+
+def test_finding_cannot_claim_filtered_auxiliary_photo(photo_metadata):
+    photos = [
+        add_photo(
+            photo_metadata,
+            "interior-photo",
+            PhotoType.RETURN,
+            CaptureSlot.INTERIOR_FRONT,
+        )
+    ]
+
+    with pytest.raises(ValueError, match="source_photo_id must match"):
+        build(RecordingAnalyzer([finding("interior-photo")])).analyze("case-1", photos)
 
 
 def test_duplicate_photo_id_is_invalid(photo_metadata):

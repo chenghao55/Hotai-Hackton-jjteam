@@ -149,15 +149,20 @@ module_d.create_case(...)
 Case
 ```
 
-`source_photo_id` is optional provenance for a per-photo AI finding.
-When present, it must match one of the non-`None` evidence photo IDs.
+`AIFinding.source_photo_id` is required provenance for every per-photo AI finding.
+Module B forwards it to D, where it must match one of the non-`None` evidence photo IDs.
 
 Module B accepts multiple photos and uses Module A metadata to validate their structure:
 
-- Fixed CaptureSlots require one borrow and one return photo for every slot that appears.
+- Damage slots (`FRONT_LEFT`, `FRONT_RIGHT`, `REAR_LEFT`, `REAR_RIGHT`, and `REAR`)
+  accept either a complete borrow/return pair or return-only evidence.
+- A borrow-only damage slot is invalid, and duplicate borrow or return photos for the same fixed
+  damage slot are invalid.
 - `OTHER_DAMAGE` is return-only, may appear multiple times, and requires no borrow counterpart.
-- CaptureSlot pairing currently provides structural validation and Detection evidence mapping.
-- The current AI still analyzes each photo independently; pairing is not true before/after visual differencing.
+- `FUEL_PARKING_CARD`, `INTERIOR_FRONT`, and `INTERIOR_REAR` are stored photo types but are
+  excluded from the damage analyzer.
+- The current AI analyzes model-relevant photos independently; complete pairing is evidence
+  mapping, not true before/after visual differencing.
 
 **Important**
 B owns AI interpretation, not D's domain policy.
@@ -450,7 +455,7 @@ No agent should rewrite another module merely because doing so is easier locally
 - Module A photo storage
 - Module A `CaptureSlot` photo metadata and return-only `OTHER_DAMAGE` validation
 - Module B AI + orchestration
-- Module B multi-photo CaptureSlot pairing and return-only `OTHER_DAMAGE` evidence
+- Module B model-slot filtering, complete-pair compatibility, and return-only damage evidence
 - Module D domain logic
 - Module D nullable `borrow_photo_id` support for return-only detection evidence
 - `DetectionInput`
@@ -467,7 +472,7 @@ No agent should rewrite another module merely because doing so is easier locally
 Current full-suite checkpoint:
 
 ```text
-341 passed
+349 passed
 2 warnings
 0 failed
 ```
@@ -734,10 +739,11 @@ other_damage
 MVP assumption: `CaptureSlot.OTHER_DAMAGE` is return-only. It represents newly
 observed damage during return and does not require a matching borrow photo.
 
-Fixed CaptureSlots pair borrow and return photos by `CaptureSlot`. This pairing currently
-validates photo-set structure and associates findings with evidence IDs. The deployed AI
-still performs independent single-photo inference and does not perform true before/after
-visual differencing.
+Exterior damage slots accept either complete borrow/return evidence or a return photo alone.
+When both sides are provided, their `CaptureSlot` associates findings with the evidence pair;
+when only return evidence is provided, Module B passes `borrow_photo_id=None` to Module D.
+The deployed AI performs independent single-photo inference and does not perform true
+before/after visual differencing. Card and interior slots are not sent to the damage analyzer.
 
 ---
 
