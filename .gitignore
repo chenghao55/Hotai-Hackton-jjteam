@@ -11,3 +11,5 @@ data/
 .runtime/
 .venv/
 .pnpm-store/
+/model.py
+/train.py

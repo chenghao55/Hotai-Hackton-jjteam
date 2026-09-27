@@ -11,7 +11,7 @@
 5. 執行 `npm start`。預設只監聽 `127.0.0.1:8080`。以 `GET /ready` 確認模型已載入。模型缺少或類別不符時，此端點回 503。
 6. 另一個終端機執行 `pnpm test`（或 `npm test`）。`node examples/send-photo.cjs <照片路徑>` 可送一張試驗照片；先在範例中修改案件和拍攝槽位。`python tests/model-smoke.py <best.pt 路徑>` 可驗證真實模型載入與一張合成影像推論。
 
-Node 服務透過常駐 Python 程序載入一次 YOLO；每張影像由 Pillow 校正 EXIF 後推論，輸出校正後原圖的正規化偵測框。服務本身不儲存照片。`model.py` 和 `train.py` 是原有的 CNN 示例，正式服務不使用它們。
+Node 服務透過常駐 Python 程序載入一次 YOLO；每張影像由 Pillow 校正 EXIF 後推論，輸出校正後原圖的正規化偵測框。服務本身不儲存照片。舊版 CNN 範例已從此分支的追蹤檔案移除。
 
 ## 目前的判定範圍
 

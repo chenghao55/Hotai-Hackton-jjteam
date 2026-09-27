@@ -32,7 +32,7 @@
 - 《拍攝教練指導語》共 2 頁：L1 光線、L2 模糊、L3 距離、L4 置中、L5 高度、L6 特徵角度，全部合格才 PASS。
 - 《專案A_ABCDE功能與交接總覽》共 8 頁：已逐頁讀取，並再次核對完整總覽及第 8 頁交付規則。
 - 第 8 頁提供的是 AI 結果最小 schema 與人工覆核 payload，沒有照片上傳協定、圖片欄位、格式／尺寸、六個視角代碼或即時影格規則。
-- 現有 model.py 是簡易二元 CNN；train.py 只做隨機 32×32 輸入的前向測試，沒有 YOLO 訓練或服務流程。requirements.txt 目前只有 torch、torchvision、numpy。
+- 專案最初附帶的 `model.py`／`train.py` 是二元 CNN 範例，與 YOLO 服務無關，現已從此分支的追蹤檔案移除；原始 `requirements.txt` 也已改為拍攝教練的依賴清單。
 
 ### 2.2 best.pt 靜態檢查
 
