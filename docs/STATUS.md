@@ -47,6 +47,7 @@ Completed:
 Open:
 
 - Real shooting-guidance AI has not been integrated. Module E currently uses a stub guidance service.
+- A Python guidance core is now available (`module_a.PhotoCoach`), including draft quality/geometry checks and manual-capture advice. It is not wired to E: the current HTTP context and acceptance schemas cannot faithfully represent its inputs and uncertainty/manual outputs. See `docs/tasks/module-a-coach.md`. Storage contracts remain unchanged; templates still require real-photo calibration.
 
 ## Module B
 
