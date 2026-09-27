@@ -1,11 +1,25 @@
 """Case HTTP routes owned by Module E."""
 
 from collections.abc import Callable
+from typing import Annotated
+from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
-from backend.schemas.cases import CaseCreateRequest, PaymentRequest, ReviewRequest
+from backend.schemas.cases import (
+    CaseCreateRequest,
+    CaseFromPhotosRequest,
+    PaymentRequest,
+    ReviewRequest,
+)
+from backend.services.case_building import get_case_building_module_b_provider
+from backend.services.photo_storage import (
+    PhotoStorageNotFoundError,
+    PhotoStorageService,
+    get_photo_storage_service,
+)
 from backend.state.cases import cases
+from module_b import ModuleB
 from module_d import logic
 from module_d.models import Case, Detection, ReviewState
 from module_d.policy import demo_policy
@@ -30,6 +44,14 @@ def _domain_conflict(operation: Callable[[], None]) -> None:
 
 def _invalid_create(detail: str) -> HTTPException:
     return HTTPException(status_code=422, detail=detail)
+
+
+def _new_case_id() -> str:
+    """Create an E-owned resource ID without overwriting in-memory Case state."""
+    while True:
+        case_id = str(uuid4())
+        if case_id not in cases:
+            return case_id
 
 
 @router.get("/cases", response_model=list[Case])
@@ -66,6 +88,34 @@ async def create_case(request: CaseCreateRequest) -> Case:
         logic.calculate_priority(case, policy)
     except ValueError as exc:
         raise _invalid_create(str(exc)) from exc
+    cases[case.case_id] = case
+    return case
+
+
+@router.post("/cases/from-photos", response_model=Case, status_code=201)
+async def create_case_from_photos(
+    request: CaseFromPhotosRequest,
+    storage_service: Annotated[PhotoStorageService, Depends(get_photo_storage_service)] = None,
+    module_b_provider: Annotated[
+        Callable[[], ModuleB], Depends(get_case_building_module_b_provider)
+    ] = None,
+) -> Case:
+    """Load accepted photos, delegate Case construction to Module B, then store it."""
+    case_id = _new_case_id()
+
+    photos: list[tuple[str, bytes]] = []
+    for photo_id in request.photo_ids:
+        try:
+            image, _ = storage_service.get(photo_id)
+        except PhotoStorageNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=f"Unknown photo_id: {photo_id!r}") from exc
+        photos.append((photo_id, image))
+
+    try:
+        case = module_b_provider().analyze(case_id, photos)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     cases[case.case_id] = case
     return case
 

@@ -4,11 +4,9 @@ This file records shared repository status. It is not an individual agent checkp
 
 ## Last verified checkpoint
 
-- Verified on: 2026-09-26
-- Branch: `main`
-- Commit: `911f806` (`feat(module-b): pair photo evidence by capture slot`)
-- Working tree at verification: clean
-- Full Python suite: **331 passed, 2 warnings, 0 failed**
+- Verified on: 2026-09-28
+- Verified against: current `main` worktree
+- Full Python suite: **341 passed, 2 warnings, 0 failed**
 - Command: `python -m pytest -q`
 - The two warnings are existing FastAPI/Starlette dependency deprecation warnings.
 
@@ -96,13 +94,13 @@ Completed:
 - `POST /photos`.
 - `GET /photos/{photo_id}`.
 - Case HTTP schemas and routes, including the existing review, appeal, workflow, and payment endpoints.
+- `POST /cases/from-photos` accepts accepted `photo_ids`; Module E generates the UUID `case_id`, loads bytes through the storage adapter, calls injected Module B, and stores the Case only after successful analysis.
+- Module B checkpoint and device configuration are centralized in `backend/services/case_building.py`; tests override the lazy provider and do not load ML.
 - In-memory Case state for the MVP.
 - `module_d.api.app` remains a legacy compatibility import for the canonical app.
 
 Open:
 
-- The production `photo_ids -> Module B -> Module D -> Case` HTTP endpoint and its final request contract have not been implemented.
-- Production Module B dependency and model-checkpoint wiring have not been added to the composition root.
 - Database persistence and authentication are intentionally outside the current MVP.
 
 ## UI
@@ -116,22 +114,20 @@ Intended integration:
 
 1. Use `POST /photo-guidance` for live capture guidance.
 2. Use `POST /photos` for each accepted shutter capture and retain the returned `photo_id`.
-3. Submit the completed photo ID set to the future production Case-creation endpoint.
+3. Submit the completed photo ID set to `POST /cases/from-photos`.
 4. Module E calls Module B in-process; Module E does not call Module B over HTTP.
 
 ## Integration blockers and gaps
 
 - The earlier return-only evidence blocker is resolved. Module D accepts an explicitly supplied `borrow_photo_id=None`, and Module B uses it only for RETURN `OTHER_DAMAGE` evidence.
-- The main missing integration contract is the production Case-creation HTTP request that receives uploaded photo IDs and invokes Module B.
 - The real Module A shooting-guidance implementation must replace `StubPhotoGuidanceService` when it is available.
-- `UI_client` must migrate from its prototype analysis call to the canonical Module E photo and future Case-creation flow.
+- `UI_client` must migrate from its prototype analysis call to the canonical Module E photo and Case-creation flow.
 
 ## Team-level next steps
 
-1. Design and implement the smallest production Case-creation flow in Module E: resolve stored photos, call a configured `CaseBuildingModuleB`, store the returned valid Case atomically, and return the HTTP response.
-2. Replace the shooting-guidance stub when Module A's real implementation is merged.
-3. Connect `UI_client` to the canonical photo and Case-creation routes.
-4. Run an end-to-end demo covering capture, upload, Case creation, review, workflow, and payment.
+1. Replace the shooting-guidance stub when Module A's real implementation is merged.
+2. Connect `UI_client` to the canonical photo and Case-creation routes.
+3. Run an end-to-end demo covering capture, upload, Case creation, review, workflow, and payment.
 
 ## Differences from the previous written checkpoint
 
@@ -139,7 +135,7 @@ Repository inspection found three differences from the supplied starting notes:
 
 - Module B multi-photo `CaptureSlot` pairing is already implemented.
 - Module D already supports nullable borrow evidence for generic return-only detections, so that contract is no longer blocking integration.
-- The confirmed full pytest checkpoint is 331 passed rather than 312 passed.
+- The confirmed full pytest checkpoint is now 341 passed.
 
 ## Status-recording rule
 

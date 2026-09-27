@@ -1,5 +1,11 @@
 """Small E-owned service adapters for backend routes."""
 
+from .case_building import (
+    ModuleBConfiguration,
+    get_case_building_module_b,
+    get_case_building_module_b_provider,
+    get_module_b_configuration,
+)
 from .photo_guidance import (
     PhotoGuidanceService,
     StubPhotoGuidanceService,
@@ -13,11 +19,15 @@ from .photo_storage import (
 )
 
 __all__ = [
+    "ModuleBConfiguration",
     "PhotoGuidanceService",
     "PhotoStorageService",
     "PhotoStorageNotFoundError",
     "StubPhotoGuidanceService",
     "ModuleAPhotoStorageService",
+    "get_case_building_module_b",
+    "get_case_building_module_b_provider",
+    "get_module_b_configuration",
     "get_photo_guidance_service",
     "get_photo_storage_service",
 ]

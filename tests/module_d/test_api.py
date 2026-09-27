@@ -364,7 +364,7 @@ def test_only_requested_endpoints_in_openapi(client):
     assert response.status_code == 200
     paths = response.json()["paths"]
     assert set(paths) == {
-        "/cases", "/cases/{case_id}", "/cases/{case_id}/dispatch",
+        "/cases", "/cases/from-photos", "/cases/{case_id}", "/cases/{case_id}/dispatch",
         "/cases/{case_id}/start-processing", "/cases/{case_id}/finish-processing",
         "/cases/{case_id}/complete-without-action", "/cases/{case_id}/payment",
         "/cases/{case_id}/confirm-payment",
@@ -372,5 +372,6 @@ def test_only_requested_endpoints_in_openapi(client):
         "/cases/{case_id}/detections/{detection_id}/appeal",
     }
     assert set(paths["/cases"]) == {"get", "post"}
+    assert set(paths["/cases/from-photos"]) == {"post"}
     assert set(paths["/cases/{case_id}/payment"]) == {"put"}
     assert client.get("/docs").status_code == 200

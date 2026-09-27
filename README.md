@@ -326,11 +326,12 @@ GET  /photos/{photo_id}
 - Case schemas, in-memory state, and routes are extracted into `backend/`
 - `backend/main.py` is the canonical Module E composition root
 - `module_d/api.py` is a legacy compatibility layer that reuses the canonical app
+- `POST /cases/from-photos` accepts photo IDs, generates the Case resource ID, delegates Case building to Module B, and stores the returned Case
 
 **Next E work**
 ```text
-1. Add the production Case creation API: photo_ids → load bytes → B.analyze() → store Case
-2. Replace guidance stub with Module A implementation after A is merged
+1. Replace guidance stub with Module A implementation after A is merged
+2. Connect the UI client to the production Case-creation API
 3. Run end-to-end demo
 ```
 
@@ -466,7 +467,7 @@ No agent should rewrite another module merely because doing so is easier locally
 Current full-suite checkpoint:
 
 ```text
-331 passed
+341 passed
 2 warnings
 0 failed
 ```
@@ -511,7 +512,8 @@ backend/
 │   ├── cases.py
 │   └── photos.py
 ├── services/
-    ├── photo_guidance.py
+│   ├── case_building.py
+│   ├── photo_guidance.py
 │   └── photo_storage.py
 └── state/
     └── cases.py
@@ -559,7 +561,27 @@ cases: dict[str, Case]
 
 Restarting the server may clear Case state.
 
-### E4 — End-to-end demo
+### E4 — Production Case creation API (complete)
+
+`POST /cases/from-photos` accepts previously accepted photo IDs. The caller does not provide
+`case_id`; Module E generates a UUID resource ID and returns it in the Case response:
+
+```json
+{
+  "photo_ids": ["borrow-photo-id", "return-photo-id"]
+}
+```
+
+Module E loads each photo through `PhotoStorageService`, passes ordered
+`(photo_id, bytes)` values and its generated `case_id` to Module B, and stores the returned
+Case only after successful analysis. The route does not create D detections or apply D policy.
+
+Module B runtime configuration is centralized in `backend/services/case_building.py`.
+`HOTAI_MODULE_B_CHECKPOINT_PATH` and `HOTAI_MODULE_B_DEVICE` override the default
+`artifacts/module_b/damage_multitask.pth` path and `auto` device. The route receives a lazy
+Module B provider, so tests can override it without loading the ML checkpoint.
+
+### E5 — End-to-end demo
 
 Target:
 
@@ -877,8 +899,8 @@ When updating this README:
 Current E sequence:
 
 ```text
-1. Add the production Case creation API: photo_ids → load bytes → B.analyze() → store Case
-2. Replace guidance stub with Module A implementation after A is merged
+1. Replace guidance stub with Module A implementation after A is merged
+2. Connect the UI client to `POST /photo-guidance`, `POST /photos`, and `POST /cases/from-photos`
 3. Run end-to-end demo
 ```
 

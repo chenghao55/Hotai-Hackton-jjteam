@@ -38,6 +38,7 @@ def test_case_routes_are_registered() -> None:
     expected = {
         ("/cases", "GET"),
         ("/cases", "POST"),
+        ("/cases/from-photos", "POST"),
         ("/cases/{case_id}", "GET"),
         ("/cases/{case_id}/dispatch", "POST"),
         ("/cases/{case_id}/start-processing", "POST"),
