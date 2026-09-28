@@ -13,8 +13,7 @@ import {
   WalletCards,
 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { readCaptureResult, type StoredAnalysisResult } from '@/lib/capture-flow';
-import { analyses } from '@/lib/prototype';
+import { analyses, type AnalysisResult } from '@/lib/prototype';
 
 type PaymentMethod = 'bank' | 'line-pay' | 'apple-pay';
 
@@ -25,7 +24,7 @@ const paymentMethods = [
 ];
 
 export default function CapturePaymentPage() {
-  const [result, setResult] = useState<StoredAnalysisResult | null>(null);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
   const [caseId, setCaseId] = useState(analyses.damage.case_id);
   const [method, setMethod] = useState<PaymentMethod>('bank');
   const [confirmed, setConfirmed] = useState(false);
@@ -33,7 +32,7 @@ export default function CapturePaymentPage() {
   useEffect(() => {
     const requestedCaseId = new URLSearchParams(window.location.search).get('case_id') || analyses.damage.case_id;
     setCaseId(requestedCaseId);
-    setResult(readCaptureResult(requestedCaseId));
+    setResult(analyses.damage);
   }, []);
 
   const estimate = result?.compensation_estimate ?? analyses.damage.compensation_estimate;

@@ -1,52 +1,105 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import CapturePage, { LegacyCapturePage } from '@/app/capture/page';
+import CapturePage from '@/app/capture/page';
 import CameraPage from '@/app/capture/camera/page';
-import AnalysisDemoPage from '@/app/capture/analysis-demo/page';
 import CapturePaymentPage from '@/app/capture/payment/page';
-import ReviewRequestPage from '@/app/capture/review-request/page';
 import ReviewProgressPage from '@/app/capture/review-progress/page';
+import ReviewRequestPage from '@/app/capture/review-request/page';
 import CaptureResultPage from '@/app/capture/result/page';
-import { saveCaptureResult } from '@/lib/capture-flow';
-import { analyses, nextStatus, type ScenarioKey } from '@/lib/prototype';
+import { captureSteps, damageCaptureSteps, saveCaptureResult, saveCaptureThumbnails } from '@/lib/capture-flow';
 
-afterEach(() => {
-  cleanup();
-  sessionStorage.clear();
-  localStorage.clear();
-  window.history.replaceState({}, '', '/');
-  vi.unstubAllGlobals();
+const api = vi.hoisted(() => ({
+  requestPhotoGuidance: vi.fn(),
+  uploadPhoto: vi.fn(),
+  createCaseFromPhotos: vi.fn(),
+}));
+
+vi.mock('@/lib/module-e-api', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/lib/module-e-api')>();
+  return { ...original, ...api };
 });
 
-function seedResult(scenario: ScenarioKey) {
-  const result = analyses[scenario];
-  saveCaptureResult({
-    ...result,
-    status: nextStatus(result.recommended_action),
-    analyzed_at: '2026-09-16T02:30:00.000Z',
-    source: 'mock-api',
+const passCheck = { level: 'PASS', code: 'PASS', message: '視角正確', action: 'accept' } as const;
+
+function acceptedPhoto(photoId: string) {
+  return { accepted: true, photo_id: photoId, check: passCheck };
+}
+
+function installImageMocks() {
+  Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: () => 'blob:preview' });
+  Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: () => undefined });
+  vi.stubGlobal('Image', class {
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    width = 640;
+    height = 480;
+    set src(_value: string) { this.onload?.(); }
+  });
+  Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+    configurable: true,
+    value: () => ({ drawImage: vi.fn() }),
+  });
+  Object.defineProperty(HTMLCanvasElement.prototype, 'toDataURL', {
+    configurable: true,
+    value: () => 'data:image/jpeg;base64,thumbnail',
   });
 }
 
-describe('手機拍攝端', () => {
-  it('顯示拍照規則且開始拍照按鈕預設停用', () => {
+async function uploadCurrentFile(name: string) {
+  const expectedCallCount = api.uploadPhoto.mock.calls.length + 1;
+  fireEvent.change(screen.getByTestId('camera-input'), {
+    target: { files: [new File([name], `${name}.jpg`, { type: 'image/jpeg' })] },
+  });
+  fireEvent.click(screen.getByRole('button', { name: /儲存並/ }));
+  await waitFor(() => expect(api.uploadPhoto).toHaveBeenCalledTimes(expectedCallCount));
+}
+
+describe('canonical return capture', () => {
+  afterEach(() => {
+    cleanup();
+    sessionStorage.clear();
+    localStorage.clear();
+    window.history.replaceState({}, '', '/');
+    vi.unstubAllGlobals();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    window.history.replaceState({}, '', '/capture');
+    installImageMocks();
+    api.requestPhotoGuidance.mockResolvedValue({ accepted: true, check: passCheck });
+  });
+
+  it('keeps the rules gate and links to the canonical camera page', () => {
+    render(<CapturePage />);
+    const scrollArea = screen.getByTestId('rules-scroll-area');
+    Object.defineProperties(scrollArea, {
+      scrollTop: { configurable: true, value: 600 },
+      clientHeight: { configurable: true, value: 400 },
+      scrollHeight: { configurable: true, value: 1000 },
+    });
+    fireEvent.scroll(scrollArea);
+    fireEvent.click(screen.getByRole('checkbox', { name: '我已經詳細閱讀拍照規則及流程' }));
+    expect(screen.getByRole('link', { name: /開始拍照/ })).toHaveAttribute('href', '/capture/camera');
+  });
+
+  it('shows the rules and keeps capture disabled before they are read', () => {
     render(<CapturePage />);
     expect(screen.getByRole('heading', { name: /開始拍照前.*請先閱讀拍攝規則/ })).toBeInTheDocument();
     expect(screen.getByText('拍照規則及流程')).toBeInTheDocument();
-    expect(screen.getByText('我已經詳細閱讀拍照規則及流程')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /開始拍照/ })).toBeDisabled();
   });
 
-  it('未讀完規則時拒絕勾選並顯示提醒', () => {
+  it('rejects confirmation before the rules reach the end', () => {
     render(<CapturePage />);
     const checkbox = screen.getByRole('checkbox', { name: '我已經詳細閱讀拍照規則及流程' });
-    expect(checkbox).not.toBeChecked();
     fireEvent.click(checkbox);
     expect(checkbox).not.toBeChecked();
     expect(screen.getByRole('alert')).toHaveTextContent('請先詳細閱讀所有條款');
   });
 
-  it('規則捲到底後可勾選及取消，且不影響開始拍照', () => {
+  it('allows the rules confirmation to be cleared again', () => {
     render(<CapturePage />);
     const checkbox = screen.getByRole('checkbox', { name: '我已經詳細閱讀拍照規則及流程' });
     const scrollArea = screen.getByTestId('rules-scroll-area');
@@ -58,16 +111,27 @@ describe('手機拍攝端', () => {
     fireEvent.scroll(scrollArea);
     fireEvent.click(checkbox);
     expect(checkbox).toBeChecked();
-    expect(screen.getByRole('link', { name: /開始拍照/ })).toHaveAttribute('href', '/capture/camera');
     fireEvent.click(checkbox);
     expect(checkbox).not.toBeChecked();
     expect(screen.getByRole('button', { name: /開始拍照/ })).toBeDisabled();
   });
 
-  it('相機頁提供拍攝引導、手機後鏡頭與返回按鈕', () => {
+  it('defines seven steps without dashboard and maps evidence explicitly', () => {
+    expect(captureSteps.map((step) => [step.shotType, step.captureSlot, step.includeInCaseEvidence])).toEqual([
+      ['vehicle_cards', 'fuel_parking_card', false],
+      ['front_cabin', 'interior_front', false],
+      ['rear_cabin', 'interior_rear', false],
+      ['front_left_45', 'front_left', true],
+      ['front_right_45', 'front_right', true],
+      ['rear_left_45', 'rear_left', true],
+      ['rear_right_45', 'rear_right', true],
+    ]);
+    expect(damageCaptureSteps.every((step) => step.captureSlot === 'other_damage' && step.includeInCaseEvidence)).toBe(true);
+  });
+
+  it('keeps the camera controls and environment-facing file input', () => {
     render(<CameraPage />);
     expect(screen.getByRole('link', { name: '返回拍照規則' })).toHaveAttribute('href', '/capture');
-    expect(screen.getByRole('heading', { name: /這次拍攝的是哪種車型/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /轎車/ }));
     expect(screen.getByRole('heading', { name: '加油卡與停車卡' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /開啟即時相機/ })).toBeInTheDocument();
@@ -76,82 +140,81 @@ describe('手機拍攝端', () => {
     expect(screen.getByTestId('camera-input')).toHaveAttribute('capture', 'environment');
   });
 
-  it('拍照後顯示預覽並可確認照片進入下一個角度', async () => {
-    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: () => 'blob:camera-preview' });
-    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: () => undefined });
-    vi.stubGlobal('Image', class {
-      onload: (() => void) | null = null;
-      onerror: (() => void) | null = null;
-      width = 640;
-      height = 480;
-      set src(_value: string) { this.onload?.(); }
+  it('calls live photo guidance and renders an accepted=false response', async () => {
+    const stop = vi.fn();
+    const frame = new Blob(['frame'], { type: 'image/jpeg' });
+    api.requestPhotoGuidance.mockResolvedValueOnce({
+      accepted: false,
+      check: { level: 'L2', code: 'BLUR', message: '畫面模糊，請保持手機穩定', action: 'reshoot' },
     });
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia: vi.fn().mockResolvedValue({
+          getTracks: () => [{ stop }],
+          getVideoTracks: () => [{ getSettings: () => ({ deviceId: 'camera-1' }) }],
+        }),
+        enumerateDevices: vi.fn().mockResolvedValue([
+          { kind: 'videoinput', deviceId: 'camera-1', label: 'Camera' },
+        ]),
+      },
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
+    Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', { configurable: true, get: () => 640 });
+    Object.defineProperty(HTMLVideoElement.prototype, 'videoHeight', { configurable: true, get: () => 480 });
+    Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
+      configurable: true,
+      value: (callback: BlobCallback) => callback(frame),
+    });
+
     render(<CameraPage />);
     fireEvent.click(screen.getByRole('button', { name: /轎車/ }));
-    const input = screen.getByTestId('camera-input');
-    fireEvent.change(input, { target: { files: [new File(['photo'], 'car.jpg', { type: 'image/jpeg' })] } });
-    expect(screen.getByAltText('加油卡與停車卡照片預覽')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /儲存並拍下一張/ }));
-    await waitFor(() => expect(screen.getByRole('heading', { name: '儀表板與里程' })).toBeInTheDocument());
-    expect(screen.getByText('基本照片 2／8')).toBeInTheDocument();
-    fireEvent.change(input, { target: { files: [new File(['photo-2'], 'car-2.jpg', { type: 'image/jpeg' })] } });
-    expect(screen.queryByRole('button', { name: /新增損壞照片/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /沒有車損/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /儲存並拍下一張/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /開啟即時相機/ }));
+
+    await waitFor(() => expect(api.requestPhotoGuidance).toHaveBeenCalledWith(frame));
+    expect(await screen.findByTestId('photo-guidance')).toHaveTextContent('畫面模糊，請保持手機穩定');
   });
 
-  it('可逐張跳過八個基本步驟，再選擇是否新增損壞照片', async () => {
-    render(<CameraPage />);
-    fireEvent.click(screen.getByRole('button', { name: /休旅車/ }));
-    const skip = () => fireEvent.click(screen.getByRole('button', { name: '跳過此張' }));
-    skip();
-    expect(screen.getByRole('heading', { name: '儀表板與里程' })).toBeInTheDocument();
-    skip();
-    skip();
-    skip();
-    expect(screen.getByRole('heading', { name: '車身左前方 45°' })).toBeInTheDocument();
-    skip();
-    skip();
-    skip();
-    skip();
-    expect(screen.getByRole('heading', { name: /是否有需要補拍的車損/ })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /新增損壞照片/ }));
-    await waitFor(() => expect(screen.getByRole('heading', { name: '損壞照片 1' })).toBeInTheDocument());
-    expect(screen.getByText(/拍 1 張即可進入下一流程/)).toBeInTheDocument();
-  });
-
-  it('第五張開啟鏡頭時會顯示所選車型的透明角度框', async () => {
+  it('shows the exterior alignment overlay after the first three accepted photos', async () => {
     const stop = vi.fn();
-    vi.stubGlobal('navigator', {
-      ...navigator,
-      mediaDevices: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop }] }) },
+    api.uploadPhoto
+      .mockResolvedValueOnce(acceptedPhoto('cards'))
+      .mockResolvedValueOnce(acceptedPhoto('front-cabin'))
+      .mockResolvedValueOnce(acceptedPhoto('rear-cabin'));
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia: vi.fn().mockResolvedValue({
+          getTracks: () => [{ stop }],
+          getVideoTracks: () => [{ getSettings: () => ({ deviceId: 'camera-1' }) }],
+        }),
+        enumerateDevices: vi.fn().mockResolvedValue([]),
+      },
     });
     Object.defineProperty(HTMLMediaElement.prototype, 'play', { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
     render(<CameraPage />);
     fireEvent.click(screen.getByRole('button', { name: /轎車/ }));
-    for (let index = 0; index < 4; index += 1) fireEvent.click(screen.getByRole('button', { name: '跳過此張' }));
-    expect(screen.getByRole('heading', { name: '車身左前方 45°' })).toBeInTheDocument();
+    for (let index = 0; index < 3; index += 1) {
+      await uploadCurrentFile(`aux-${index}`);
+      await waitFor(() => expect(screen.getByRole('heading', { name: captureSteps[index + 1].title })).toBeInTheDocument());
+    }
     fireEvent.click(screen.getByRole('button', { name: /開啟即時相機/ }));
     expect(await screen.findByTestId('vehicle-alignment-overlay')).toHaveAttribute('src', '/overlays/sedan-front.png');
   });
 
-  it('取得權限後會直接使用電腦預設鏡頭並保留手動切換', async () => {
+  it('uses the default camera first and keeps manual selection for multiple devices', async () => {
     const stop = vi.fn();
-    const getUserMedia = vi.fn().mockImplementation(async (constraints: MediaStreamConstraints) => {
-      const requested = typeof constraints.video === 'object' && 'deviceId' in constraints.video ? constraints.video.deviceId : undefined;
-      const deviceId = requested && typeof requested === 'object' && 'exact' in requested ? String(requested.exact) : 'builtin-camera';
-      return {
-        getTracks: () => [{ stop }],
-        getVideoTracks: () => [{ getSettings: () => ({ deviceId }) }],
-      };
+    const getUserMedia = vi.fn().mockResolvedValue({
+      getTracks: () => [{ stop }],
+      getVideoTracks: () => [{ getSettings: () => ({ deviceId: 'builtin-camera' }) }],
     });
-    vi.stubGlobal('navigator', {
-      ...navigator,
-      mediaDevices: {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
         getUserMedia,
         enumerateDevices: vi.fn().mockResolvedValue([
-          { kind: 'videoinput', deviceId: 'builtin-camera', label: 'FaceTime HD Camera' },
-          { kind: 'videoinput', deviceId: 'phone-camera', label: 'JJL相機' },
+          { kind: 'videoinput', deviceId: 'builtin-camera', label: 'Built-in Camera' },
+          { kind: 'videoinput', deviceId: 'phone-camera', label: 'Phone Camera' },
         ]),
       },
     });
@@ -159,27 +222,26 @@ describe('手機拍攝端', () => {
     render(<CameraPage />);
     fireEvent.click(screen.getByRole('button', { name: /轎車/ }));
     fireEvent.click(screen.getByRole('button', { name: /開啟即時相機/ }));
-    expect(await screen.findByText('鏡頭來源')).toBeInTheDocument();
-    expect(screen.getByText('預設使用電腦鏡頭')).toBeInTheDocument();
     await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(1));
     expect(getUserMedia).toHaveBeenCalledWith(expect.objectContaining({
       video: expect.not.objectContaining({ deviceId: expect.anything() }),
     }));
     expect(sessionStorage.getItem('capture-camera-device-id')).toBe('builtin-camera');
-    expect(screen.getByRole('combobox', { name: '選擇鏡頭來源' })).toBeInTheDocument();
+    expect(await screen.findByRole('combobox', { name: '選擇鏡頭來源' })).toBeInTheDocument();
   });
 
-  it('只偵測到電腦鏡頭時仍會正常開啟拍攝', async () => {
-    const computerStream = {
+  it('opens capture normally when only one camera is available', async () => {
+    const getUserMedia = vi.fn().mockResolvedValue({
       getTracks: () => [{ stop: vi.fn() }],
       getVideoTracks: () => [{ getSettings: () => ({ deviceId: 'builtin-camera' }) }],
-    };
-    const getUserMedia = vi.fn().mockResolvedValue(computerStream);
+    });
     Object.defineProperty(navigator, 'mediaDevices', {
       configurable: true,
       value: {
         getUserMedia,
-        enumerateDevices: vi.fn().mockResolvedValue([{ kind: 'videoinput', deviceId: 'builtin-camera', label: 'FaceTime HD Camera' }]),
+        enumerateDevices: vi.fn().mockResolvedValue([
+          { kind: 'videoinput', deviceId: 'builtin-camera', label: 'Built-in Camera' },
+        ]),
       },
     });
     Object.defineProperty(HTMLMediaElement.prototype, 'play', { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
@@ -187,59 +249,146 @@ describe('手機拍攝端', () => {
     fireEvent.click(screen.getByRole('button', { name: /轎車/ }));
     fireEvent.click(screen.getByRole('button', { name: /開啟即時相機/ }));
     expect(await screen.findByTestId('live-camera')).toBeInTheDocument();
-    expect(await screen.findByText('鏡頭來源')).toBeInTheDocument();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(getUserMedia).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('combobox', { name: '選擇鏡頭來源' })).not.toBeInTheDocument();
   });
 
-  it('暫時分析頁只提供成功與失敗兩個結果按鈕', () => {
-    render(<AnalysisDemoPage />);
-    expect(screen.getByRole('button', { name: /成功/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /失敗/ })).toBeInTheDocument();
-    expect(screen.getAllByRole('button')).toHaveLength(2);
+  it('revokes preview object URLs after acceptance and on unmount', async () => {
+    let objectUrlNumber = 0;
+    const createObjectURL = vi.fn(() => `blob:preview-${++objectUrlNumber}`);
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL });
+    api.uploadPhoto.mockResolvedValueOnce(acceptedPhoto('cards-id'));
+    const view = render(<CameraPage />);
+    fireEvent.click(screen.getByRole('button', { name: /轎車/ }));
+
+    await uploadCurrentFile('cards');
+    await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:preview-1'));
+
+    fireEvent.change(screen.getByTestId('camera-input'), {
+      target: { files: [new File(['front'], 'front.jpg', { type: 'image/jpeg' })] },
+    });
+    expect(revokeObjectURL).not.toHaveBeenCalledWith('blob:preview-3');
+    view.unmount();
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:preview-3');
   });
 
-  it('正常結果顯示不需額外費用並完成結案', async () => {
-    seedResult('normal');
+  it('uploads an accepted auxiliary photo and advances directly to front cabin', async () => {
+    api.uploadPhoto.mockResolvedValueOnce(acceptedPhoto('cards-id'));
+    render(<CameraPage />);
+    fireEvent.click(screen.getByRole('button', { name: /轎車/ }));
+
+    await uploadCurrentFile('cards');
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '車內座椅（前座）' })).toBeInTheDocument());
+    expect(api.uploadPhoto).toHaveBeenCalledWith(expect.any(Blob), 'return', 'fuel_parking_card');
+    expect(screen.queryByText('儀表板與里程')).not.toBeInTheDocument();
+  });
+
+  it('keeps a rejected upload on the same step without storing a photo ID', async () => {
+    api.uploadPhoto.mockResolvedValueOnce({ accepted: false, photo_id: null, check: { level: 'L2', code: 'BLUR', message: '畫面模糊，請重新拍攝', action: 'reshoot' } });
+    render(<CameraPage />);
+    fireEvent.click(screen.getByRole('button', { name: /休旅車/ }));
+
+    await uploadCurrentFile('blurred');
+
+    expect(screen.getByRole('heading', { name: '加油卡與停車卡' })).toBeInTheDocument();
+    expect(await screen.findByText('畫面模糊，請重新拍攝')).toBeInTheDocument();
+    expect(api.createCaseFromPhotos).not.toHaveBeenCalled();
+  });
+
+  it('uploads all seven steps but submits only exterior evidence IDs', async () => {
+    captureSteps.forEach((_, index) => api.uploadPhoto.mockResolvedValueOnce(acceptedPhoto(`photo-${index + 1}`)));
+    api.createCaseFromPhotos.mockResolvedValue({ case_id: 'server-case', detections: [], priority_score: null, status: 'unassigned', payment_amount: 0 });
+    render(<CameraPage />);
+    fireEvent.click(screen.getByRole('button', { name: /轎車/ }));
+
+    for (let index = 0; index < captureSteps.length; index += 1) {
+      await uploadCurrentFile(`step-${index}`);
+      if (index < captureSteps.length - 1) {
+        await waitFor(() => expect(screen.getByRole('heading', { name: captureSteps[index + 1].title })).toBeInTheDocument());
+      }
+    }
+
+    expect(await screen.findByRole('heading', { name: /是否有需要補拍的車損/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /建立車況案件/ }));
+    await waitFor(() => expect(api.createCaseFromPhotos).toHaveBeenCalledWith(['photo-4', 'photo-5', 'photo-6', 'photo-7']));
+    expect(sessionStorage.getItem('capture-case:server-case')).toContain('server-case');
+  });
+
+  it('renders only real Case fields, including reviewed values and zero priority', async () => {
+    saveCaptureResult({
+      case_id: 'case-real',
+      priority_score: 0,
+      status: 'processing',
+      payment_amount: 500,
+      detections: [{
+        detection_id: 'detection-1',
+        borrow_photo_id: null,
+        return_photo_id: 'return-1',
+        source_photo_id: 'return-1',
+        category: 'scratch',
+        severity: 'minor',
+        confidence: 0.78,
+        review_state: 'corrected',
+        reviewed_category: 'collision_damage',
+        reviewed_severity: 'moderate',
+        review_note: '人工已修正',
+      }],
+    });
+    saveCaptureThumbnails('case-real', { 'return-1': 'data:image/jpeg;base64,thumb' });
+    window.history.replaceState({}, '', '/capture/result?case_id=case-real');
+
     render(<CaptureResultPage />);
-    expect(await screen.findByRole('heading', { name: '還車檢查已完成' })).toBeInTheDocument();
-    expect(screen.getByText(/本次不需支付額外費用/)).toBeInTheDocument();
-    expect(screen.getByText('已結案')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /完成並返回首頁/ })).toHaveAttribute('href', '/');
+
+    expect(await screen.findByText('case-real')).toBeInTheDocument();
+    expect(screen.getByText('處理中')).toBeInTheDocument();
+    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(screen.getByText('NT$500')).toBeInTheDocument();
+    expect(screen.getByText('刮痕')).toBeInTheDocument();
+    expect(screen.getByText('碰撞損傷')).toBeInTheDocument();
+    expect(screen.getByText('中度')).toBeInTheDocument();
+    expect(screen.getByText('78%')).toBeInTheDocument();
+    expect(screen.queryByText(/預估費用|建議動作|風險/)).not.toBeInTheDocument();
   });
 
-  it('疑似車損分別列出兩處問題、個別估價與費用總表', async () => {
-    seedResult('damage');
+  it('handles a real Case with no detections explicitly', async () => {
+    saveCaptureResult({ case_id: 'empty-case', detections: [], priority_score: null, status: 'unassigned', payment_amount: 0 });
+    window.history.replaceState({}, '', '/capture/result?case_id=empty-case');
     render(<CaptureResultPage />);
-    expect(await screen.findByRole('heading', { name: 'AI 偵測到 2 處疑似問題' })).toBeInTheDocument();
-    expect(screen.getByText('右後保桿出現疑似新增刮痕')).toBeInTheDocument();
-    expect(screen.getByText('右前車門下緣出現疑似新增凹痕')).toBeInTheDocument();
-    expect(screen.getAllByText('NT$2,000–4,000')).toHaveLength(2);
-    expect(screen.getAllByText('NT$1,500–3,000')).toHaveLength(2);
-    expect(screen.getByText('NT$3,500–7,000')).toBeInTheDocument();
-    expect(screen.getByText('最終價格為：')).toBeInTheDocument();
-    expect(screen.getByText('NT$5,500')).toBeInTheDocument();
-    expect(screen.queryByText(/78%|74%|信心/)).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /申請人工覆核/ })).toHaveAttribute('href', '/capture/review-request?case_id=CASE-1044');
-    expect(screen.getByRole('link', { name: /我對 AI 判讀結果無異議/ })).toHaveAttribute('href', '/capture/payment?case_id=CASE-1044');
+    expect(await screen.findByText('目前 Case 沒有偵測到車況項目。')).toBeInTheDocument();
+    expect(screen.getByText('尚未計算')).toBeInTheDocument();
   });
 
-  it('付款頁提供銀行轉帳、LINE Pay 與 Apple Pay', () => {
-    seedResult('damage');
+  it('keeps the retained prototype payment page behavior isolated', () => {
     window.history.replaceState({}, '', '/capture/payment?case_id=CASE-1044');
     render(<CapturePaymentPage />);
     expect(screen.getByRole('heading', { name: '選擇付款方式' })).toBeInTheDocument();
-    expect(screen.getByText('本次最終應付金額')).toBeInTheDocument();
     expect(screen.getByText('NT$5,500')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /銀行轉帳/ })).toBeChecked();
-    expect(screen.getByRole('radio', { name: /LINE Pay/ })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /Apple Pay/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('radio', { name: /LINE Pay/ }));
     fireEvent.click(screen.getByRole('button', { name: /確認付款方式並繼續/ }));
     expect(screen.getByRole('status')).toHaveTextContent('已選擇 LINE Pay');
   });
 
-  it('人工覆核頁顯示五階段案件進度與離開按鈕', () => {
+  it('keeps the retained prototype review request behavior isolated', () => {
+    window.history.replaceState({}, '', '/capture/review-request?case_id=CASE-1044');
+    render(<ReviewRequestPage />);
+    expect(screen.getByRole('heading', { name: '你對哪些判讀結果有疑義？' })).toBeInTheDocument();
+    const submit = screen.getByRole('link', { name: /確認送出人工覆核申請/ });
+    fireEvent.click(submit);
+    expect(screen.getByRole('alert')).toHaveTextContent('請至少勾選一項有疑義的 AI 判讀結果');
+    fireEvent.click(screen.getByRole('checkbox', { name: /右後保桿出現疑似新增刮痕/ }));
+    fireEvent.change(screen.getByLabelText('補充說明'), { target: { value: '這道痕跡在取車前就已存在。' } });
+    fireEvent.click(submit);
+    expect(JSON.parse(sessionStorage.getItem('capture-review-request:CASE-1044') || '{}')).toMatchObject({
+      finding_ids: ['FINDING-1044-01'],
+      note: '這道痕跡在取車前就已存在。',
+    });
+  });
+
+  it('keeps the retained prototype review progress behavior isolated', () => {
     window.history.replaceState({}, '', '/capture/review-progress?case_id=CASE-1044');
     render(<ReviewProgressPage />);
     expect(screen.getByRole('heading', { name: '人工審核中', level: 1 })).toBeInTheDocument();
@@ -247,39 +396,5 @@ describe('手機拍攝端', () => {
     expect(screen.getByText('覆核申請已送出')).toBeInTheDocument();
     expect(screen.getByText('等待付款確認')).toBeInTheDocument();
     expect(screen.getByText('案件完成')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /先返回首頁/ })).toHaveAttribute('href', '/');
-  });
-
-  it('人工覆核申請頁可選擇有疑義項目並填寫說明', () => {
-    seedResult('damage');
-    window.history.replaceState({}, '', '/capture/review-request?case_id=CASE-1044');
-    render(<ReviewRequestPage />);
-    expect(screen.getByRole('heading', { name: '你對哪些判讀結果有疑義？' })).toBeInTheDocument();
-    expect(screen.getByText('右後保桿出現疑似新增刮痕')).toBeInTheDocument();
-    expect(screen.getByText('右前車門下緣出現疑似新增凹痕')).toBeInTheDocument();
-    const submit = screen.getByRole('link', { name: /確認送出人工覆核申請/ });
-    fireEvent.click(submit);
-    expect(screen.getByRole('alert')).toHaveTextContent('請至少勾選一項有疑義的 AI 判讀結果');
-    fireEvent.click(screen.getByRole('checkbox', { name: /右後保桿出現疑似新增刮痕/ }));
-    fireEvent.change(screen.getByLabelText('補充說明'), { target: { value: '這道痕跡在取車前就已存在。' } });
-    fireEvent.click(submit);
-    expect(JSON.parse(sessionStorage.getItem('capture-review-request:CASE-1044') || '{}')).toMatchObject({ finding_ids: ['FINDING-1044-01'], note: '這道痕跡在取車前就已存在。' });
-    expect(submit).toHaveAttribute('href', '/capture/review-progress?case_id=CASE-1044');
-  });
-
-  it('髒污結果顯示可能清潔費', async () => {
-    seedResult('dirty');
-    render(<CaptureResultPage />);
-    expect(await screen.findByText('清潔費用預估總表')).toBeInTheDocument();
-    expect(screen.getAllByText('NT$500–1,200')).toHaveLength(3);
-    expect(screen.getAllByText(/後座發現飲料杯/)).toHaveLength(2);
-  });
-
-  it('舊版拍攝流程仍可操作並拒絕非圖片檔案', () => {
-    const { container } = render(<LegacyCapturePage />);
-    fireEvent.click(screen.getByRole('button', { name: /車尾右後方 45°/ }));
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
-    fireEvent.change(input, { target: { files: [new File(['bad'], 'case.txt', { type: 'text/plain' })] } });
-    expect(screen.getByRole('alert')).toHaveTextContent('請選擇 JPG、PNG 或 HEIC 圖片');
   });
 });

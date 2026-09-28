@@ -111,9 +111,13 @@ Open:
 Current repository state:
 
 - `UI_backstage` calls existing Case endpoints for staff workflows.
-- `UI_client` contains capture screens and prototype behavior, but still calls a prototype `/api/analyze` path rather than the canonical Module E photo routes.
+- `UI_client` uses the canonical Module E routes for the RETURN-only capture flow.
+- Live guidance uses `POST /photo-guidance`; final captures use `POST /photos`; Case creation uses `POST /cases/from-photos`.
+- Seven required photos are uploaded. Card/front-cabin/rear-cabin IDs are stored but excluded from Case evidence; four exterior IDs and optional `OTHER_DAMAGE` IDs are included.
+- Module E supplies every `photo_id` and `case_id`. The result page renders only the returned Module D Case fields.
+- `dashboard`, `/api/analyze`, analysis-demo, legacy capture, and camera-based appeal are removed from the canonical flow.
 
-Intended integration:
+Implemented integration:
 
 1. Use `POST /photo-guidance` for live capture guidance.
 2. Use `POST /photos` for each accepted shutter capture and retain the returned `photo_id`.
@@ -126,12 +130,12 @@ Intended integration:
   `borrow_photo_id=None`, and Module B uses it for RETURN exterior/damage photos without
   fabricating borrow evidence.
 - The real Module A shooting-guidance implementation must replace `StubPhotoGuidanceService` when it is available.
-- `UI_client` must migrate from its prototype analysis call to the canonical Module E photo and Case-creation flow.
+- The staff-side `UI_backstage` and `/review` experience still contain prototype data pending a separately scoped production integration.
 
 ## Team-level next steps
 
 1. Replace the shooting-guidance stub when Module A's real implementation is merged.
-2. Connect `UI_client` to the canonical photo and Case-creation routes.
+2. Plan the staff-side production integration without moving Module D rules into the UI.
 3. Run an end-to-end demo covering capture, upload, Case creation, review, workflow, and payment.
 
 ## Differences from the previous written checkpoint

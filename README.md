@@ -367,7 +367,7 @@ Build the user-facing flow against E's HTTP contracts.
 - Camera/upload UI
 - Real-time guidance presentation
 - Showing guidance message/action to user
-- Borrow/return photo flow
+- Current MVP RETURN-only photo flow
 - API calling
 - Loading/error states
 - Case/review/payment screens if assigned by product scope
@@ -411,6 +411,13 @@ UI should distinguish:
 - HTTP/network/request failure
 - valid guidance rejection
 - valid accepted result
+
+The canonical `UI_client` flow now uses these Module E routes directly. It uploads seven
+required RETURN photos: card (`FUEL_PARKING_CARD`), front cabin (`INTERIOR_FRONT`), rear cabin
+(`INTERIOR_REAR`), and four exterior corners. Card/interior IDs are stored but excluded from
+`POST /cases/from-photos`; exterior IDs and optional `OTHER_DAMAGE` IDs are included. The UI
+does not generate `photo_id` or `case_id`, and the result screen renders the returned Case.
+`dashboard`, `/api/analyze`, analysis-demo, and camera-based appeal are not canonical paths.
 
 **Must NOT own**
 - image AI
@@ -468,6 +475,7 @@ No agent should rewrite another module merely because doing so is easier locally
 - Module E `GET /photos/{photo_id}` binary retrieval through Module A storage
 - Module E Case HTTP schemas, in-memory state, and routes
 - Module E composition root at `backend.main:app`
+- `UI_client` canonical RETURN capture integration through Module E photo and Case routes
 
 Current full-suite checkpoint:
 
@@ -906,8 +914,8 @@ Current E sequence:
 
 ```text
 1. Replace guidance stub with Module A implementation after A is merged
-2. Connect the UI client to `POST /photo-guidance`, `POST /photos`, and `POST /cases/from-photos`
-3. Run end-to-end demo
+2. Replace the remaining staff-side prototype data when its production integration is scheduled
+3. Run an end-to-end demo against the real Module E process and model checkpoint
 ```
 
 Do not start database work before the MVP demo unless the team explicitly changes this plan.

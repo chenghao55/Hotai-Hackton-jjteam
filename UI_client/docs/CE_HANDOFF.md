@@ -38,38 +38,40 @@ E 不負責判讀照片是否異常；E 負責驗證系統是否依既定結果�
 | Day 4 | 建立路由及共用元件 | 逐項檢查完成定義 | 手機、桌機尺寸皆可操作 |
 | Day 5 | 串接 Mock API | 驗收並排定修正 | 四條黃金路徑可展示 |
 
-## API 契約
+## 正式手機端 API 契約
 
-`POST /api/analyze`，使用 `multipart/form-data`：
+手機端只呼叫 Module E：
 
-- `stage`: `pickup | return`
-- `current_images`: 本次照片
-- `baseline_images`: 借車前照片，可選
-- `scenario`: 僅限 Prototype，值為 `blur | normal | damage | dirty`
-
-核心回傳：
+1. 取景時以 `multipart/form-data` 呼叫 `POST /photo-guidance`。`accepted=false` 是有效指導結果，UI 顯示 `check.message` 並留在目前步驟。
+2. 按下快門後呼叫 `POST /photos`，傳送 `file`、`photo_type=return` 與 `capture_slot`。只有 `accepted=true` 才保存後端回傳的 `photo_id`。
+3. 完成拍攝後呼叫 `POST /cases/from-photos`：
 
 ```json
 {
-  "case_id": "CASE-1044",
-  "capture_quality": { "passed": true, "issues": [] },
-  "vehicle_change": {
-    "detected": true,
-    "findings": ["右後保桿出現新增刮痕候選區域"]
-  },
-  "cleanliness": { "level": "normal", "findings": [] },
-  "risk_level": "high",
-  "confidence": 0.78,
-  "recommended_action": "human_review"
+  "photo_ids": ["<exterior-or-other-damage-photo-id>"]
 }
 ```
 
-案件狀態：`待分析 → AI完成 → 待人工覆核 → 待清潔／待維修 → 已結案`。
+UI 不傳 `case_id`；Module E 產生 ID 並回傳完整 Case：
+
+```json
+{
+  "case_id": "<backend-generated-uuid>",
+  "status": "unassigned",
+  "priority_score": 70,
+  "payment_amount": 0,
+  "detections": []
+}
+```
+
+卡片、前座與後座照片仍經 `POST /photos` 保存，但不放入 Case request。左前、右前、左後、右後與選填 `OTHER_DAMAGE` 的 `photo_id` 才會送往 Case 建立。正式結果頁不衍生風險、建議動作、賠償估價、清潔或付款值。
+
+案件狀態直接呈現 Module D 值：`unassigned`、`dispatched`、`processing`、`pending_payment`、`completed`。
 
 ## 初賽完成標準
 
 - 手機端展示拍攝、補拍與結果。
 - 桌機端展示篩選、借還比較、AI 證據、覆核與派工。
-- 四個 Mock 情境可固定重現。
+- RETURN-only 正式拍攝流程可從品質指導走到 Case 結果。
 - 每個核心功能都有成功與失敗測試證據。
 - 公開內容不含車牌、原始網址或未授權官方照片。

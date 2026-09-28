@@ -5,11 +5,10 @@ import { useEffect, useState, type MouseEvent } from 'react';
 import { AlertCircle, ArrowLeft, CheckCircle2, FileSearch, Image as ImageIcon, Send } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { readCaptureResult, readCaptureThumbnails, type StoredAnalysisResult } from '@/lib/capture-flow';
-import { analyses, nextStatus, type DamageFinding } from '@/lib/prototype';
+import { analyses, type AnalysisResult, type DamageFinding } from '@/lib/prototype';
 
 export default function ReviewRequestPage() {
-  const [result, setResult] = useState<StoredAnalysisResult | null>(null);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
   const [caseId, setCaseId] = useState(analyses.damage.case_id);
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -18,17 +17,10 @@ export default function ReviewRequestPage() {
 
   useEffect(() => {
     const requestedCaseId = new URLSearchParams(window.location.search).get('case_id') || analyses.damage.case_id;
-    const stored = readCaptureResult(requestedCaseId);
-    const fallback: StoredAnalysisResult = {
-      ...analyses.damage,
-      status: nextStatus(analyses.damage.recommended_action),
-      analyzed_at: new Date().toISOString(),
-      source: 'mock-api',
-    };
-    const resolved = stored ?? fallback;
-    setCaseId(resolved.case_id);
+    const resolved = analyses.damage;
+    setCaseId(requestedCaseId);
     setResult(resolved);
-    setThumbnails(readCaptureThumbnails(resolved.case_id));
+    setThumbnails({});
   }, []);
 
   const findings = result?.damage_findings ?? [];
