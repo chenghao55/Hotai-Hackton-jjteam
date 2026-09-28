@@ -60,7 +60,7 @@ the local `file_path`.
 
 **Current repo state**
 - Photo storage already exists.
-- Guidance/analysis implementation is not yet integrated into the repo.
+- Python guidance core is available as `module_a.PhotoCoach`; setup and contract gaps are documented in [Module A coach integration](docs/tasks/module-a-coach.md).
 - E currently uses a replaceable guidance stub.
 
 **Guidance implementation contract**
