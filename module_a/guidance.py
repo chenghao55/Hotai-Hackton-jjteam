@@ -54,10 +54,7 @@ class GuidanceResult:
     code: str
     message: str
     action: str
-    can_capture: bool = False
-    review_required: bool = False
     checks: dict = field(default_factory=dict)
-    manual_review_remaining_ms: int | None = None
     rules_version: str = ''
 
 
@@ -69,8 +66,8 @@ MESSAGES = {
     'SUBJECT_NEAR_EDGE': '請保留完整車身與輪胎。', 'SUBJECT_TOO_SMALL': '請稍微靠近。',
     'SUBJECT_TOO_LARGE': '請稍微後退。', 'OFF_CENTER': '請將車身移至取景框中央。',
     'POSSIBLE_WRONG_SLOT': '請確認目前指定的車角。', 'PASS': '構圖與畫質符合要求，可以拍照。',
-    'TEMPLATE_NOT_CALIBRATED': '基準尚待照片校正，稍後可拍照交人工確認。',
-    'FRONT_SEAT_EVIDENCE_UNAVAILABLE': '請拍入前排椅背與坐墊；目前模型無法確認前排完整。',
+    'TEMPLATE_NOT_CALIBRATED': '構圖基準尚未校正，目前無法自動判定合格。',
+    'FRONT_SEAT_EVIDENCE_UNAVAILABLE': '目前模型無法確認前排完整，請改從左側車門拍攝。',
     'UNSUPPORTED_SLOT': '目前教練尚未支援此拍攝槽位。',
 }
 
@@ -92,12 +89,12 @@ class PhotoCoach:
         if not isinstance(context, CaptureContext):
             raise ValueError('CAPTURE_CONTEXT_REQUIRED')
         checks = {f'L{i}': 'not_evaluated' for i in range(1, 7)}
-        def result(code, level, *, manual=False, remaining=None):
+        def result(code, level):
             accepted = code == 'PASS'
             return GuidanceResult(accepted, level, code,
-                '可以先拍照，照片須交由人工審理。' if manual else MESSAGES.get(code, '請依示意圖調整構圖。'),
-                'human_review' if manual else 'accept' if accepted else 'reshoot',
-                accepted or manual, manual, dict(checks), remaining, self.config['version'])
+                MESSAGES.get(code, '請依示意圖調整構圖。'),
+                'accept' if accepted else 'reshoot',
+                dict(checks), self.config['version'])
         if context.capture_slot not in SLOTS:
             return result('UNSUPPORTED_SLOT', 'L6')
         image = decode(raw)
@@ -105,10 +102,9 @@ class PhotoCoach:
         key = (context.session_id, context.photo_type, context.capture_slot, context.vehicle_type, context.entry_side)
         old = self.sessions.get(key)
         if context.mode == 'preview':
-            if old and context.frame_id <= old[2]:
+            if old and now - old[0] <= 60 and context.frame_id <= old[1]:
                 raise ValueError('STALE_FRAME')
-            start = old[0] if old and now-old[1] <= 60 else now
-            old = (start, now, context.frame_id)
+            old = (now, context.frame_id)
             self.sessions[key] = old
             self.sessions.move_to_end(key)
             if len(self.sessions) > 2000:
@@ -128,8 +124,8 @@ class PhotoCoach:
         detections = self.detector.predict(image)
         if not isinstance(detections, list) or len(detections) > 200:
             raise ValueError('INVALID_DETECTIONS')
-        code, level, geometry_checks, eligible = geometry(detections, SLOTS[context.capture_slot],
-                                                         context.vehicle_type, context.entry_side, self.config)
+        code, level, geometry_checks = geometry(detections, SLOTS[context.capture_slot],
+                                                context.vehicle_type, context.entry_side, self.config)
         cars = [d for d in detections if d['class_id'] == 0 and
                 d['confidence'] >= self.config['thresholds']['detection_confidence']]
         if len(cars) == 1:
@@ -138,8 +134,4 @@ class PhotoCoach:
                 checks['L1'] = 'fail'
                 return result('BACKLIGHT', 'L1')
         checks.update(geometry_checks)
-        remaining = None
-        if eligible:
-            elapsed = max(0, (now-old[0])*1000) if old and now-old[1] <= 60 else 0
-            remaining = max(0, int(self.config['manual_review_after_ms']-elapsed))
-        return result(code, level, manual=eligible and remaining == 0, remaining=remaining)
+        return result(code, level)

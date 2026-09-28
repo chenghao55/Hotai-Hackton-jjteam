@@ -45,7 +45,7 @@ def uncoached_response(image: bytes) -> PhotoGuidanceResponse:
     except (ValueError, OSError, SyntaxError) as exc:
         raise HTTPException(status_code=422, detail="invalid image") from exc
     return PhotoGuidanceResponse(
-        accepted=True, can_capture=True, review_required=False,
+        accepted=True,
         check=PhotoCheck(level=GuidanceLevel.PASS, code=GuidanceCode.PASS,
                          message="此類照片不適用車角 AI 構圖檢核；照片格式有效，可以拍攝。",
                          action=GuidanceAction.ACCEPT),
@@ -111,15 +111,14 @@ async def upload_photo(
     context = capture_context(photo_type, capture_slot, vehicle_type, session_id,
                               frame_id, entry_side, "final")
     guidance = await analyze(guidance_service, image, context)
-    extra = guidance.model_dump(exclude_unset=True, exclude={"accepted", "check"})
     if not guidance.accepted:
-        return PhotoUploadResponse(accepted=False, photo_id=None, check=guidance.check, **extra)
+        return PhotoUploadResponse(accepted=False, photo_id=None, check=guidance.check)
 
     try:
         photo_id = storage_service.save(image, photo_type, capture_slot, mime_type)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return PhotoUploadResponse(accepted=True, photo_id=photo_id, check=guidance.check, **extra)
+    return PhotoUploadResponse(accepted=True, photo_id=photo_id, check=guidance.check)
 
 
 @router.get("/photos/{photo_id}")

@@ -33,14 +33,14 @@ def test_real_guidance_requires_capture_context_without_loading_model(app):
     assert response.json()["detail"] == "photo_type and capture_slot are required"
 
 
-def test_real_adapter_receives_context_and_returns_manual_state(app):
+def test_real_adapter_receives_context_and_returns_reshoot_advice(app):
     class Coach:
         context = None
 
         def analyze(self, image, context):
             self.context = context
-            return GuidanceResult(False, "L6", "TEMPLATE_NOT_CALIBRATED", "待人工審理",
-                                  "human_review", True, True)
+            return GuidanceResult(False, "L6", "TEMPLATE_NOT_CALIBRATED", "構圖基準尚未校正",
+                                  "reshoot")
 
     coach = Coach()
     app.dependency_overrides[photo_routes.get_photo_guidance_service] = lambda: ModuleAPhotoGuidanceService(coach)
@@ -51,8 +51,8 @@ def test_real_adapter_receives_context_and_returns_manual_state(app):
             files={"file": ("frame.jpg", b"frame", "image/jpeg")})
 
     assert response.status_code == 200
-    assert response.json()["review_required"] is True
     assert response.json()["accepted"] is False
+    assert response.json()["check"]["action"] == "reshoot"
     assert coach.context.capture_slot.value == "interior_rear"
     assert coach.context.entry_side == "right"
     assert coach.context.frame_id == 3

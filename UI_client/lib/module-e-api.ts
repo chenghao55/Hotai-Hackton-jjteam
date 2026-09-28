@@ -29,7 +29,7 @@ export type GuidanceCode =
   | 'FRONT_SEAT_EVIDENCE_UNAVAILABLE' | 'UNSUPPORTED_SLOT'
   | 'MISSING_REQUIRED_FEATURE' | 'GEOMETRY_MISMATCH' | 'AMBIGUOUS_TEMPLATES'
   | 'PASS';
-export type GuidanceAction = 'guide' | 'reshoot' | 'accept' | 'human_review';
+export type GuidanceAction = 'guide' | 'reshoot' | 'accept';
 
 export type PhotoCheck = {
   level: GuidanceLevel;
@@ -41,9 +41,6 @@ export type PhotoCheck = {
 export type PhotoGuidanceResponse = {
   accepted: boolean;
   check: PhotoCheck;
-  can_capture?: boolean | null;
-  review_required?: boolean | null;
-  manual_review_remaining_ms?: number | null;
 };
 
 export type CaptureContext = {

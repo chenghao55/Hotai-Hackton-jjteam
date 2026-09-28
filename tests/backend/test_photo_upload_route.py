@@ -225,18 +225,18 @@ def test_borrow_other_damage_domain_error_is_translated_to_422(app):
     assert response.json()["detail"] == "OTHER_DAMAGE is only valid for return photos"
 
 
-def test_final_capture_rechecks_with_context_and_does_not_store_manual_advice(app):
+def test_final_capture_rechecks_with_context_and_does_not_store_rejected_image(app):
     class Coach:
         context = None
 
         def analyze(self, image, context):
             self.context = context
-            return GuidanceResult(False, "L6", "TEMPLATE_NOT_CALIBRATED", "待人工審理",
-                                  "human_review", True, True)
+            return GuidanceResult(False, "L6", "TEMPLATE_NOT_CALIBRATED", "構圖基準尚未校正",
+                                  "reshoot")
 
     class Storage(PhotoStorageService):
         def save(self, *args):
-            raise AssertionError("manual advice is not an accepted photo")
+            raise AssertionError("rejected image must not be stored")
 
         def get(self, photo_id):
             raise AssertionError("not used")
@@ -252,6 +252,6 @@ def test_final_capture_rechecks_with_context_and_does_not_store_manual_advice(ap
 
     assert response.status_code == 200
     assert response.json()["accepted"] is False
-    assert response.json()["review_required"] is True
+    assert response.json()["check"]["action"] == "reshoot"
     assert response.json()["photo_id"] is None
     assert coach.context.mode == "final"

@@ -57,14 +57,13 @@ def geometry(detections, slot, vehicle_type, entry_side, config):
                   t['shot_type'] == slot and t.get('entry_side') == entry_side)]
     target = next(t for t in templates if t['shot_type'] == slot)
     checks = {'L3': 'not_applicable', 'L4': 'not_applicable', 'L5': 'not_evaluated', 'L6': 'not_evaluated'}
-    def stop(code, level, manual=False):
+    def stop(code, level):
         if level:
             checks[level] = 'unknown' if code in ('TEMPLATE_NOT_CALIBRATED', 'FRONT_SEAT_EVIDENCE_UNAVAILABLE') else 'fail'
-        return code, level, checks, manual
+        return code, level, checks
     if target.get('evaluation_mode') == 'guide_only':
-        return stop('FRONT_SEAT_EVIDENCE_UNAVAILABLE', 'L6', True)
+        return stop('FRONT_SEAT_EVIDENCE_UNAVAILABLE', 'L6')
     ref = [0, 0, 1, 1]
-    subject = any(d['class_id'] == (3 if slot == 'interior_rear' else 4) for d in objects)
     if target['reference_class_id'] is not None:
         cars = [d for d in objects if d['class_id'] == 0]
         if len(cars) != 1:
@@ -80,11 +79,10 @@ def geometry(detections, slot, vehicle_type, entry_side, config):
         if w > target['body_width_range'][1] or h > target['body_height_range'][1]:
             return stop('SUBJECT_TOO_LARGE', 'L3')
         checks['L3'] = 'pass'
-        subject = True
         expected = target['reference_box']
         if any(abs((ref[k] + ref[k+2] - expected[k] - expected[k+2]) / 2) >
                target['body_center_tolerance'][k] for k in (0, 1)):
-            return stop('OFF_CENTER', 'L4', True)
+            return stop('OFF_CENTER', 'L4')
         checks['L4'] = 'pass'
         def inside(d):
             a, c, e, f = d['box']
@@ -95,16 +93,16 @@ def geometry(detections, slot, vehicle_type, entry_side, config):
     scores = [(t['shot_type'], score(t, objects, ref, config['thresholds'])) for t in templates]
     requested = next(s for name, s in scores if name == slot)
     if requested is None:
-        return stop('MISSING_REQUIRED_FEATURE', 'L6', subject)
+        return stop('MISSING_REQUIRED_FEATURE', 'L6')
     ranked = sorted(((name, s) for name, s in scores if s is not None), key=lambda item: item[1][0])
     distinct = len(ranked) == 1 or ranked[1][1][0] - ranked[0][1][0] >= config['thresholds']['min_runner_up_gap']
     if distinct and ranked[0][1][1] and ranked[0][0] != slot:
         return stop('POSSIBLE_WRONG_SLOT', 'L6')
     if not requested[1]:
-        return stop('GEOMETRY_MISMATCH', 'L6', subject)
+        return stop('GEOMETRY_MISMATCH', 'L6')
     if not distinct:
-        return stop('AMBIGUOUS_TEMPLATES', 'L6', subject)
+        return stop('AMBIGUOUS_TEMPLATES', 'L6')
     if config['calibration_status'] != 'calibrated':
-        return stop('TEMPLATE_NOT_CALIBRATED', 'L6', subject)
+        return stop('TEMPLATE_NOT_CALIBRATED', 'L6')
     checks['L6'] = 'pass'
-    return 'PASS', 'PASS', checks, False
+    return 'PASS', 'PASS', checks

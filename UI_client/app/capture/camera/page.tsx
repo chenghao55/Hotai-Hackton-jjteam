@@ -334,7 +334,7 @@ export default function CameraPage() {
               <div className="mt-4 grid grid-cols-3 gap-2"><Tip icon={<MoveUpRight />} label={currentStep.tips[0]} /><Tip icon={<ScanLine />} label={currentStep.tips[1]} /><Tip icon={<SunMedium />} label={currentStep.tips[2]} /></div>
               <input ref={inputRef} data-testid="camera-input" type="file" accept="image/*" capture="environment" className="sr-only" onChange={(event) => selectPhoto(event.target.files?.[0])} />
               {requestError && <div role="alert" className="mt-4 flex gap-2 rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-700"><AlertTriangle className="mt-0.5 size-4 shrink-0" />{requestError}</div>}
-              {guidance && <div data-testid="photo-guidance" className={`mt-4 rounded-2xl p-4 text-sm font-medium ${guidance.accepted ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>{guidance.check.message}{guidance.review_required && <p className="mt-2">人工審理照片的交付流程尚未接通，目前無法儲存此張照片。</p>}</div>}
+              {guidance && <div data-testid="photo-guidance" className={`mt-4 rounded-2xl p-4 text-sm font-medium ${guidance.accepted ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>{guidance.check.message}</div>}
               {guidanceLoading && <p className="mt-2 text-center text-sm text-[#62756d]">正在檢查拍攝畫面…</p>}
 
               {previewUrl ? (

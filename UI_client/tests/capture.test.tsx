@@ -147,6 +147,10 @@ describe('canonical return capture', () => {
       accepted: false,
       check: { level: 'L2', code: 'BLUR', message: '畫面模糊，請保持手機穩定', action: 'reshoot' },
     });
+    api.uploadPhoto.mockResolvedValueOnce({
+      accepted: false, photo_id: null,
+      check: { level: 'L2', code: 'BLUR', message: '提交照片仍模糊，請重新拍攝', action: 'reshoot' },
+    });
     Object.defineProperty(navigator, 'mediaDevices', {
       configurable: true,
       value: {
@@ -175,6 +179,13 @@ describe('canonical return capture', () => {
       vehicleType: 'sedan', captureSlot: 'fuel_parking_card', frameId: expect.any(Number),
     })));
     expect(await screen.findByTestId('photo-guidance')).toHaveTextContent('畫面模糊，請保持手機穩定');
+    const shutter = screen.getByRole('button', { name: '拍攝照片' });
+    expect(shutter).toBeEnabled();
+    fireEvent.click(shutter);
+    fireEvent.click(await screen.findByRole('button', { name: /儲存並拍下一張/ }));
+    await waitFor(() => expect(api.uploadPhoto).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText('提交照片仍模糊，請重新拍攝')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '加油卡與停車卡' })).toBeInTheDocument();
   });
 
   it('shows the exterior alignment overlay after the first three accepted photos', async () => {

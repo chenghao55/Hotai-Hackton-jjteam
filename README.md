@@ -65,7 +65,8 @@ the local `file_path`.
 **Current repo state**
 - Photo storage already exists.
 - Python guidance core is available as `module_a.PhotoCoach`; setup and contract gaps are documented in [Module A coach integration](docs/tasks/module-a-coach.md).
-- E now adapts `module_a.PhotoCoach` through `backend/services/photo_guidance.py`. Real-image template calibration and manual-review submission remain open.
+- E adapts `module_a.PhotoCoach` through `backend/services/photo_guidance.py`. The shutter is always available; only the submitted image receives a final accept/reshoot decision. Real-image template calibration remains open.
+- `module_a.compare_stored_photos(borrow_photo_id, return_photo_id, detector=...)` is an experimental offline comparison core for two already accepted exterior photos. It validates borrow/return and slot metadata, estimates image alignment and returns candidate change regions or a failure reason. The caller must verify that both IDs belong to the same rental and vehicle; no HTTP route or real-pair accuracy validation exists yet. See [comparison plan](docs/tasks/borrow-return-difference-heatmap-plan.md).
 
 **Guidance implementation contract**
 A must expose a stable Python-level API that E can wrap with an adapter.
@@ -167,6 +168,7 @@ Module B accepts multiple photos and uses Module A metadata to validate their st
   excluded from the damage analyzer.
 - The current AI analyzes model-relevant photos independently; complete pairing is evidence
   mapping, not true before/after visual differencing.
+- Module A's experimental heatmap result is not yet connected to Module B's findings or Case creation.
 
 **Important**
 B owns AI interpretation, not D's domain policy.
@@ -339,7 +341,7 @@ GET  /photos/{photo_id}
 
 **Next E work**
 ```text
-1. Calibrate Module A templates and define a manual-review submission contract
+1. Calibrate Module A templates against real vehicle photos
 2. Connect the UI client to the production Case-creation API
 3. Run end-to-end demo
 ```
@@ -481,15 +483,17 @@ No agent should rewrite another module merely because doing so is easier locally
 - Module E composition root at `backend.main:app`
 - `UI_client` canonical RETURN capture integration through Module E photo and Case routes
 
-Current full-suite checkpoint:
+Last green full-suite checkpoint before concurrent guidance edits:
 
 ```text
-375 passed
+382 passed
 1 warning
 0 failed
 ```
 
 The warning is a third-party Starlette TestClient/httpx deprecation and is not a functional failure.
+The latest run after concurrent changes to `module_a/guidance.py` and its template
+reported 364 passed and 19 guidance-related failures; the comparison tests pass.
 
 ### Temporary / transitional
 
@@ -655,8 +659,7 @@ Current multipart capture context: `file`, `photo_type`, `capture_slot`,
 `vehicle_type` (`sedan` or `suv`), `session_id`, `frame_id`, and `entry_side`
 (`left` or `right`, required for interior slots). The client must send an
 unmirrored camera frame. Module E calls `PhotoCoach` in a worker thread and
-returns `can_capture`, `review_required`, and `manual_review_remaining_ms`
-when available. Requests without capture context return HTTP 422 from the
+returns the current guidance without blocking the shutter. Requests without capture context return HTTP 422 from the
 production coach; test adapters may still use the older image-only interface.
 The checkpoint is selected with `HOTAI_MODULE_A_CHECKPOINT_PATH` (default:
 the current user's `Downloads/best.pt`); `HOTAI_MODULE_A_DEVICE` defaults to
@@ -695,9 +698,10 @@ HTTP `4xx` is reserved for malformed/invalid requests, such as:
 
 ### 5.2 `POST /photos`
 
-The final upload accepts the same capture context and reruns the coach in
-`final` mode. Manual-review advice does not create a review task or photo ID;
-until that separate workflow exists, it returns `accepted=false`. The card and
+The final upload accepts the same capture context and reruns the coach on the
+submitted image in `final` mode. Failed checks return `accepted=false` with a
+reshoot reason and do not save the photo. There is no timer or manual-review
+fallback. The card and
 optional damage slots are outside the six-angle coach and are checked only for
 valid PNG/JPEG image format before storage. No AI angle claim is made for them.
 
@@ -934,7 +938,7 @@ When updating this README:
 Current E sequence:
 
 ```text
-1. Calibrate Module A templates and complete manual-review submission
+1. Calibrate Module A templates against real vehicle photos
 2. Replace the remaining staff-side prototype data when its production integration is scheduled
 3. Run an end-to-end demo against the real Module E process and model checkpoint
 ```

@@ -29,9 +29,6 @@ class ModuleAPhotoGuidanceService(PhotoGuidanceService):
             accepted=result.accepted,
             check=PhotoCheck(level=result.level, code=result.code,
                              message=result.message, action=result.action),
-            can_capture=result.can_capture,
-            review_required=result.review_required,
-            manual_review_remaining_ms=result.manual_review_remaining_ms,
         )
 
 

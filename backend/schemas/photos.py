@@ -48,7 +48,6 @@ class GuidanceAction(str, Enum):
     GUIDE = "guide"
     RESHOOT = "reshoot"
     ACCEPT = "accept"
-    HUMAN_REVIEW = "human_review"
 
 
 class PhotoCheck(BaseModel):
@@ -61,9 +60,6 @@ class PhotoCheck(BaseModel):
 class _PhotoDecisionResponse(BaseModel):
     accepted: bool
     check: PhotoCheck
-    can_capture: bool | None = None
-    review_required: bool | None = None
-    manual_review_remaining_ms: int | None = None
 
     @model_validator(mode="after")
     def accepted_matches_check(self) -> "_PhotoDecisionResponse":
