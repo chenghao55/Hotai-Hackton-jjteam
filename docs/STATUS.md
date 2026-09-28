@@ -5,10 +5,10 @@ This file records shared repository status. It is not an individual agent checkp
 ## Last verified checkpoint
 
 - Verified on: 2026-09-28
-- Verified against: current `main` worktree
-- Full Python suite: **349 passed, 2 warnings, 0 failed**
+- Verified against: integrated Module A Python coach and current main changes
+- Full Python suite: **375 passed, 1 warning, 0 failed**
 - Command: `python -m pytest -q`
-- The two warnings are existing FastAPI/Starlette dependency deprecation warnings.
+- The warning is a third-party Starlette TestClient/httpx deprecation in the validation environment.
 
 ## Current cross-module flow
 
@@ -45,6 +45,7 @@ Completed:
 Open:
 
 - Real shooting-guidance AI has not been integrated. Module E currently uses a stub guidance service.
+- A Python guidance core is now available (`module_a.PhotoCoach`), including draft quality/geometry checks and manual-capture advice. It is not wired to E: the current HTTP context and acceptance schemas cannot faithfully represent its inputs and uncertainty/manual outputs. See `docs/tasks/module-a-coach.md`. Storage contracts remain unchanged; templates still require real-photo calibration.
 
 ## Module B
 
@@ -145,7 +146,7 @@ Repository inspection found three differences from the supplied starting notes:
 - Module B now follows the deployed single-image model: return-only exterior evidence is valid,
   while card and interior photos are filtered out before inference.
 - Module D already supports nullable borrow evidence for generic return-only detections, so that contract is no longer blocking integration.
-- The confirmed full pytest checkpoint is now 349 passed.
+- The confirmed full pytest checkpoint is now 375 passed, including 26 Python coach tests.
 
 ## Status-recording rule
 

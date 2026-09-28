@@ -1,0 +1,13 @@
+{
+  "name": "vehicle-capture-coach",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "node src/capture-api.cjs",
+    "test": "node --test tests/*.test.cjs"
+  },
+  "dependencies": {
+    "jpeg-js": "0.4.4",
+    "pngjs": "7.0.0"
+  }
+}

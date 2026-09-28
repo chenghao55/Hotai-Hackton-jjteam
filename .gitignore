@@ -57,3 +57,13 @@ module_b/SOCAR_DATA_REQUEST_DRAFT.md
 **/dist/
 **/build/
 **/.vite/
+
+# Local Module A development and model artifacts
+.runtime/
+.pnpm-store/
+output/
+evaluation/
+*.pt
+/model.py
+/train.py
+/Ultralytics/
