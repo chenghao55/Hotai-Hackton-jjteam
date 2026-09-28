@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hotai-module-d"
+version = "0.1.0"
+description = "Pure-Python vehicle-condition case domain models"
+requires-python = ">=3.10"
+dependencies = ["fastapi>=0.115,<1", "python-multipart>=0.0.9,<1", "uvicorn>=0.30,<1"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10", "httpx>=0.27,<1"]
+ml = [
+    "numpy>=2,<3",
+    "Pillow>=11,<14",
+    "scikit-learn>=1.6,<2",
+    "scipy>=1.14,<2",
+    "torch==2.13.0",
+    "torchvision==0.28.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["module_d*", "module_a*", "module_b*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

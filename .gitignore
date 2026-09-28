@@ -1,15 +1,69 @@
-tmp/
-node_modules/
+# Python virtual environment
+.venv/
+.venv-api/
+
+# Python cache
 __pycache__/
 *.pyc
+
+# pytest cache
+.pytest_cache/
+
+# Local-only tests. Keep them available for development without publishing.
+tests/
+!tests/
+!tests/backend/
+!tests/backend/*.py
+!tests/module_a/
+!tests/module_a/*.py
+!tests/module_b/
+!tests/module_b/*.py
+
+# Environment variables / secrets
+.env
+
+# Local package installation metadata
+*.egg-info/
+
+# Local package installation metadata
+*.egg-info/
+
+# UI backstage
+node_modules
+dist
+.DS_Store
+*.log
+
+# Module B generated artifacts and private source images. Only the reviewed
+# multitask deployment checkpoint and its matching metrics may enter Git.
+artifacts/*
+!artifacts/module_b/
+artifacts/module_b/*
+!artifacts/module_b/damage_multitask.pth
+!artifacts/module_b/multitask_damage_metrics.json
+runs/
+tmp/
+data/
+datasets/
+condition_manifest.json
+iRent - 運用 AI 打造 iRent 智能車況管家：優化租還車體驗與營運效率/
+
+# Runtime uploads and local-only drafts must never be published.
+photos/
+module_b/SOCAR_DATA_REQUEST_DRAFT.md
+
+# 三方套件檔
+**/node_modules/
+**/dist/
+**/build/
+**/.vite/
+
+# Local Module A development and model artifacts
+.runtime/
+.pnpm-store/
 output/
 evaluation/
-data/
 *.pt
-*.xlsx
-.env
-.runtime/
-.venv/
-.pnpm-store/
 /model.py
 /train.py
+/Ultralytics/
