@@ -1,5 +1,7 @@
 # Hotai iRent AI Prototype
 
+給隊友的 A 模組第二版功能匯報與接線待辦：[module_a/README.md](module_a/README.md)。
+
 Module A 拍攝教練第二版位於 [`module_a/`](module_a/)，開發沿用 `A_legalityAI` 分支。Python 呼叫方式與尚待 E 串接的契約見 [A 模組交接](docs/tasks/module-a-coach.md)。第一版獨立 Node/Python 服務保留在 [`legacy/capture-coach-v1/`](legacy/capture-coach-v1/)，供參考與回歸測試；團隊 HTTP 入口仍是 `backend.main:app`。
 
 Coding agents must read [AGENTS.md](AGENTS.md) and [docs/STATUS.md](docs/STATUS.md) before changing the repository. `AGENTS.md` contains the shared workflow and ownership rules; `docs/STATUS.md` contains the latest verified team-level status and test checkpoint.
