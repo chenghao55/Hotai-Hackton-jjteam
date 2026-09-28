@@ -476,6 +476,7 @@ No agent should rewrite another module merely because doing so is easier locally
 - Module E Case HTTP schemas, in-memory state, and routes
 - Module E composition root at `backend.main:app`
 - `UI_client` canonical RETURN capture integration through Module E photo and Case routes
+- `UI_backstage` production queue integration through Module E Case, review, appeal, workflow, and payment routes
 
 Current full-suite checkpoint:
 
@@ -914,7 +915,7 @@ Current E sequence:
 
 ```text
 1. Replace guidance stub with Module A implementation after A is merged
-2. Replace the remaining staff-side prototype data when its production integration is scheduled
+2. Add corrected-review inputs and payment-amount editing to `UI_backstage` when required
 3. Run an end-to-end demo against the real Module E process and model checkpoint
 ```
 

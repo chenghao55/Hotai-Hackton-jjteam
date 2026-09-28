@@ -111,6 +111,7 @@ Open:
 Current repository state:
 
 - `UI_backstage` calls existing Case endpoints for staff workflows.
+- The active `UI_backstage` queue loads real Cases from Module E and uses real endpoints for dispatch, confirm/reject review, appeal, workflow transitions, payment confirmation, and no-action completion. It safely displays Cases with no detections and does not fall back to demo Case state.
 - `UI_client` uses the canonical Module E routes for the RETURN-only capture flow.
 - Live guidance uses `POST /photo-guidance`; final captures use `POST /photos`; Case creation uses `POST /cases/from-photos`.
 - Seven required photos are uploaded. Card/front-cabin/rear-cabin IDs are stored but excluded from Case evidence; four exterior IDs and optional `OTHER_DAMAGE` IDs are included.
@@ -130,12 +131,12 @@ Implemented integration:
   `borrow_photo_id=None`, and Module B uses it for RETURN exterior/damage photos without
   fabricating borrow evidence.
 - The real Module A shooting-guidance implementation must replace `StubPhotoGuidanceService` when it is available.
-- The staff-side `UI_backstage` and `/review` experience still contain prototype data pending a separately scoped production integration.
+- `UI_backstage` corrected review remains unsupported until the UI supplies `reviewed_category` and `reviewed_severity`; payment amount editing remains unsupported until a UI is added for the existing payment endpoint. The displayed vehicle/gallery decorations are placeholders because Case responses do not contain rental/customer metadata or a photo-gallery contract.
 
 ## Team-level next steps
 
 1. Replace the shooting-guidance stub when Module A's real implementation is merged.
-2. Plan the staff-side production integration without moving Module D rules into the UI.
+2. Add corrected-review and payment-amount inputs to the staff UI when the MVP needs those actions, without moving Module D rules into the UI.
 3. Run an end-to-end demo covering capture, upload, Case creation, review, workflow, and payment.
 
 ## Differences from the previous written checkpoint

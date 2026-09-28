@@ -33,6 +33,7 @@ node_modules
 dist
 .DS_Store
 *.log
+UI_client/.openai/
 
 # Module B generated artifacts and private source images. Only the reviewed
 # multitask deployment checkpoint and its matching metrics may enter Git.
@@ -57,3 +58,6 @@ module_b/SOCAR_DATA_REQUEST_DRAFT.md
 **/dist/
 **/build/
 **/.vite/
+**/.next/
+**/.vinext/
+**/.wrangler/

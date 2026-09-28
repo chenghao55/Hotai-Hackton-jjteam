@@ -24,13 +24,24 @@ npm run build
 ```
 src/
   main.jsx              # React 進入點
-  App.jsx               # 掛載 CaseQueueConsole
-  CaseQueueConsole.jsx  # 後台主畫面（待處理／處理中／已處理三分頁 + 詳情面板）
+  App.jsx                       # 掛載正式後台主畫面
+  CaseQueueConsole_v2_2.jsx     # 待處理／處理中／已處理三分頁 + 詳情面板
+  CaseQueueConsole.test.jsx     # Module E 整合測試
 ```
 
 ## 資料狀態
 
-目前 `CaseQueueConsole.jsx` 最上面的 `INITIAL_CASES` 是寫死的示範資料，欄位對齊 Module D 的 `Case` / `Detection` schema（`priority_score`、`status`、`review_state`、`category`、`severity` 等）。之後接上真的後端，只要把 `INITIAL_CASES` 換成 `useEffect` + `fetch` 從 API 拿資料即可，元件其他部分不用改。
+正式畫面從 `http://127.0.0.1:8000/cases` 載入 Module E 的 in-memory Case，沒有 demo Case fallback。派工、確認／拒絕審核、申訴、開始／完成處理、確認付款與無需處理結案都呼叫既有 Module E endpoint，畫面只套用後端回傳的 Case。
+
+零 Detection 的 Case 仍會出現在佇列及詳情，並可執行後端允許的工作流程操作。修正審核需要 `reviewed_category` 與 `reviewed_severity`，目前畫面未提供這兩個輸入，因此按鈕明確停用。付款金額編輯也尚未提供；畫面只會確認後端已存在的付款金額。
+
+後端未啟動或 API 操作失敗時，畫面不會建立假案件或模擬成功狀態。
+
+## 測試
+
+```bash
+npm test
+```
 
 ## 推上 GitHub
 
