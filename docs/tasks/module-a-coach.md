@@ -5,6 +5,14 @@ photo storage API is unchanged. Guidance never saves photos, creates cases, or
 dispatches human reviews. Existing E routes still use their stub until their
 context and decision contracts are extended.
 
+Development now continues on **`A_legalityAI`**. This branch incorporates main
+`e69cda8` and the Python coach commit `3c417c2` through normal merges, preserving
+both histories. `A_capture_coach_python` was an intermediate integration branch;
+no further work on that branch is required. The old independent service is
+archived under `legacy/capture-coach-v1/`. No E/UI/B/D contract is changed by this
+branch consolidation. A pull request from `A_legalityAI` to `main` delivers the
+Python core; HTTP wiring remains the separately documented next step below.
+
 ## Use from Python
 
 Install `python -m pip install -e ".[coach,test]"` in an environment with a compatible
@@ -93,7 +101,15 @@ New A public API: `CaptureContext`, `GuidanceResult`, `PhotoCoach.analyze`,
 
 ## Validation and changed files
 
-Integration branch `A_capture_coach_python`, based on main `96a776a`:
+Current consolidated `A_legalityAI` checkpoint (2026-09-28): focused Module A
+tests **40 passed**; full Python suite **375 passed, 1 warning, 0 failed**.
+The archived Node suite also passes (13 API tests plus 31 geometry assertions).
+The warning is the existing Starlette TestClient/httpx deprecation. Main changes
+through `e69cda8` are included. No existing Python storage or HTTP contract changed.
+The old tracked `__pycache__/model.cpython-313.pyc` was removed from tracking;
+model weights, environments, runtime output and untracked local notes are excluded.
+
+Previous integration checkpoint on `A_capture_coach_python`, based on main `96a776a`:
 `python -m pytest -q` → **357 passed, 1 warning, 0 failed**. The warning is a
 third-party Starlette TestClient/httpx deprecation in this environment. The 26
 new tests cover draft versus calibrated decisions, first-frame PASS, timeout,

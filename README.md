@@ -1,5 +1,7 @@
 # Hotai iRent AI Prototype
 
+Module A 拍攝教練第二版位於 [`module_a/`](module_a/)，開發沿用 `A_legalityAI` 分支。Python 呼叫方式與尚待 E 串接的契約見 [A 模組交接](docs/tasks/module-a-coach.md)。第一版獨立 Node/Python 服務保留在 [`legacy/capture-coach-v1/`](legacy/capture-coach-v1/)，供參考與回歸測試；團隊 HTTP 入口仍是 `backend.main:app`。
+
 Coding agents must read [AGENTS.md](AGENTS.md) and [docs/STATUS.md](docs/STATUS.md) before changing the repository. `AGENTS.md` contains the shared workflow and ownership rules; `docs/STATUS.md` contains the latest verified team-level status and test checkpoint.
 
 > **Purpose of this README**
@@ -480,12 +482,12 @@ No agent should rewrite another module merely because doing so is easier locally
 Current full-suite checkpoint:
 
 ```text
-349 passed
-2 warnings
+375 passed
+1 warning
 0 failed
 ```
 
-The two warnings are third-party FastAPI/Starlette deprecation warnings and are not current functional failures.
+The warning is a third-party Starlette TestClient/httpx deprecation and is not a functional failure.
 
 ### Temporary / transitional
 

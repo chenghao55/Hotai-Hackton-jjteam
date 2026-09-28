@@ -1,5 +1,7 @@
 # 車輛借還車拍攝 AI 教練
 
+> 第一版封存：第二版請使用根目錄的 `module_a`，見 [新版交接](../../docs/tasks/module-a-coach.md)。下列內容是舊版獨立服務的說明，不代表已接入團隊 FastAPI。若要重跑舊版，先切換至本資料夾安裝 Node 依賴，並將 `CAPTURE_PYTHON` 指向倉庫根目錄 `.venv/Scripts/python.exe` 的絕對路徑；本資料夾沒有原先的 `.vscode` 設定與 Python 環境。
+
 這個專案提供 `POST /api/v1/capture/analyze`，接收一張原始相機照片與前端指定的槽位，回傳光線、清晰度、距離／完整度、置中和特徵構圖建議。車外支援轎車／休旅車的四個車角；車內支援從左／右側門拍前排或後排。`best.pt` 內部仍有 7 類；服務忽略原始 class 1，並將其餘類別轉為下列對外 ID。
 
 | 對外 class_id | 類別 | `best.pt` 原始 ID |
