@@ -10,7 +10,8 @@ from backend.schemas.photos import (
     PhotoCheck,
     PhotoGuidanceResponse,
 )
-from backend.services.photo_guidance import PhotoGuidanceService
+from backend.services.photo_guidance import PhotoGuidanceService, ModuleAPhotoGuidanceService
+from module_a import GuidanceResult
 
 
 @pytest.fixture
@@ -24,21 +25,37 @@ def upload(client: TestClient, content: bytes = b"image-bytes"):
     return client.post("/photo-guidance", files={"file": ("frame.jpg", content, "image/jpeg")})
 
 
-def test_stub_guidance_returns_pass_without_photo_id(app):
+def test_real_guidance_requires_capture_context_without_loading_model(app):
     with TestClient(app) as client:
         response = upload(client)
 
+    assert response.status_code == 422
+    assert response.json()["detail"] == "photo_type and capture_slot are required"
+
+
+def test_real_adapter_receives_context_and_returns_manual_state(app):
+    class Coach:
+        context = None
+
+        def analyze(self, image, context):
+            self.context = context
+            return GuidanceResult(False, "L6", "TEMPLATE_NOT_CALIBRATED", "待人工審理",
+                                  "human_review", True, True)
+
+    coach = Coach()
+    app.dependency_overrides[photo_routes.get_photo_guidance_service] = lambda: ModuleAPhotoGuidanceService(coach)
+    with TestClient(app) as client:
+        response = client.post("/photo-guidance",
+            data={"photo_type": "return", "capture_slot": "interior_rear",
+                  "vehicle_type": "suv", "entry_side": "right", "session_id": "test-session", "frame_id": "3"},
+            files={"file": ("frame.jpg", b"frame", "image/jpeg")})
+
     assert response.status_code == 200
-    assert response.json() == {
-        "accepted": True,
-        "check": {
-            "level": "PASS",
-            "code": "PASS",
-            "message": "視角正確，請保持穩定並按下快門。",
-            "action": "accept",
-        },
-    }
-    assert "photo_id" not in response.json()
+    assert response.json()["review_required"] is True
+    assert response.json()["accepted"] is False
+    assert coach.context.capture_slot.value == "interior_rear"
+    assert coach.context.entry_side == "right"
+    assert coach.context.frame_id == 3
 
 
 def test_rejected_guidance_is_a_successful_http_response(app):

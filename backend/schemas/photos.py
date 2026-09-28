@@ -28,6 +28,19 @@ class GuidanceCode(str, Enum):
     TOO_FRONT = "TOO_FRONT"
     TOO_SIDE = "TOO_SIDE"
     INTERIOR_NOT_ALIGNED = "INTERIOR_NOT_ALIGNED"
+    LOW_DETAIL = "LOW_DETAIL"
+    SUBJECT_NOT_DETECTED = "SUBJECT_NOT_DETECTED"
+    MULTIPLE_SUBJECTS = "MULTIPLE_SUBJECTS"
+    SUBJECT_NEAR_EDGE = "SUBJECT_NEAR_EDGE"
+    SUBJECT_TOO_SMALL = "SUBJECT_TOO_SMALL"
+    SUBJECT_TOO_LARGE = "SUBJECT_TOO_LARGE"
+    POSSIBLE_WRONG_SLOT = "POSSIBLE_WRONG_SLOT"
+    TEMPLATE_NOT_CALIBRATED = "TEMPLATE_NOT_CALIBRATED"
+    FRONT_SEAT_EVIDENCE_UNAVAILABLE = "FRONT_SEAT_EVIDENCE_UNAVAILABLE"
+    UNSUPPORTED_SLOT = "UNSUPPORTED_SLOT"
+    MISSING_REQUIRED_FEATURE = "MISSING_REQUIRED_FEATURE"
+    GEOMETRY_MISMATCH = "GEOMETRY_MISMATCH"
+    AMBIGUOUS_TEMPLATES = "AMBIGUOUS_TEMPLATES"
     PASS = "PASS"
 
 
@@ -35,6 +48,7 @@ class GuidanceAction(str, Enum):
     GUIDE = "guide"
     RESHOOT = "reshoot"
     ACCEPT = "accept"
+    HUMAN_REVIEW = "human_review"
 
 
 class PhotoCheck(BaseModel):
@@ -47,6 +61,9 @@ class PhotoCheck(BaseModel):
 class _PhotoDecisionResponse(BaseModel):
     accepted: bool
     check: PhotoCheck
+    can_capture: bool | None = None
+    review_required: bool | None = None
+    manual_review_remaining_ms: int | None = None
 
     @model_validator(mode="after")
     def accepted_matches_check(self) -> "_PhotoDecisionResponse":

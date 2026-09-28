@@ -8,7 +8,7 @@ from .case_building import (
 )
 from .photo_guidance import (
     PhotoGuidanceService,
-    StubPhotoGuidanceService,
+    ModuleAPhotoGuidanceService,
     get_photo_guidance_service,
 )
 from .photo_storage import (
@@ -23,7 +23,7 @@ __all__ = [
     "PhotoGuidanceService",
     "PhotoStorageService",
     "PhotoStorageNotFoundError",
-    "StubPhotoGuidanceService",
+    "ModuleAPhotoGuidanceService",
     "ModuleAPhotoStorageService",
     "get_case_building_module_b",
     "get_case_building_module_b_provider",

@@ -5,8 +5,8 @@ This file records shared repository status. It is not an individual agent checkp
 ## Last verified checkpoint
 
 - Verified on: 2026-09-28
-- Verified against: integrated Module A Python coach and current main changes
-- Full Python suite: **375 passed, 1 warning, 0 failed**
+- Verified against: Module A coach connected through Module E and current main changes
+- Full Python suite: **377 passed, 1 warning, 0 failed**
 - Command: `python -m pytest -q`
 - The warning is a third-party Starlette TestClient/httpx deprecation in the validation environment.
 
@@ -44,8 +44,7 @@ Completed:
 
 Open:
 
-- Real shooting-guidance AI has not been integrated. Module E currently uses a stub guidance service.
-- A Python guidance core is now available (`module_a.PhotoCoach`), including draft quality/geometry checks and manual-capture advice. It is not wired to E: the current HTTP context and acceptance schemas cannot faithfully represent its inputs and uncertainty/manual outputs. See `docs/tasks/module-a-coach.md`. Storage contracts remain unchanged; templates still require real-photo calibration.
+- The Python guidance core (`module_a.PhotoCoach`) is now wired through Module E with explicit capture context and uncertainty/manual guidance fields. Templates still require real-photo calibration, so automatic PASS remains disabled. Manual-review evidence storage and dispatch remain open; advice alone does not create a review task or photo ID.
 
 ## Module B
 
@@ -130,12 +129,12 @@ Implemented integration:
 - Return-only damage evidence is supported end to end. Module D accepts an explicitly supplied
   `borrow_photo_id=None`, and Module B uses it for RETURN exterior/damage photos without
   fabricating borrow evidence.
-- The real Module A shooting-guidance implementation must replace `StubPhotoGuidanceService` when it is available.
+- Module A's coach now replaces the fixed-PASS stub. Manual-review submission and template calibration are still required.
 - The staff-side `UI_backstage` and `/review` experience still contain prototype data pending a separately scoped production integration.
 
 ## Team-level next steps
 
-1. Replace the shooting-guidance stub when Module A's real implementation is merged.
+1. Calibrate Module A templates and agree on manual-review evidence submission.
 2. Plan the staff-side production integration without moving Module D rules into the UI.
 3. Run an end-to-end demo covering capture, upload, Case creation, review, workflow, and payment.
 

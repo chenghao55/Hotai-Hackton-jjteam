@@ -171,7 +171,9 @@ describe('canonical return capture', () => {
     fireEvent.click(screen.getByRole('button', { name: /轎車/ }));
     fireEvent.click(screen.getByRole('button', { name: /開啟即時相機/ }));
 
-    await waitFor(() => expect(api.requestPhotoGuidance).toHaveBeenCalledWith(frame));
+    await waitFor(() => expect(api.requestPhotoGuidance).toHaveBeenCalledWith(frame, expect.objectContaining({
+      vehicleType: 'sedan', captureSlot: 'fuel_parking_card', frameId: expect.any(Number),
+    })));
     expect(await screen.findByTestId('photo-guidance')).toHaveTextContent('畫面模糊，請保持手機穩定');
   });
 
@@ -282,8 +284,23 @@ describe('canonical return capture', () => {
     await uploadCurrentFile('cards');
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '車內座椅（前座）' })).toBeInTheDocument());
-    expect(api.uploadPhoto).toHaveBeenCalledWith(expect.any(Blob), 'return', 'fuel_parking_card');
+    expect(api.uploadPhoto).toHaveBeenCalledWith(expect.any(Blob), 'return', 'fuel_parking_card', expect.objectContaining({
+      vehicleType: 'sedan', captureSlot: 'fuel_parking_card',
+    }));
     expect(screen.queryByText('儀表板與里程')).not.toBeInTheDocument();
+  });
+
+  it('sends the selected right door for an interior final photo', async () => {
+    api.uploadPhoto.mockResolvedValueOnce(acceptedPhoto('cards-id'))
+      .mockResolvedValueOnce(acceptedPhoto('front-id'));
+    render(<CameraPage />);
+    fireEvent.click(screen.getByRole('button', { name: /轎車/ }));
+    await uploadCurrentFile('cards');
+    await waitFor(() => expect(screen.getByRole('heading', { name: '車內座椅（前座）' })).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText('從哪一側車門拍攝？'), { target: { value: 'right' } });
+    await uploadCurrentFile('front');
+    expect(api.uploadPhoto).toHaveBeenLastCalledWith(expect.any(Blob), 'return', 'interior_front',
+      expect.objectContaining({ entrySide: 'right' }));
   });
 
   it('keeps a rejected upload on the same step without storing a photo ID', async () => {

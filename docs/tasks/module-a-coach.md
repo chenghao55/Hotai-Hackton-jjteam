@@ -2,8 +2,8 @@
 
 The former standalone Node coach has been ported into `module_a`. The main-branch
 photo storage API is unchanged. Guidance never saves photos, creates cases, or
-dispatches human reviews. Existing E routes still use their stub until their
-context and decision contracts are extended.
+dispatches human reviews. E now supplies capture context and returns Module A's
+advice; manual-review submission remains a separate unfinished contract.
 
 Development now continues on **`A_legalityAI`**. This branch incorporates main
 `e69cda8` and the Python coach commit `3c417c2` through normal merges, preserving
@@ -75,23 +75,22 @@ Box feature geometry is reported at L6; L5 physical camera height is explicitly
 `not_applicable`. L6 is template conformity, not proof of a 45-degree angle.
 Single-frame sharpness is not an IMU or temporal camera-stability measurement.
 
-An E-only adapter cannot faithfully connect the current public HTTP contract:
+The initial E adapter now handles context and uncertainty, but these remaining
+limits apply:
 
-1. `/photo-guidance` receives only `file`; its service receives only image bytes.
-   Both preview and final analysis need capture slot, vehicle family, entry side,
-   session and frame identity. `/photos` has slot/type but does not pass them to
-   guidance yet. E must explicitly supply `CaptureContext`, without guessing.
-2. `PhotoCheck` enums cannot represent missing subjects, unknown geometry,
-   uncalibrated templates, unsupported slots or manual review. Do not translate
-   these to a false PASS or fabricate height/direction advice.
-3. `PhotoUploadResponse` enforces `accepted=True` iff PASS and a stored photo ID;
+1. E now supplies `CaptureContext` to the coach and the UI sends slot, vehicle
+   family, entry side, session, and frame identity. The checkpoint is configured
+   server-side and loaded lazily.
+2. `PhotoCheck` now represents the coach's uncertainty and manual-review advice.
+   Physical camera height and exact viewing angle remain unverified.
+3. `PhotoUploadResponse` still enforces `accepted=True` iff PASS and a stored photo ID;
    rejected photos cannot have an ID. Manual-pending evidence therefore needs a
    backward-compatible explicit submission/review state (and photo ID handling)
    agreed with E/UI/D. A emits advice only; D owns review policy and dispatch.
 
-Smallest proposed extension: add explicit capture context to E's guidance call;
-add machine-readable uncertainty/manual states and separate AI acceptance from
-permission to store pending evidence. Keep existing PASS/reshoot responses valid.
+The first two proposed extensions are implemented. The remaining extension must
+separate AI acceptance from permission to store pending evidence while keeping
+existing PASS/reshoot responses valid.
 Affected tests/callers: `tests/backend/test_photo_schemas.py`,
 `test_photo_guidance_route.py`, `test_photo_upload_route.py`, the E guidance
 provider, and `UI_client` shutter/upload flow. These contracts are not changed here.

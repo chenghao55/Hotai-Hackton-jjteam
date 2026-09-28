@@ -65,7 +65,7 @@ the local `file_path`.
 **Current repo state**
 - Photo storage already exists.
 - Python guidance core is available as `module_a.PhotoCoach`; setup and contract gaps are documented in [Module A coach integration](docs/tasks/module-a-coach.md).
-- E currently uses a replaceable guidance stub.
+- E now adapts `module_a.PhotoCoach` through `backend/services/photo_guidance.py`. Real-image template calibration and manual-review submission remain open.
 
 **Guidance implementation contract**
 A must expose a stable Python-level API that E can wrap with an adapter.
@@ -331,7 +331,7 @@ GET  /photos/{photo_id}
 - Photo guidance route complete
 - Photo upload route complete
 - Photo retrieval route complete
-- Guidance still uses a stub until A guidance is merged
+- Guidance uses the Module A coach when capture context is supplied; the checkpoint is loaded lazily.
 - Case schemas, in-memory state, and routes are extracted into `backend/`
 - `backend/main.py` is the canonical Module E composition root
 - `module_d/api.py` is a legacy compatibility layer that reuses the canonical app
@@ -339,7 +339,7 @@ GET  /photos/{photo_id}
 
 **Next E work**
 ```text
-1. Replace guidance stub with Module A implementation after A is merged
+1. Calibrate Module A templates and define a manual-review submission contract
 2. Connect the UI client to the production Case-creation API
 3. Run end-to-end demo
 ```
@@ -474,7 +474,7 @@ No agent should rewrite another module merely because doing so is easier locally
 - Optional `source_photo_id`
 - Review / appeal / priority / workflow / payment
 - Module E photo HTTP schemas (`backend/schemas/photos.py`)
-- Module E `POST /photo-guidance` route with a replaceable stub service
+- Module E `POST /photo-guidance` route with a Module A coach adapter
 - Module E `POST /photos` final guidance and Module A storage flow
 - Module E `GET /photos/{photo_id}` binary retrieval through Module A storage
 - Module E Case HTTP schemas, in-memory state, and routes
@@ -651,6 +651,17 @@ The photo flow has two separate operations.
 
 ### 5.1 `POST /photo-guidance`
 
+Current multipart capture context: `file`, `photo_type`, `capture_slot`,
+`vehicle_type` (`sedan` or `suv`), `session_id`, `frame_id`, and `entry_side`
+(`left` or `right`, required for interior slots). The client must send an
+unmirrored camera frame. Module E calls `PhotoCoach` in a worker thread and
+returns `can_capture`, `review_required`, and `manual_review_remaining_ms`
+when available. Requests without capture context return HTTP 422 from the
+production coach; test adapters may still use the older image-only interface.
+The checkpoint is selected with `HOTAI_MODULE_A_CHECKPOINT_PATH` (default:
+the current user's `Downloads/best.pt`); `HOTAI_MODULE_A_DEVICE` defaults to
+`cpu`. The model is loaded lazily once per process.
+
 Purpose:
 - Analyze a live camera frame
 - Tell the user why the current framing/photo is not acceptable
@@ -683,6 +694,12 @@ HTTP `4xx` is reserved for malformed/invalid requests, such as:
 - invalid required fields
 
 ### 5.2 `POST /photos`
+
+The final upload accepts the same capture context and reruns the coach in
+`final` mode. Manual-review advice does not create a review task or photo ID;
+until that separate workflow exists, it returns `accepted=false`. The card and
+optional damage slots are outside the six-angle coach and are checked only for
+valid PNG/JPEG image format before storage. No AI angle claim is made for them.
 
 Purpose:
 - User presses the shutter
@@ -917,7 +934,7 @@ When updating this README:
 Current E sequence:
 
 ```text
-1. Replace guidance stub with Module A implementation after A is merged
+1. Calibrate Module A templates and complete manual-review submission
 2. Replace the remaining staff-side prototype data when its production integration is scheduled
 3. Run an end-to-end demo against the real Module E process and model checkpoint
 ```

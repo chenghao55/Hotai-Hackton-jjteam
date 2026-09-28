@@ -35,6 +35,7 @@ import {
   requestPhotoGuidance,
   uploadPhoto,
   type PhotoGuidanceResponse,
+  type CaptureContext,
 } from '@/lib/module-e-api';
 
 type CaptureMode = 'normal' | 'damage';
@@ -53,6 +54,7 @@ export default function CameraPage() {
   const [cameraStatus, setCameraStatus] = useState<'idle' | 'starting' | 'live'>('idle');
   const [captureMode, setCaptureMode] = useState<CaptureMode>('normal');
   const [vehicleType, setVehicleType] = useState<VehicleType | null>(null);
+  const [entrySide, setEntrySide] = useState<'left' | 'right'>('left');
   const [showDamageChoice, setShowDamageChoice] = useState(false);
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
@@ -61,6 +63,8 @@ export default function CameraPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const guidanceInFlightRef = useRef(false);
+  const sessionIdRef = useRef(globalThis.crypto?.randomUUID?.() ?? `capture-${Date.now()}-${Math.random()}`);
+  const frameIdRef = useRef(0);
 
   const activeSteps = useMemo(
     () => captureMode === 'damage' ? damageCaptureSteps : captureSteps,
@@ -72,6 +76,18 @@ export default function CameraPage() {
     ? getVehicleOverlay(vehicleType, currentStep.shotType)
     : null;
 
+  function nextContext(): CaptureContext {
+    frameIdRef.current += 1;
+    return {
+      vehicleType: vehicleType as VehicleType,
+      captureSlot: currentStep.captureSlot,
+      sessionId: sessionIdRef.current,
+      frameId: frameIdRef.current,
+      ...(currentStep.captureSlot === 'interior_front' || currentStep.captureSlot === 'interior_rear'
+        ? { entrySide } : {}),
+    };
+  }
+
   useEffect(() => () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
   }, []);
@@ -82,7 +98,7 @@ export default function CameraPage() {
   }, [previewUrl]);
 
   useEffect(() => {
-    if (cameraStatus !== 'live') return;
+    if (cameraStatus !== 'live' || !vehicleType) return;
     let active = true;
 
     async function checkFrame() {
@@ -92,7 +108,7 @@ export default function CameraPage() {
       guidanceInFlightRef.current = true;
       setGuidanceLoading(true);
       try {
-        const response = await requestPhotoGuidance(frame);
+        const response = await requestPhotoGuidance(frame, nextContext());
         if (active) {
           setGuidance(response);
           setRequestError('');
@@ -111,7 +127,7 @@ export default function CameraPage() {
       active = false;
       window.clearInterval(timer);
     };
-  }, [cameraStatus]);
+  }, [cameraStatus, currentStep.captureSlot, entrySide, vehicleType]);
 
   function stopCamera() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -233,8 +249,8 @@ export default function CameraPage() {
       setRequestError('請拍攝或選擇圖片檔案。');
       return;
     }
-    if (file.size > 12 * 1024 * 1024) {
-      setRequestError('照片超過 12 MB，請重新拍攝。');
+    if (file.size > 10 * 1024 * 1024) {
+      setRequestError('照片超過 10 MB，請重新拍攝。');
       return;
     }
     setRequestError('');
@@ -248,7 +264,7 @@ export default function CameraPage() {
     setUploading(true);
     setRequestError('');
     try {
-      const response = await uploadPhoto(currentPhoto, 'return', currentStep.captureSlot);
+      const response = await uploadPhoto(currentPhoto, 'return', currentStep.captureSlot, nextContext());
       setGuidance(response);
       if (!response.accepted || !response.photo_id) {
         setUploading(false);
@@ -303,6 +319,7 @@ export default function CameraPage() {
           <h1 className="mt-5 text-[28px] font-semibold leading-tight tracking-tight">{currentStep.title}</h1>
           <p className="mt-2 text-base leading-6 text-[#62756d]">{currentStep.description}</p>
           {captureMode === 'damage' && <div className="mt-4 rounded-2xl border border-[#cfe1d7] bg-[#eff6f1] p-4 text-sm leading-6 text-[#355f54]"><strong className="block text-[#173e35]">損壞照片為選填</strong>拍 1 張即可進入下一流程，最多可補充 4 張。</div>}
+          {(currentStep.captureSlot === 'interior_front' || currentStep.captureSlot === 'interior_rear') && <div className="mt-4"><label htmlFor="entry-side" className="mb-2 block text-sm font-semibold">從哪一側車門拍攝？</label><select id="entry-side" value={entrySide} onChange={(event) => { setEntrySide(event.target.value as 'left' | 'right'); setGuidance(null); }} className="h-11 w-full rounded-xl border border-[#cfe1d7] bg-white px-3"><option value="left">左側車門</option><option value="right">右側車門</option></select></div>}
 
           {creatingCase ? (
             <div className="mt-8 grid min-h-[360px] place-items-center rounded-[28px] bg-[#10251f] px-8 text-center text-white" role="status"><div><LoaderCircle className="mx-auto size-10 animate-spin text-[#c9ff38]" /><h2 className="mt-5 text-2xl font-semibold">正在建立案件</h2><p className="mt-2 text-base text-white/65">正在分析已接受的車身照片，請不要關閉頁面。</p></div></div>
@@ -317,7 +334,7 @@ export default function CameraPage() {
               <div className="mt-4 grid grid-cols-3 gap-2"><Tip icon={<MoveUpRight />} label={currentStep.tips[0]} /><Tip icon={<ScanLine />} label={currentStep.tips[1]} /><Tip icon={<SunMedium />} label={currentStep.tips[2]} /></div>
               <input ref={inputRef} data-testid="camera-input" type="file" accept="image/*" capture="environment" className="sr-only" onChange={(event) => selectPhoto(event.target.files?.[0])} />
               {requestError && <div role="alert" className="mt-4 flex gap-2 rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-700"><AlertTriangle className="mt-0.5 size-4 shrink-0" />{requestError}</div>}
-              {guidance && <div data-testid="photo-guidance" className={`mt-4 rounded-2xl p-4 text-sm font-medium ${guidance.accepted ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>{guidance.check.message}</div>}
+              {guidance && <div data-testid="photo-guidance" className={`mt-4 rounded-2xl p-4 text-sm font-medium ${guidance.accepted ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>{guidance.check.message}{guidance.review_required && <p className="mt-2">人工審理照片的交付流程尚未接通，目前無法儲存此張照片。</p>}</div>}
               {guidanceLoading && <p className="mt-2 text-center text-sm text-[#62756d]">正在檢查拍攝畫面…</p>}
 
               {previewUrl ? (

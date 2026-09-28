@@ -20,13 +20,19 @@ describe('Module E API client', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ accepted: true, check: { level: 'PASS', code: 'PASS', message: '可以拍攝', action: 'accept' } }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await requestPhotoGuidance(new Blob(['frame'], { type: 'image/jpeg' }));
+    await requestPhotoGuidance(new Blob(['frame'], { type: 'image/jpeg' }), {
+      vehicleType: 'suv', captureSlot: 'interior_rear', sessionId: 'capture-session',
+      frameId: 4, entrySide: 'right',
+    });
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('http://127.0.0.1:8000/photo-guidance');
     expect(init.method).toBe('POST');
     expect(init.body).toBeInstanceOf(FormData);
     expect((init.body as FormData).get('file')).toBeInstanceOf(File);
+    expect((init.body as FormData).get('capture_slot')).toBe('interior_rear');
+    expect((init.body as FormData).get('entry_side')).toBe('right');
+    expect((init.body as FormData).get('frame_id')).toBe('4');
   });
 
   it('uploads return photos with their canonical capture slot', async () => {

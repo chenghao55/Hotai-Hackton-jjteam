@@ -23,8 +23,13 @@ export type GuidanceCode =
   | 'TOO_FRONT'
   | 'TOO_SIDE'
   | 'INTERIOR_NOT_ALIGNED'
+  | 'LOW_DETAIL' | 'SUBJECT_NOT_DETECTED' | 'MULTIPLE_SUBJECTS'
+  | 'SUBJECT_NEAR_EDGE' | 'SUBJECT_TOO_SMALL' | 'SUBJECT_TOO_LARGE'
+  | 'POSSIBLE_WRONG_SLOT' | 'TEMPLATE_NOT_CALIBRATED'
+  | 'FRONT_SEAT_EVIDENCE_UNAVAILABLE' | 'UNSUPPORTED_SLOT'
+  | 'MISSING_REQUIRED_FEATURE' | 'GEOMETRY_MISMATCH' | 'AMBIGUOUS_TEMPLATES'
   | 'PASS';
-export type GuidanceAction = 'guide' | 'reshoot' | 'accept';
+export type GuidanceAction = 'guide' | 'reshoot' | 'accept' | 'human_review';
 
 export type PhotoCheck = {
   level: GuidanceLevel;
@@ -36,6 +41,17 @@ export type PhotoCheck = {
 export type PhotoGuidanceResponse = {
   accepted: boolean;
   check: PhotoCheck;
+  can_capture?: boolean | null;
+  review_required?: boolean | null;
+  manual_review_remaining_ms?: number | null;
+};
+
+export type CaptureContext = {
+  vehicleType: 'sedan' | 'suv';
+  captureSlot: CaptureSlot;
+  sessionId: string;
+  frameId: number;
+  entrySide?: 'left' | 'right';
 };
 
 export type PhotoUploadResponse = PhotoGuidanceResponse & {
@@ -110,18 +126,33 @@ function imageForm(image: Blob): FormData {
   return form;
 }
 
-export function requestPhotoGuidance(image: Blob): Promise<PhotoGuidanceResponse> {
-  return requestJson('/photo-guidance', { method: 'POST', body: imageForm(image) });
+function appendContext(form: FormData, context: CaptureContext) {
+  form.append('vehicle_type', context.vehicleType);
+  form.append('session_id', context.sessionId);
+  form.append('frame_id', String(context.frameId));
+  if (context.entrySide) form.append('entry_side', context.entrySide);
+}
+
+export function requestPhotoGuidance(image: Blob, context?: CaptureContext): Promise<PhotoGuidanceResponse> {
+  const form = imageForm(image);
+  if (context) {
+    form.append('photo_type', 'return');
+    form.append('capture_slot', context.captureSlot);
+    appendContext(form, context);
+  }
+  return requestJson('/photo-guidance', { method: 'POST', body: form });
 }
 
 export function uploadPhoto(
   image: Blob,
   photoType: 'return',
   captureSlot: CaptureSlot,
+  context?: CaptureContext,
 ): Promise<PhotoUploadResponse> {
   const form = imageForm(image);
   form.append('photo_type', photoType);
   form.append('capture_slot', captureSlot);
+  if (context) appendContext(form, context);
   return requestJson('/photos', { method: 'POST', body: form });
 }
 
