@@ -68,6 +68,7 @@ describe('canonical return capture', () => {
     sessionStorage.clear();
     window.history.replaceState({}, '', '/capture');
     installImageMocks();
+    vi.spyOn(crypto, 'randomUUID').mockReturnValue('11111111-1111-4111-8111-111111111111');
     api.requestPhotoGuidance.mockResolvedValue({ accepted: true, check: passCheck });
   });
 
@@ -117,14 +118,14 @@ describe('canonical return capture', () => {
   });
 
   it('defines seven steps without dashboard and maps evidence explicitly', () => {
-    expect(captureSteps.map((step) => [step.shotType, step.captureSlot, step.includeInCaseEvidence])).toEqual([
-      ['vehicle_cards', 'fuel_parking_card', false],
-      ['front_cabin', 'interior_front', false],
-      ['rear_cabin', 'interior_rear', false],
-      ['front_left_45', 'front_left', true],
-      ['front_right_45', 'front_right', true],
-      ['rear_left_45', 'rear_left', true],
-      ['rear_right_45', 'rear_right', true],
+    expect(captureSteps.map((step) => [step.shotType, step.captureSlot, step.includeInCaseEvidence, step.entrySide])).toEqual([
+      ['vehicle_cards', 'fuel_parking_card', false, undefined],
+      ['front_cabin', 'interior_front', false, 'left'],
+      ['rear_cabin', 'interior_rear', false, 'left'],
+      ['front_left_45', 'front_left', true, undefined],
+      ['front_right_45', 'front_right', true, undefined],
+      ['rear_left_45', 'rear_left', true, undefined],
+      ['rear_right_45', 'rear_right', true, undefined],
     ]);
     expect(damageCaptureSteps.every((step) => step.captureSlot === 'other_damage' && step.includeInCaseEvidence)).toBe(true);
   });
@@ -171,8 +172,50 @@ describe('canonical return capture', () => {
     fireEvent.click(screen.getByRole('button', { name: /轎車/ }));
     fireEvent.click(screen.getByRole('button', { name: /開啟即時相機/ }));
 
-    await waitFor(() => expect(api.requestPhotoGuidance).toHaveBeenCalledWith(frame));
+    await waitFor(() => expect(api.requestPhotoGuidance).toHaveBeenCalledWith(frame, expect.objectContaining({
+      photoType: 'return',
+      captureSlot: 'fuel_parking_card',
+      vehicleType: 'sedan',
+      sessionId: '11111111-1111-4111-8111-111111111111',
+      frameId: 1,
+    })));
     expect(await screen.findByTestId('photo-guidance')).toHaveTextContent('畫面模糊，請保持手機穩定');
+  });
+
+  it('uses one session and increasing frame IDs for preview and final guidance', async () => {
+    const frame = new Blob(['frame'], { type: 'image/jpeg' });
+    api.uploadPhoto.mockResolvedValueOnce(acceptedPhoto('cards-id'));
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia: vi.fn().mockResolvedValue({
+          getTracks: () => [{ stop: vi.fn() }],
+          getVideoTracks: () => [{ getSettings: () => ({ deviceId: 'camera-1' }) }],
+        }),
+        enumerateDevices: vi.fn().mockResolvedValue([]),
+      },
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
+    Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', { configurable: true, get: () => 640 });
+    Object.defineProperty(HTMLVideoElement.prototype, 'videoHeight', { configurable: true, get: () => 480 });
+    Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
+      configurable: true,
+      value: (callback: BlobCallback) => callback(frame),
+    });
+
+    render(<CameraPage />);
+    fireEvent.click(screen.getByRole('button', { name: /轎車/ }));
+    fireEvent.click(screen.getByRole('button', { name: /開啟即時相機/ }));
+    await waitFor(() => expect(api.requestPhotoGuidance).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: '拍攝照片' }));
+    fireEvent.click(await screen.findByRole('button', { name: /儲存並拍下一張/ }));
+    await waitFor(() => expect(api.uploadPhoto).toHaveBeenCalled());
+
+    const previewContext = api.requestPhotoGuidance.mock.calls[0][1];
+    const finalContext = api.uploadPhoto.mock.calls[0][1];
+    expect(previewContext.sessionId).toBe('11111111-1111-4111-8111-111111111111');
+    expect(finalContext.sessionId).toBe(previewContext.sessionId);
+    expect(finalContext.frameId).toBeGreaterThan(previewContext.frameId);
   });
 
   it('shows the exterior alignment overlay after the first three accepted photos', async () => {
@@ -282,7 +325,11 @@ describe('canonical return capture', () => {
     await uploadCurrentFile('cards');
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '車內座椅（前座）' })).toBeInTheDocument());
-    expect(api.uploadPhoto).toHaveBeenCalledWith(expect.any(Blob), 'return', 'fuel_parking_card');
+    expect(api.uploadPhoto).toHaveBeenCalledWith(expect.any(Blob), expect.objectContaining({
+      photoType: 'return',
+      captureSlot: 'fuel_parking_card',
+      sessionId: '11111111-1111-4111-8111-111111111111',
+    }));
     expect(screen.queryByText('儀表板與里程')).not.toBeInTheDocument();
   });
 
@@ -315,6 +362,14 @@ describe('canonical return capture', () => {
     fireEvent.click(screen.getByRole('button', { name: /建立車況案件/ }));
     await waitFor(() => expect(api.createCaseFromPhotos).toHaveBeenCalledWith(['photo-4', 'photo-5', 'photo-6', 'photo-7']));
     expect(sessionStorage.getItem('capture-case:server-case')).toContain('server-case');
+    const contexts = api.uploadPhoto.mock.calls.map((call) => call[1]);
+    expect(contexts.map((context) => context.frameId)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(new Set(contexts.map((context) => context.sessionId))).toEqual(new Set(['11111111-1111-4111-8111-111111111111']));
+    expect(contexts[1].entrySide).toBe('left');
+    expect(contexts[2].entrySide).toBe('left');
+    expect(contexts[3].entrySide).toBeUndefined();
+    expect(sessionStorage.getItem('capture-guidance-session-id')).toBeNull();
+    expect(sessionStorage.getItem('capture-guidance-frame-id')).toBeNull();
   });
 
   it('renders only real Case fields, including reviewed values and zero priority', async () => {

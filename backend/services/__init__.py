@@ -7,8 +7,13 @@ from .case_building import (
     get_module_b_configuration,
 )
 from .photo_guidance import (
+    GuidanceImageSource,
+    GuidanceMode,
+    ModuleAPhotoGuidanceService,
+    PhotoGuidanceContext,
     PhotoGuidanceService,
     StubPhotoGuidanceService,
+    UnsupportedGuidanceDecisionError,
     get_photo_guidance_service,
 )
 from .photo_storage import (
@@ -20,10 +25,15 @@ from .photo_storage import (
 
 __all__ = [
     "ModuleBConfiguration",
+    "GuidanceImageSource",
+    "GuidanceMode",
+    "ModuleAPhotoGuidanceService",
+    "PhotoGuidanceContext",
     "PhotoGuidanceService",
     "PhotoStorageService",
     "PhotoStorageNotFoundError",
     "StubPhotoGuidanceService",
+    "UnsupportedGuidanceDecisionError",
     "ModuleAPhotoStorageService",
     "get_case_building_module_b",
     "get_case_building_module_b_provider",

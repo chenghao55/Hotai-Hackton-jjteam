@@ -101,10 +101,10 @@ New A public API: `CaptureContext`, `GuidanceResult`, `PhotoCoach.analyze`,
 
 ## Validation and changed files
 
-Current consolidated `A_legalityAI` checkpoint (2026-09-28): focused Module A
-tests **40 passed**; full Python suite **375 passed, 1 warning, 0 failed**.
+Module A merge checkpoint (2026-09-28): focused Module A
+tests **40 passed**; full Python suite **375 passed, 2 warnings, 0 failed**.
 The archived Node suite also passes (13 API tests plus 31 geometry assertions).
-The warning is the existing Starlette TestClient/httpx deprecation. Main changes
+The warnings are existing FastAPI/Starlette TestClient deprecations. Main changes
 through `e69cda8` are included. No existing Python storage or HTTP contract changed.
 The old tracked `__pycache__/model.cpython-313.pyc` was removed from tracking;
 model weights, environments, runtime output and untracked local notes are excluded.

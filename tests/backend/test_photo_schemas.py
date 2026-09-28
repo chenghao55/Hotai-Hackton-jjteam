@@ -73,3 +73,39 @@ def test_rejected_response_cannot_declare_pass():
 def test_accepted_response_requires_pass_check():
     with pytest.raises(ValidationError, match="require a PASS check"):
         PhotoGuidanceResponse(accepted=True, check=rejected_check())
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "LOW_DETAIL",
+        "SUBJECT_NOT_DETECTED",
+        "MULTIPLE_SUBJECTS",
+        "SUBJECT_NEAR_EDGE",
+        "SUBJECT_TOO_SMALL",
+        "SUBJECT_TOO_LARGE",
+        "POSSIBLE_WRONG_SLOT",
+        "MISSING_REQUIRED_FEATURE",
+        "GEOMETRY_MISMATCH",
+        "AMBIGUOUS_TEMPLATES",
+        "UNSUPPORTED_SLOT",
+    ],
+)
+def test_non_manual_module_a_codes_are_supported(code):
+    check = PhotoCheck(
+        level=GuidanceLevel.L6,
+        code=GuidanceCode(code),
+        message="Adjust the camera.",
+        action=GuidanceAction.RESHOOT,
+    )
+
+    assert check.code.value == code
+
+
+@pytest.mark.parametrize(
+    "manual_code",
+    ["TEMPLATE_NOT_CALIBRATED", "FRONT_SEAT_EVIDENCE_UNAVAILABLE"],
+)
+def test_manual_only_module_a_codes_are_not_exposed(manual_code):
+    with pytest.raises(ValueError):
+        GuidanceCode(manual_code)

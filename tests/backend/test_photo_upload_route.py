@@ -28,10 +28,20 @@ def upload(
     content: bytes = b"image-bytes",
     photo_type: str = "borrow",
     capture_slot: str = "front_left",
+    entry_side: str | None = None,
 ):
+    data = {
+        "photo_type": photo_type,
+        "capture_slot": capture_slot,
+        "vehicle_type": "sedan",
+        "session_id": "capture-session",
+        "frame_id": "2",
+    }
+    if entry_side is not None:
+        data["entry_side"] = entry_side
     return client.post(
         "/photos",
-        data={"photo_type": photo_type, "capture_slot": capture_slot},
+        data=data,
         files={"file": ("photo.jpg", content, "image/jpeg")},
     )
 
@@ -62,7 +72,7 @@ def rejected_response() -> PhotoGuidanceResponse:
 
 def test_accepted_photo_is_saved_once_and_returns_photo_id(app):
     class AcceptingGuidance(PhotoGuidanceService):
-        def analyze(self, image: bytes) -> PhotoGuidanceResponse:
+        def analyze(self, image: bytes, context) -> PhotoGuidanceResponse:
             return pass_response()
 
     class RecordingStorage(PhotoStorageService):
@@ -98,7 +108,7 @@ def test_accepted_photo_is_saved_once_and_returns_photo_id(app):
 
 def test_rejected_photo_does_not_call_storage_and_preserves_guidance(app):
     class RejectingGuidance(PhotoGuidanceService):
-        def analyze(self, image: bytes) -> PhotoGuidanceResponse:
+        def analyze(self, image: bytes, context) -> PhotoGuidanceResponse:
             return rejected_response()
 
     class FailingStorage(PhotoStorageService):
@@ -134,7 +144,7 @@ def test_rejected_photo_does_not_call_storage_and_preserves_guidance(app):
 
 def test_empty_photo_is_rejected_before_services_are_called(app):
     class UnexpectedService(PhotoGuidanceService):
-        def analyze(self, image: bytes) -> PhotoGuidanceResponse:
+        def analyze(self, image: bytes, context) -> PhotoGuidanceResponse:
             raise AssertionError("empty images must not reach guidance")
 
     app.dependency_overrides[photo_routes.get_photo_guidance_service] = UnexpectedService
@@ -148,9 +158,11 @@ def test_empty_photo_is_rejected_before_services_are_called(app):
 def test_uploaded_bytes_are_passed_to_guidance_service(app):
     class RecordingGuidance(PhotoGuidanceService):
         received: bytes | None = None
+        received_context = None
 
-        def analyze(self, image: bytes) -> PhotoGuidanceResponse:
+        def analyze(self, image: bytes, context) -> PhotoGuidanceResponse:
             self.received = image
+            self.received_context = context
             return rejected_response()
 
     guidance = RecordingGuidance()
@@ -160,6 +172,9 @@ def test_uploaded_bytes_are_passed_to_guidance_service(app):
 
     assert response.status_code == 200
     assert guidance.received == b"final-frame"
+    assert guidance.received_context.mode.value == "final"
+    assert guidance.received_context.source is None
+    assert guidance.received_context.image_mirrored is False
 
 
 def test_invalid_photo_type_is_a_request_validation_error(app):
@@ -176,9 +191,19 @@ def test_invalid_capture_slot_is_a_request_validation_error(app):
     assert response.status_code == 422
 
 
+def test_interior_upload_requires_entry_side(app):
+    with TestClient(app) as client:
+        missing = upload(client, capture_slot="interior_rear")
+        accepted = upload(client, capture_slot="interior_rear", entry_side="left")
+
+    assert missing.status_code == 422
+    assert missing.json()["detail"] == "entry_side is required for interior photos"
+    assert accepted.status_code == 200
+
+
 def test_return_other_damage_is_passed_to_storage(app):
     class AcceptingGuidance(PhotoGuidanceService):
-        def analyze(self, image: bytes) -> PhotoGuidanceResponse:
+        def analyze(self, image: bytes, context) -> PhotoGuidanceResponse:
             return pass_response()
 
     class RecordingStorage(PhotoStorageService):
@@ -206,7 +231,7 @@ def test_return_other_damage_is_passed_to_storage(app):
 
 def test_borrow_other_damage_domain_error_is_translated_to_422(app):
     class AcceptingGuidance(PhotoGuidanceService):
-        def analyze(self, image: bytes) -> PhotoGuidanceResponse:
+        def analyze(self, image: bytes, context) -> PhotoGuidanceResponse:
             return pass_response()
 
     class RejectingStorage(PhotoStorageService):

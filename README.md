@@ -329,7 +329,7 @@ GET  /photos/{photo_id}
 - Photo guidance route complete
 - Photo upload route complete
 - Photo retrieval route complete
-- Guidance still uses a stub until A guidance is merged
+- Guidance request context is wired through E/UI, but the active provider remains the stub. The real Module A adapter is implemented but inactive while calibration, unsupported slots, manual-only decisions, and gallery provenance remain unresolved.
 - Case schemas, in-memory state, and routes are extracted into `backend/`
 - `backend/main.py` is the canonical Module E composition root
 - `module_d/api.py` is a legacy compatibility layer that reuses the canonical app
@@ -337,7 +337,7 @@ GET  /photos/{photo_id}
 
 **Next E work**
 ```text
-1. Replace guidance stub with Module A implementation after A is merged
+1. Resolve Module A activation blockers before replacing the active guidance stub
 2. Connect the UI client to the production Case-creation API
 3. Run end-to-end demo
 ```
@@ -483,7 +483,7 @@ No agent should rewrite another module merely because doing so is easier locally
 Current full-suite checkpoint:
 
 ```text
-375 passed
+400 passed
 2 warnings
 0 failed
 ```
@@ -660,6 +660,22 @@ This endpoint:
 - **does not create `photo_id`**
 - should normally return HTTP `200` even when the frame is not acceptable
 
+Multipart request fields:
+
+```text
+file
+photo_type
+capture_slot
+vehicle_type = sedan | suv
+session_id
+frame_id
+entry_side  = left | right (required only for interior slots)
+```
+
+Module E supplies `mode=preview`, `image_mirrored=false`, and truthful camera-frame provenance.
+The UI keeps one session ID for a capture flow and increments the frame ID for every preview
+and final check.
+
 Example response:
 
 ```json
@@ -695,7 +711,15 @@ Multipart request fields:
 file
 photo_type   = borrow | return
 capture_slot = one of Module A's CaptureSlot values
+vehicle_type = sedan | suv
+session_id
+frame_id
+entry_side   = left | right (required only for interior slots)
 ```
+
+Module E supplies `mode=final`. Because this endpoint also accepts gallery/file uploads, the
+real Module A adapter remains inactive until non-camera provenance is supported without
+mislabeling those files as `camera_raw`.
 
 Accepted example:
 
@@ -916,7 +940,7 @@ When updating this README:
 Current E sequence:
 
 ```text
-1. Replace guidance stub with Module A implementation after A is merged
+1. Resolve guidance calibration, unsupported-slot, manual-decision, and gallery-provenance blockers before activating the merged Module A adapter
 2. Add corrected-review inputs and payment-amount editing to `UI_backstage` when required
 3. Run an end-to-end demo against the real Module E process and model checkpoint
 ```

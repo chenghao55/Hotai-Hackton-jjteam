@@ -69,6 +69,13 @@ def test_get_cases_works_through_canonical_app() -> None:
 def test_photo_guidance_works_through_canonical_app() -> None:
     response = client.post(
         "/photo-guidance",
+        data={
+            "photo_type": "return",
+            "capture_slot": "front_left",
+            "vehicle_type": "sedan",
+            "session_id": "main-test-session",
+            "frame_id": "1",
+        },
         files={"file": ("vehicle.jpg", b"image-bytes", "image/jpeg")},
     )
 

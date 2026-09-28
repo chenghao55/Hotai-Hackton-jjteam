@@ -20,8 +20,27 @@ def app():
     return app
 
 
-def upload(client: TestClient, content: bytes = b"image-bytes"):
-    return client.post("/photo-guidance", files={"file": ("frame.jpg", content, "image/jpeg")})
+def upload(
+    client: TestClient,
+    content: bytes = b"image-bytes",
+    *,
+    capture_slot: str = "front_left",
+    entry_side: str | None = None,
+):
+    data = {
+        "photo_type": "return",
+        "capture_slot": capture_slot,
+        "vehicle_type": "sedan",
+        "session_id": "capture-session",
+        "frame_id": "1",
+    }
+    if entry_side is not None:
+        data["entry_side"] = entry_side
+    return client.post(
+        "/photo-guidance",
+        data=data,
+        files={"file": ("frame.jpg", content, "image/jpeg")},
+    )
 
 
 def test_stub_guidance_returns_pass_without_photo_id(app):
@@ -43,7 +62,7 @@ def test_stub_guidance_returns_pass_without_photo_id(app):
 
 def test_rejected_guidance_is_a_successful_http_response(app):
     class BlurryFrameService(PhotoGuidanceService):
-        def analyze(self, image: bytes) -> PhotoGuidanceResponse:
+        def analyze(self, image: bytes, context) -> PhotoGuidanceResponse:
             return PhotoGuidanceResponse(
                 accepted=False,
                 check=PhotoCheck(
@@ -82,8 +101,11 @@ def test_route_passes_uploaded_bytes_to_service(app):
     class RecordingService(PhotoGuidanceService):
         received: bytes | None = None
 
-        def analyze(self, image: bytes) -> PhotoGuidanceResponse:
+        received_context = None
+
+        def analyze(self, image: bytes, context) -> PhotoGuidanceResponse:
             self.received = image
+            self.received_context = context
             return PhotoGuidanceResponse(
                 accepted=True,
                 check=PhotoCheck(
@@ -101,6 +123,9 @@ def test_route_passes_uploaded_bytes_to_service(app):
 
     assert response.status_code == 200
     assert service.received == b"camera-frame"
+    assert service.received_context.mode.value == "preview"
+    assert service.received_context.source.value == "camera_raw"
+    assert service.received_context.image_mirrored is False
 
 
 def test_missing_file_is_a_request_error(app):
@@ -112,7 +137,7 @@ def test_missing_file_is_a_request_error(app):
 
 def test_stub_service_is_replaceable(app):
     class ReplacementService(PhotoGuidanceService):
-        def analyze(self, image: bytes) -> PhotoGuidanceResponse:
+        def analyze(self, image: bytes, context) -> PhotoGuidanceResponse:
             return PhotoGuidanceResponse(
                 accepted=False,
                 check=PhotoCheck(
@@ -128,3 +153,39 @@ def test_stub_service_is_replaceable(app):
         response = upload(client)
 
     assert response.json()["check"]["code"] == "TOO_FAR"
+
+
+def test_interior_guidance_requires_entry_side(app):
+    with TestClient(app) as client:
+        missing = upload(client, capture_slot="interior_front")
+        accepted = upload(client, capture_slot="interior_front", entry_side="left")
+
+    assert missing.status_code == 422
+    assert missing.json()["detail"] == "entry_side is required for interior photos"
+    assert accepted.status_code == 200
+
+
+def test_exterior_guidance_rejects_entry_side(app):
+    with TestClient(app) as client:
+        response = upload(client, entry_side="left")
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "entry_side is only valid for interior photos"
+
+
+def test_guidance_rejects_blank_session_id(app):
+    with TestClient(app) as client:
+        response = client.post(
+            "/photo-guidance",
+            data={
+                "photo_type": "return",
+                "capture_slot": "front_left",
+                "vehicle_type": "sedan",
+                "session_id": "   ",
+                "frame_id": "1",
+            },
+            files={"file": ("frame.jpg", b"image-bytes", "image/jpeg")},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "session_id must not be blank"

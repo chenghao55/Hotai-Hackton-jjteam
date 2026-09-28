@@ -39,6 +39,8 @@ import {
 
 type CaptureMode = 'normal' | 'damage';
 type VehicleType = 'sedan' | 'suv';
+const guidanceSessionKey = 'capture-guidance-session-id';
+const guidanceFrameKey = 'capture-guidance-frame-id';
 
 export default function CameraPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -72,6 +74,34 @@ export default function CameraPage() {
     ? getVehicleOverlay(vehicleType, currentStep.shotType)
     : null;
 
+  function ensureGuidanceSession(): string {
+    const existing = sessionStorage.getItem(guidanceSessionKey);
+    if (existing) return existing;
+    const created = crypto.randomUUID();
+    sessionStorage.setItem(guidanceSessionKey, created);
+    sessionStorage.setItem(guidanceFrameKey, '0');
+    return created;
+  }
+
+  function nextGuidanceFrameId(): number {
+    const current = Number.parseInt(sessionStorage.getItem(guidanceFrameKey) || '0', 10);
+    const next = Number.isSafeInteger(current) && current >= 0 ? current + 1 : 1;
+    sessionStorage.setItem(guidanceFrameKey, String(next));
+    return next;
+  }
+
+  function guidanceContext() {
+    if (!vehicleType) throw new Error('vehicle_type is required before guidance');
+    return {
+      photoType: 'return' as const,
+      captureSlot: currentStep.captureSlot,
+      vehicleType,
+      sessionId: ensureGuidanceSession(),
+      frameId: nextGuidanceFrameId(),
+      entrySide: currentStep.entrySide,
+    };
+  }
+
   useEffect(() => () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
   }, []);
@@ -92,7 +122,7 @@ export default function CameraPage() {
       guidanceInFlightRef.current = true;
       setGuidanceLoading(true);
       try {
-        const response = await requestPhotoGuidance(frame);
+        const response = await requestPhotoGuidance(frame, guidanceContext());
         if (active) {
           setGuidance(response);
           setRequestError('');
@@ -111,7 +141,7 @@ export default function CameraPage() {
       active = false;
       window.clearInterval(timer);
     };
-  }, [cameraStatus]);
+  }, [cameraStatus, currentStep, vehicleType]);
 
   function stopCamera() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -128,6 +158,7 @@ export default function CameraPage() {
 
   function chooseVehicle(type: VehicleType) {
     sessionStorage.setItem('capture-vehicle-type', type);
+    ensureGuidanceSession();
     setVehicleType(type);
   }
 
@@ -162,6 +193,8 @@ export default function CameraPage() {
             .map((photo) => [photo.photoId, photo.thumbnail as string]),
         ),
       );
+      sessionStorage.removeItem(guidanceSessionKey);
+      sessionStorage.removeItem(guidanceFrameKey);
       window.location.assign(`/capture/result?case_id=${encodeURIComponent(result.case_id)}`);
     } catch (error) {
       setRequestError(`${formatRequestError(error, '案件建立')} 已接受的照片仍保留在本頁，請重新送出。`);
@@ -248,7 +281,7 @@ export default function CameraPage() {
     setUploading(true);
     setRequestError('');
     try {
-      const response = await uploadPhoto(currentPhoto, 'return', currentStep.captureSlot);
+      const response = await uploadPhoto(currentPhoto, guidanceContext());
       setGuidance(response);
       if (!response.accepted || !response.photo_id) {
         setUploading(false);

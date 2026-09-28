@@ -6,7 +6,7 @@ This file records shared repository status. It is not an individual agent checkp
 
 - Verified on: 2026-09-28
 - Verified against: integrated Module A Python coach and current main changes
-- Full Python suite: **375 passed, 2 warnings, 0 failed**
+- Full Python suite: **400 passed, 2 warnings, 0 failed**
 - Command: `python -m pytest -q`
 - The warnings are third-party FastAPI/Starlette TestClient deprecations in the validation environment.
 
@@ -44,8 +44,7 @@ Completed:
 
 Open:
 
-- Real shooting-guidance AI has not been integrated. Module E currently uses a stub guidance service.
-- A Python guidance core is now available (`module_a.PhotoCoach`), including draft quality/geometry checks and manual-capture advice. It is not wired to E: the current HTTP context and acceptance schemas cannot faithfully represent its inputs and uncertainty/manual outputs. See `docs/tasks/module-a-coach.md`. Storage contracts remain unchanged; templates still require real-photo calibration.
+- A Python guidance core is available (`module_a.PhotoCoach`), including draft quality/geometry checks and manual-capture advice. E/UI now carry the non-manual capture context, and an inactive E adapter maps automatic PASS and ordinary blocking results. The active provider remains `StubPhotoGuidanceService`; templates still require real-photo calibration.
 
 ## Module B
 
@@ -102,6 +101,7 @@ Completed:
 - Module B checkpoint and device configuration are centralized in `backend/services/case_building.py`; tests override the lazy provider and do not load ML.
 - In-memory Case state for the MVP.
 - `module_d.api.app` remains a legacy compatibility import for the canonical app.
+- Photo guidance requests now carry photo type, capture slot, vehicle type, session/frame identity, and derived interior side. `ModuleAPhotoGuidanceService` exists but is intentionally inactive; the provider still returns the stub.
 
 Open:
 
@@ -131,12 +131,12 @@ Implemented integration:
 - Return-only damage evidence is supported end to end. Module D accepts an explicitly supplied
   `borrow_photo_id=None`, and Module B uses it for RETURN exterior/damage photos without
   fabricating borrow evidence.
-- The real Module A shooting-guidance implementation must replace `StubPhotoGuidanceService` when it is available.
+- Module A activation remains blocked by uncalibrated templates, required UI slots that A reports as unsupported (`FUEL_PARKING_CARD` and `OTHER_DAMAGE`), unresolved manual-only decisions, and the inability to truthfully label gallery uploads as `camera_raw`.
 - `UI_backstage` corrected review remains unsupported until the UI supplies `reviewed_category` and `reviewed_severity`; payment amount editing remains unsupported until a UI is added for the existing payment endpoint. The displayed vehicle/gallery decorations are placeholders because Case responses do not contain rental/customer metadata or a photo-gallery contract.
 
 ## Team-level next steps
 
-1. Replace the shooting-guidance stub when Module A's real implementation is merged.
+1. Resolve the documented Module A activation blockers, then explicitly switch the E provider from the stub to the real adapter.
 2. Add corrected-review and payment-amount inputs to the staff UI when the MVP needs those actions, without moving Module D rules into the UI.
 3. Run an end-to-end demo covering capture, upload, Case creation, review, workflow, and payment.
 
@@ -147,7 +147,7 @@ Repository inspection found three differences from the supplied starting notes:
 - Module B now follows the deployed single-image model: return-only exterior evidence is valid,
   while card and interior photos are filtered out before inference.
 - Module D already supports nullable borrow evidence for generic return-only detections, so that contract is no longer blocking integration.
-- The confirmed full pytest checkpoint is now 375 passed, including 26 Python coach tests.
+- The confirmed full pytest checkpoint is now 400 passed, including the guidance-contract and inactive-adapter coverage.
 
 ## Status-recording rule
 
