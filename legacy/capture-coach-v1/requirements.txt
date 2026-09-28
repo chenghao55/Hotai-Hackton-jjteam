@@ -1,0 +1,4 @@
+# Install a CPU or CUDA build of PyTorch appropriate for the deployment machine first.
+ultralytics==8.4.158
+Pillow>=10,<12
+numpy>=1.26,<3

@@ -1,0 +1,164 @@
+import io
+from dataclasses import replace
+
+import pytest
+
+from module_a import CaptureContext, CaptureSlot, PhotoType, PhotoCoach, load_config
+
+
+class Detector:
+    def __init__(self, detections):
+        self.detections = detections
+        self.calls = 0
+
+    def predict(self, image):
+        self.calls += 1
+        return self.detections
+
+
+@pytest.fixture
+def frame():
+    # Guidance tests require the optional coach dependencies; CI should install .[coach,test].
+    import numpy as np
+    from PIL import Image
+    y, x = np.indices((256, 256))
+    data = np.where((x//4+y//4) % 2, 25, 230).astype('uint8')
+    output = io.BytesIO()
+    Image.fromarray(data).convert('RGB').save(output, format='PNG')
+    return output.getvalue()
+
+
+@pytest.fixture
+def context():
+    return CaptureContext(PhotoType.BORROW, CaptureSlot.FRONT_LEFT, 'sedan', 'session-1', 1)
+
+
+def objects(config):
+    t = config['templates'][0]
+    return [{'class_id': 0, 'confidence': .99, 'box': t['reference_box']},
+            *[{'class_id': a['class_id'], 'confidence': .99, 'box': a['box']}
+              for a in t['anchors'] if a['required']]]
+
+
+def test_calibrated_pass_is_immediate_and_does_not_save(frame, context, tmp_path, monkeypatch):
+    import module_a.photo as storage
+    monkeypatch.setattr(storage, 'PHOTOS_DIR', tmp_path / 'photos')
+    config = load_config()
+    config['calibration_status'] = 'calibrated'
+    config['templates'] = config['templates'][:1]
+    result = PhotoCoach(Detector(objects(config)), config=config).analyze(frame, context)
+    assert result.accepted and result.can_capture and not result.review_required
+    assert result.code == result.level == 'PASS'
+    assert result.checks['L5'] == 'not_applicable'  # no physical-height claim
+    assert not storage.PHOTOS_DIR.exists()
+
+
+def test_draft_timeout_is_manual_only_and_final_rechecks(frame, context):
+    from PIL import Image
+    config = load_config()
+    tick = [0.]
+    coach = PhotoCoach(Detector(objects(config)), clock=lambda: tick[0])
+    first = coach.analyze(frame, context)
+    assert not first.accepted and not first.can_capture
+    assert first.manual_review_remaining_ms == 20000
+    tick[0] = 20
+    second = coach.analyze(frame, replace(context, frame_id=2))
+    assert second.can_capture and second.review_required and not second.accepted
+    assert second.code == 'TEMPLATE_NOT_CALIBRATED'
+    final = coach.analyze(frame, replace(context, mode='final', frame_id=3))
+    assert final.review_required and final.action == 'human_review'
+    dark = io.BytesIO()
+    Image.new('RGB', (256, 256), 'black').save(dark, format='PNG')
+    bad = coach.analyze(dark.getvalue(), replace(context, mode='final', frame_id=4))
+    assert bad.code == 'TOO_DARK' and not bad.can_capture
+
+
+def test_quality_priority_and_no_inference(context):
+    from PIL import Image
+    detector = Detector([])
+    for color, expected in [('black', 'TOO_DARK'), ('white', 'OVEREXPOSED'), ('grey', 'LOW_DETAIL')]:
+        data = io.BytesIO()
+        Image.new('RGB', (128, 128), color).save(data, format='PNG')
+        r = PhotoCoach(detector).analyze(data.getvalue(), context)
+        assert r.code == expected and not r.can_capture
+    assert detector.calls == 0
+
+
+def test_stale_frame_and_session_timeout(frame, context):
+    tick = [0.]
+    coach = PhotoCoach(Detector(objects(load_config())), clock=lambda: tick[0])
+    coach.analyze(frame, context)
+    with pytest.raises(ValueError, match='STALE_FRAME'):
+        coach.analyze(frame, context)
+    tick[0] = 61
+    assert coach.analyze(frame, replace(context, frame_id=2)).manual_review_remaining_ms == 20000
+
+
+@pytest.mark.parametrize('box,code,level', [
+    ([0, .27, .9, .85], 'SUBJECT_NEAR_EDGE', 'L3'),
+    ([.4, .4, .6, .6], 'SUBJECT_TOO_SMALL', 'L3'),
+    ([.03, .03, .97, .97], 'SUBJECT_TOO_LARGE', 'L3'),
+    ([.1, .05, .9, .63], 'OFF_CENTER', 'L4'),
+])
+def test_distance_and_centering_priority(frame, context, box, code, level):
+    r = PhotoCoach(Detector([{'class_id': 0, 'confidence': .99, 'box': box}])).analyze(frame, context)
+    assert (r.code, r.level) == (code, level)
+
+
+def test_missing_features_never_pass(frame, context):
+    detection = objects(load_config())[:1]
+    result = PhotoCoach(Detector(detection)).analyze(frame, context)
+    assert result.code == 'MISSING_REQUIRED_FEATURE' and result.level == 'L6'
+    assert not result.accepted
+
+
+def test_right_front_is_explicit_manual_exception(frame, context):
+    tick = [0.]
+    coach = PhotoCoach(Detector([]), clock=lambda: tick[0])
+    context = replace(context, capture_slot=CaptureSlot.INTERIOR_FRONT, entry_side='right')
+    assert coach.analyze(frame, context).code == 'FRONT_SEAT_EVIDENCE_UNAVAILABLE'
+    tick[0] = 20
+    result = coach.analyze(frame, replace(context, frame_id=2))
+    assert result.review_required and not result.accepted
+
+
+def test_unsupported_main_slots_fail_closed(frame, context):
+    detector = Detector([])
+    result = PhotoCoach(detector).analyze(frame, replace(context, capture_slot=CaptureSlot.FUEL_PARKING_CARD))
+    assert result.code == 'UNSUPPORTED_SLOT' and not result.accepted
+    assert detector.calls == 0
+
+
+def test_raw_class_ids_rejected(frame, context):
+    with pytest.raises(ValueError, match='INVALID_DETECTION'):
+        PhotoCoach(Detector([{'class_id': 6, 'confidence': .9, 'box': [.1, .2, .3, .4]}])).analyze(frame, context)
+
+
+def test_context_requires_interior_side(context):
+    with pytest.raises(ValueError, match='INVALID_ENTRY_SIDE'):
+        replace(context, capture_slot=CaptureSlot.INTERIOR_REAR)
+
+
+@pytest.mark.parametrize('index', range(12))
+def test_each_template_uses_its_own_slot_and_door(index):
+    from module_a.coach_geometry import geometry
+    config = load_config()
+    template = config['templates'][index]
+    config['templates'] = [template]
+    config['calibration_status'] = 'calibrated'
+    detections = [{'class_id': a['class_id'], 'confidence': .99, 'box': a['box']}
+                  for a in template['anchors'] if a['required']]
+    if template['reference_class_id'] is not None:
+        detections.append({'class_id': 0, 'confidence': .99, 'box': template['reference_box']})
+    code, _, _, _ = geometry(detections, template['shot_type'],
+                             'sedan' if template['vehicle_type'] == 'shared' else template['vehicle_type'],
+                             template.get('entry_side'), config)
+    assert code == ('FRONT_SEAT_EVIDENCE_UNAVAILABLE' if template.get('evaluation_mode') == 'guide_only' else 'PASS')
+
+
+def test_one_wheel_cannot_satisfy_two_required_anchors(frame, context):
+    detections = objects(load_config())
+    wheels = [d for d in detections if d['class_id'] == 5]
+    detections.remove(wheels[0])
+    result = PhotoCoach(Detector(detections)).analyze(frame, context)
+    assert result.code == 'MISSING_REQUIRED_FEATURE' and not result.accepted
