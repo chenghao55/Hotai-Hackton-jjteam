@@ -44,8 +44,8 @@ async function renderCases(cases) {
   await screen.findByText(/已連線到後端/);
 }
 
-function openPendingRow(text) {
-  const row = screen.getByText(text).closest("tr");
+function openPendingRow() {
+  const row = screen.getAllByRole("row")[1];
   expect(row).not.toBeNull();
   fireEvent.click(row);
 }
@@ -73,9 +73,10 @@ describe("production backstage console", () => {
 
     expect(global.fetch).toHaveBeenCalledWith(`${API_BASE}/cases`);
     expect(screen.getByText("待人工覆核")).toBeInTheDocument();
-    expect(screen.getByText("42%")).toBeInTheDocument();
+    expect(screen.getByText("20")).toBeInTheDocument();
+    expect(screen.queryByText("AI信心程度")).not.toBeInTheDocument();
 
-    openPendingRow("42%");
+    openPendingRow();
     expect(screen.getByRole("heading", { name: /case-1/ })).toBeInTheDocument();
   });
 
@@ -83,7 +84,7 @@ describe("production backstage console", () => {
     await renderCases([caseData({ case_id: "case-empty", detections: [], priority_score: null })]);
 
     expect(screen.getByText("無 Detection")).toBeInTheDocument();
-    openPendingRow("無 Detection");
+    openPendingRow();
     expect(screen.getByRole("heading", { name: /case-empty/ })).toBeInTheDocument();
     expect(screen.getByText(/此案件沒有 Detection/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "派工" })).toBeInTheDocument();
@@ -95,7 +96,7 @@ describe("production backstage console", () => {
     await renderCases([original]);
     global.fetch.mockResolvedValueOnce(jsonResponse(dispatched));
 
-    openPendingRow("42%");
+    openPendingRow();
     fireEvent.click(screen.getByRole("button", { name: "派工" }));
 
     await waitFor(() => expect(global.fetch).toHaveBeenLastCalledWith(
@@ -112,7 +113,7 @@ describe("production backstage console", () => {
     await renderCases([caseData()]);
     global.fetch.mockResolvedValueOnce(jsonResponse(reviewed));
 
-    openPendingRow("42%");
+    openPendingRow();
     fireEvent.click(screen.getByRole("button", { name: "確認" }));
 
     await waitFor(() => expect(global.fetch).toHaveBeenLastCalledWith(
@@ -134,7 +135,7 @@ describe("production backstage console", () => {
     await renderCases([caseData()]);
     global.fetch.mockResolvedValueOnce(jsonResponse(reviewed));
 
-    openPendingRow("42%");
+    openPendingRow();
     fireEvent.click(screen.getByRole("button", { name: "車體無問題" }));
 
     await waitFor(() => expect(global.fetch).toHaveBeenLastCalledWith(
@@ -155,7 +156,7 @@ describe("production backstage console", () => {
     await renderCases([original]);
     global.fetch.mockResolvedValueOnce(jsonResponse(appealed));
 
-    openPendingRow("42%");
+    openPendingRow();
     fireEvent.click(screen.getByRole("button", { name: "顧客申訴（重新審核）" }));
 
     await waitFor(() => expect(global.fetch).toHaveBeenLastCalledWith(
@@ -171,7 +172,7 @@ describe("production backstage console", () => {
     await renderCases([empty]);
     global.fetch.mockResolvedValueOnce(jsonResponse(completed));
 
-    openPendingRow("無 Detection");
+    openPendingRow();
     fireEvent.click(screen.getByRole("button", { name: "無需處理／結案" }));
 
     await waitFor(() => expect(global.fetch).toHaveBeenLastCalledWith(
@@ -219,7 +220,7 @@ describe("production backstage console", () => {
     await renderCases([original]);
     global.fetch.mockResolvedValueOnce(jsonResponse({ detail: "dispatch blocked" }, 409));
 
-    openPendingRow("42%");
+    openPendingRow();
     fireEvent.click(screen.getByRole("button", { name: "派工" }));
 
     await waitFor(() => expect(window.alert).toHaveBeenCalledWith("操作失敗：dispatch blocked"));

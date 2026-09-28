@@ -22,7 +22,6 @@ function generatePhotos(c) {
   }));
 }
 
-function confClass(c) { return c >= 0.7 ? "conf-high" : c >= 0.5 ? "conf-mid" : "conf-low"; }
 function reviewPillClass(state) {
   if (state === "needs_review") return "pill-amber";
   if (state === "rejected") return "pill-red";
@@ -84,7 +83,7 @@ function PendingTable({ cases, onOpen }) {
     <div className="table-card">
       <table>
         <thead>
-          <tr><th>處理狀態</th><th>車牌號碼</th><th>借車時間</th><th>還車時間</th><th>借車前照片</th><th>借車後照片</th><th>借車人</th><th>AI信心程度</th><th>優先級</th></tr>
+          <tr><th>處理狀態</th><th>車牌號碼</th><th>借車時間</th><th>還車時間</th><th>借車前照片</th><th>借車後照片</th><th>借車人</th><th>優先級</th></tr>
         </thead>
         <tbody>
           {cases.map((c) => {
@@ -100,7 +99,6 @@ function PendingTable({ cases, onOpen }) {
                 <td><CarThumb /></td>
                 <td><CarThumb /></td>
                 <td>{c.borrower.split(" · ")[0]}</td>
-                <td className={d ? `conf ${confClass(d.confidence)}` : "conf"}>{d ? `${(d.confidence * 100).toFixed(0)}%` : "—"}</td>
                 <td><PriorityBadge score={c.priority_score} /></td>
               </tr>
             );
@@ -147,7 +145,7 @@ function DoneTable({ cases, onOpen }) {
     <div className="table-card">
       <table>
         <thead>
-          <tr><th>處理紀錄</th><th>車牌號碼</th><th>借車時間</th><th>還車時間</th><th>借車前照片</th><th>借車後照片</th><th>借車人</th><th>付款狀態</th><th>AI信心程度</th></tr>
+          <tr><th>處理紀錄</th><th>車牌號碼</th><th>借車時間</th><th>還車時間</th><th>借車前照片</th><th>借車後照片</th><th>借車人</th><th>付款狀態</th></tr>
         </thead>
         <tbody>
           {cases.map((c) => {
@@ -164,7 +162,6 @@ function DoneTable({ cases, onOpen }) {
                 <td><CarThumb /></td>
                 <td>{c.borrower}</td>
                 <td><span className={`pill ${c.payment_amount > 0 ? "pill-lime" : "pill-neutral"}`}>{c.payment_amount > 0 ? `已收款 NT$${c.payment_amount}` : "無需收款"}</span></td>
-                <td className={d ? `conf ${confClass(d.confidence)}` : "conf"}>{d ? `${(d.confidence * 100).toFixed(0)}%` : "—"}</td>
               </tr>
             );
           })}
@@ -223,7 +220,6 @@ function Drawer({ item, onClose, onReview, onTransition, onCompleteWithoutAction
         {d ? <>
           <div className="diff-chip"><span className="dot"></span><b>{CATEGORY_LABEL[d.category]}</b><span className="conf-text">severity: {SEVERITY_LABEL[d.severity]}</span></div>
           <br />
-          <div className="diff-chip"><span className="dot" style={{ background: "var(--text-muted)" }}></span><b>confidence</b><span className="conf-text">{d.confidence.toFixed(2)}</span></div>
         </> : <div className="gap-note">此案件沒有 Detection；仍可依目前案件狀態執行合法的工作流程操作。</div>}
 
         <div className="checklist">
@@ -449,10 +445,6 @@ export default function CaseQueueConsole() {
         .pill-lime{background:var(--accent-lime-soft);color:var(--accent-lime-deep);}
         .pill-red{background:var(--red-soft);color:var(--red-deep);}
         .pill-neutral{background:rgba(20,34,25,0.08);color:var(--text-muted);}
-        .conf{font-weight:700;}
-        .conf-low{color:var(--red-deep);}
-        .conf-mid{color:#6B4A12;}
-        .conf-high{color:var(--accent-lime-deep);}
         .proc-list{display:flex;flex-direction:column;gap:12px;}
         .proc-card{background:var(--surface-light-2);border-radius:20px;padding:18px 22px;cursor:pointer;}
         .proc-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;}
