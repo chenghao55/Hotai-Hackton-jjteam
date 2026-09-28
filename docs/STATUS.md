@@ -112,7 +112,7 @@ Open:
 Current repository state:
 
 - `UI_backstage` calls existing Case endpoints for staff workflows.
-- The active `UI_backstage` queue loads real Cases from Module E and uses real endpoints for dispatch, confirm/reject review, appeal, workflow transitions, payment confirmation, and no-action completion. It safely displays Cases with no detections and does not fall back to demo Case state.
+- The active `UI_backstage` queue loads real Cases from Module E and uses real endpoints for dispatch, confirm/reject/corrected review, appeal, workflow transitions, payment updates, payment confirmation, and no-action completion. It safely displays Cases with no detections and does not fall back to demo Case state.
 - `UI_client` uses the canonical Module E routes for the RETURN-only capture flow.
 - Live guidance uses `POST /photo-guidance`; final captures use `POST /photos`; Case creation uses `POST /cases/from-photos`.
 - Seven required photos are uploaded. Card/front-cabin/rear-cabin IDs are stored but excluded from Case evidence; four exterior IDs and optional `OTHER_DAMAGE` IDs are included.
@@ -132,12 +132,12 @@ Implemented integration:
   `borrow_photo_id=None`, and Module B uses it for RETURN exterior/damage photos without
   fabricating borrow evidence.
 - Module A activation remains blocked by uncalibrated templates, required UI slots that A reports as unsupported (`FUEL_PARKING_CARD` and `OTHER_DAMAGE`), unresolved manual-only decisions, and the inability to truthfully label gallery uploads as `camera_raw`.
-- `UI_backstage` corrected review remains unsupported until the UI supplies `reviewed_category` and `reviewed_severity`; payment amount editing remains unsupported until a UI is added for the existing payment endpoint. The displayed vehicle/gallery decorations are placeholders because Case responses do not contain rental/customer metadata or a photo-gallery contract.
+- The displayed vehicle/gallery decorations in `UI_backstage` remain placeholders because Case responses do not contain rental/customer metadata or a photo-gallery contract.
 
 ## Team-level next steps
 
 1. Resolve the documented Module A activation blockers, then explicitly switch the E provider from the stub to the real adapter.
-2. Add corrected-review and payment-amount inputs to the staff UI when the MVP needs those actions, without moving Module D rules into the UI.
+2. Replace the current placeholder vehicle/gallery decorations in the staff UI when the Case API gains rental/customer and photo-gallery data.
 3. Run an end-to-end demo covering capture, upload, Case creation, review, workflow, and payment.
 
 ## Differences from the previous written checkpoint

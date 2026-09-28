@@ -941,7 +941,7 @@ Current E sequence:
 
 ```text
 1. Resolve guidance calibration, unsupported-slot, manual-decision, and gallery-provenance blockers before activating the merged Module A adapter
-2. Add corrected-review inputs and payment-amount editing to `UI_backstage` when required
+2. Replace the current `UI_backstage` vehicle/gallery placeholders when the Case API gains rental/customer and photo-gallery data
 3. Run an end-to-end demo against the real Module E process and model checkpoint
 ```
 
