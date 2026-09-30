@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="750" viewBox="0 0 1000 750" fill="none">
+  <g stroke="#43d8cf" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M82 685 108 170Q135 96 240 70H838Q908 88 924 165L937 680M100 675H928" opacity=".82"/>
+    <g fill="#43d8cf" fill-opacity=".13">
+      <path d="M120 220 313 163 565 228 533 295 295 250 137 318Z"/>
+      <path d="M702 230 789 259 833 441 754 481 682 444Z"/>
+      <path d="M754 481 604 493 574 570 775 548 833 441Z"/>
+      <path d="M706 152 783 166 797 235 712 231Z"/>
+      <path d="M477 279 602 312 669 547 550 603 453 543Z"/>
+      <path d="M550 603 341 567 283 640 536 693 669 635 669 547Z"/>
+      <path d="M489 170 589 195 610 279 492 266Z"/>
+      <path d="M295 340 404 350 425 508 311 493Z"/>
+    </g>
+    <path d="M190 163 270 100 545 139 565 228M466 292 558 570M601 324 648 536M353 584 535 625" opacity=".9"/>
+  </g>
+  <g stroke="#c1ff37" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="202.5" cy="281.25" rx="87.5" ry="86.25"/>
+    <ellipse cx="202.5" cy="281.25" rx="63.875" ry="62.963" opacity=".8"/>
+    <path d="M141.25 281.25H263.75M202.5 281.25V341.625"/>
+    <rect x="115" y="195" width="175" height="172.5" rx="10" stroke-dasharray="12 9" opacity=".8"/>
+  </g>
+</svg>
