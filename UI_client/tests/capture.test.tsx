@@ -242,7 +242,9 @@ describe('canonical return capture', () => {
       await waitFor(() => expect(screen.getByRole('heading', { name: captureSteps[index + 1].title })).toBeInTheDocument());
     }
     fireEvent.click(screen.getByRole('button', { name: /開啟即時相機/ }));
-    expect(await screen.findByTestId('vehicle-alignment-overlay')).toHaveAttribute('src', '/overlays/sedan-front.png');
+    const overlay = await screen.findByTestId('vehicle-alignment-overlay');
+    expect(overlay).toHaveAttribute('src', '/overlays/sedan-front.png');
+    expect(overlay).toHaveStyle({ transform: 'scale(1.14)' });
   });
 
   it('uses the default camera first and keeps manual selection for multiple devices', async () => {
