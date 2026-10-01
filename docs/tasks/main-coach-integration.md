@@ -9,7 +9,7 @@
 - 移除逾時解鎖與人工審核 fallback。
 - 車內外六個教練槽位的模板仍未校正，因此即使其他檢查通過，仍會回傳 TEMPLATE_NOT_CALIBRATED，不能完成自動合格上傳。這是產品流程的未完成項目，不能宣稱已完成可用的借還車流程。
 - 卡片、額外車損及 legacy rear 僅檢查圖片格式；訊息明示沒有 AI 車角檢核。
-- 保留主線 UI 左側車門的指定流程；API 支援左右側。
+- 車內只保留駕駛側左門的前座、後座模板；若 API 收到右側，教練會要求改由左側拍攝。HTTP 欄位格式不變。
 - `best.pt` 位於 `artifacts/module_a/best.pt` 並隨主線提供。模型載入失敗為 503，無效圖片為 422，不回固定 PASS。
 
 ## 公開契約
@@ -65,3 +65,6 @@
 - tests/backend/test_photo_schemas.py
 - tests/backend/test_photo_upload_route.py
 - tests/module_a/test_guidance.py
+
+
+後續調整（2026-10-02）：移除 `shared_interior_front_right_door`、`shared_interior_rear_right_door` 兩組車內模板。UI 原本就只要求從左側拍前座與後座，因此拍攝步驟與 HTTP 欄位數量不變；直接傳入右側拍攝資訊時，教練會清楚提示改從駕駛側左門拍攝。

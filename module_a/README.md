@@ -20,7 +20,7 @@
 
 服務 class ID：`car=0`、`headlight=1`、`license_plate=2`、`rear_seat_bench=3`、`steering_wheel=4`、`wheel=5`。
 
-支援槽位：`FRONT_LEFT`、`FRONT_RIGHT`、`REAR_LEFT`、`REAR_RIGHT`、`INTERIOR_FRONT`、`INTERIOR_REAR`。車內必須指定 `entry_side`。`REAR`、`FUEL_PARKING_CARD`、`OTHER_DAMAGE` 尚無教練規則，回傳 `UNSUPPORTED_SLOT`；既有照片儲存能力不因此移除。
+支援槽位：`FRONT_LEFT`、`FRONT_RIGHT`、`REAR_LEFT`、`REAR_RIGHT`、`INTERIOR_FRONT`、`INTERIOR_REAR`。車內需指定 `entry_side='left'`；右側拍攝目前不支援，會引導使用者改從駕駛側左門拍攝。`REAR`、`FUEL_PARKING_CARD`、`OTHER_DAMAGE` 尚無教練規則，回傳 `UNSUPPORTED_SLOT`；既有照片儲存能力不因此移除。
 
 ## 判斷範圍與限制
 
@@ -33,7 +33,7 @@
 | L5 | 無法可靠量測手機離地高度，標記 `not_applicable` |
 | L6 | 特徵框相對位置／尺寸符合模板程度；不保證實際 45° |
 
-合格定義為「照片符合指定槽位的構圖與特徵要求」。目前設定仍是 `uncalibrated`，**不啟用真實自動 PASS**；需用照片校正與獨立驗證，不能只修改設定字串。模型缺少前排座椅類別，方向盤不代表前排完整；右前門前排目前會建議改由左側車門拍攝。
+合格定義為「照片符合指定槽位的構圖與特徵要求」。目前設定仍是 `uncalibrated`，**不啟用真實自動 PASS**；需用照片校正與獨立驗證，不能只修改設定字串。模型缺少前排座椅類別，方向盤不代表前排完整；車內只提供從駕駛側左門拍攝的前座與後座模板。
 
 ## 回傳狀態
 
@@ -69,7 +69,7 @@ context = CaptureContext(
 result = coach.analyze(Path('/path/frame.jpg').read_bytes(), context)
 ```
 
-同一拍攝工作階段維持 session ID、遞增 frame ID；車內另加 `entry_side='left'` 或 `'right'`。送入未鏡像且沒有 UI 疊框的原圖。預覽影格順序保存在記憶體，間隔超過 60 秒可重設。E 將同步推論移出 async 事件迴圈。
+同一拍攝工作階段維持 session ID、遞增 frame ID；車內另加 `entry_side='left'`。右側輸入會回傳改從左側拍攝的建議。送入未鏡像且沒有 UI 疊框的原圖。預覽影格順序保存在記憶體，間隔超過 60 秒可重設。E 將同步推論移出 async 事件迴圈。
 
 ## 未完成與團隊交接
 
@@ -106,4 +106,4 @@ E 已將拍攝情境傳給 A；`accepted=true` 必須是 PASS，拒絕照片不�
 
 ## 主線整合（2026-10-01）
 
-E 已啟用真實教練。`CaptureContext.source` 在 `final` 模式另外接受 `uploaded_photo`，表示提交的圖片檔案，不宣稱是即時相機原圖；預覽仍使用 `camera_raw`。快門不受預覽判定限制，正式上傳重新檢核。模板未校正仍不會自動 PASS。前端保留主線目前的左側車門拍攝流程；API 可接收左右側。詳見 [整合紀錄](../docs/tasks/main-coach-integration.md)。
+E 已啟用真實教練。`CaptureContext.source` 在 `final` 模式另外接受 `uploaded_photo`，表示提交的圖片檔案，不宣稱是即時相機原圖；預覽仍使用 `camera_raw`。快門不受預覽判定限制，正式上傳重新檢核。模板未校正仍不會自動 PASS。車內僅保留左側車門模板；API 格式仍接受 `entry_side='right'`，但會提示改從左側拍攝。詳見 [整合紀錄](../docs/tasks/main-coach-integration.md)。

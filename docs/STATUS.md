@@ -25,6 +25,8 @@ Module A, Module B, and Module D communicate through Python calls in the same ba
 
 ## Module A
 
+- Cabin templates cover driver-side left-door front and rear shots only; right-side requests guide the user to the left door.
+
 Completed:
 
 - Local filesystem photo storage and lookup.

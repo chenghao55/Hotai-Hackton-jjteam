@@ -55,12 +55,16 @@ def geometry(detections, slot, vehicle_type, entry_side, config):
     templates = [t for t in config['templates'] if t['vehicle_type'] in (vehicle_type, 'shared') and
                  (t['shot_type'].startswith('exterior_') if slot.startswith('exterior_') else
                   t['shot_type'] == slot and t.get('entry_side') == entry_side)]
-    target = next(t for t in templates if t['shot_type'] == slot)
     checks = {'L3': 'not_applicable', 'L4': 'not_applicable', 'L5': 'not_evaluated', 'L6': 'not_evaluated'}
     def stop(code, level):
         if level:
             checks[level] = 'unknown' if code in ('TEMPLATE_NOT_CALIBRATED', 'FRONT_SEAT_EVIDENCE_UNAVAILABLE') else 'fail'
         return code, level, checks
+    target = next((t for t in templates if t['shot_type'] == slot), None)
+    if target is None:
+        if slot in ('interior_front', 'interior_rear'):
+            return stop('FRONT_SEAT_EVIDENCE_UNAVAILABLE', 'L6')
+        return stop('UNSUPPORTED_SLOT', 'L6')
     if target.get('evaluation_mode') == 'guide_only':
         return stop('FRONT_SEAT_EVIDENCE_UNAVAILABLE', 'L6')
     ref = [0, 0, 1, 1]
