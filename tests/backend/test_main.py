@@ -66,21 +66,14 @@ def test_get_cases_works_through_canonical_app() -> None:
     assert response.json() == []
 
 
-def test_photo_guidance_works_through_canonical_app() -> None:
+def test_photo_guidance_requires_context_through_canonical_app() -> None:
     response = client.post(
         "/photo-guidance",
-        data={
-            "photo_type": "return",
-            "capture_slot": "front_left",
-            "vehicle_type": "sedan",
-            "session_id": "main-test-session",
-            "frame_id": "1",
-        },
         files={"file": ("vehicle.jpg", b"image-bytes", "image/jpeg")},
     )
 
-    assert response.status_code == 200
-    assert response.json()["accepted"] is True
+    assert response.status_code == 422
+    assert isinstance(response.json()["detail"], list)
 
 
 def test_module_d_api_app_reuses_canonical_app() -> None:

@@ -33,6 +33,8 @@ export type GuidanceCode =
   | 'MISSING_REQUIRED_FEATURE'
   | 'GEOMETRY_MISMATCH'
   | 'AMBIGUOUS_TEMPLATES'
+  | 'TEMPLATE_NOT_CALIBRATED'
+  | 'FRONT_SEAT_EVIDENCE_UNAVAILABLE'
   | 'UNSUPPORTED_SLOT'
   | 'PASS';
 export type GuidanceAction = 'guide' | 'reshoot' | 'accept';

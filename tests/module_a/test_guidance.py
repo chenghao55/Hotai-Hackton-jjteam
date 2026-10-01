@@ -47,30 +47,29 @@ def test_calibrated_pass_is_immediate_and_does_not_save(frame, context, tmp_path
     config['calibration_status'] = 'calibrated'
     config['templates'] = config['templates'][:1]
     result = PhotoCoach(Detector(objects(config)), config=config).analyze(frame, context)
-    assert result.accepted and result.can_capture and not result.review_required
+    assert result.accepted
     assert result.code == result.level == 'PASS'
     assert result.checks['L5'] == 'not_applicable'  # no physical-height claim
     assert not storage.PHOTOS_DIR.exists()
 
 
-def test_draft_timeout_is_manual_only_and_final_rechecks(frame, context):
+def test_shutter_is_always_available_and_final_rechecks(frame, context):
     from PIL import Image
     config = load_config()
     tick = [0.]
     coach = PhotoCoach(Detector(objects(config)), clock=lambda: tick[0])
     first = coach.analyze(frame, context)
-    assert not first.accepted and not first.can_capture
-    assert first.manual_review_remaining_ms == 20000
+    assert not first.accepted
     tick[0] = 20
     second = coach.analyze(frame, replace(context, frame_id=2))
-    assert second.can_capture and second.review_required and not second.accepted
+    assert not second.accepted
     assert second.code == 'TEMPLATE_NOT_CALIBRATED'
     final = coach.analyze(frame, replace(context, mode='final', frame_id=3))
-    assert final.review_required and final.action == 'human_review'
+    assert final.action == 'reshoot'
     dark = io.BytesIO()
     Image.new('RGB', (256, 256), 'black').save(dark, format='PNG')
     bad = coach.analyze(dark.getvalue(), replace(context, mode='final', frame_id=4))
-    assert bad.code == 'TOO_DARK' and not bad.can_capture
+    assert bad.code == 'TOO_DARK' and not bad.accepted
 
 
 def test_quality_priority_and_no_inference(context):
@@ -80,18 +79,18 @@ def test_quality_priority_and_no_inference(context):
         data = io.BytesIO()
         Image.new('RGB', (128, 128), color).save(data, format='PNG')
         r = PhotoCoach(detector).analyze(data.getvalue(), context)
-        assert r.code == expected and not r.can_capture
+        assert r.code == expected and not r.accepted
     assert detector.calls == 0
 
 
-def test_stale_frame_and_session_timeout(frame, context):
+def test_stale_frame_expires_after_preview_gap(frame, context):
     tick = [0.]
     coach = PhotoCoach(Detector(objects(load_config())), clock=lambda: tick[0])
     coach.analyze(frame, context)
     with pytest.raises(ValueError, match='STALE_FRAME'):
         coach.analyze(frame, context)
     tick[0] = 61
-    assert coach.analyze(frame, replace(context, frame_id=2)).manual_review_remaining_ms == 20000
+    assert coach.analyze(frame, replace(context, frame_id=1)).code == 'TEMPLATE_NOT_CALIBRATED'
 
 
 @pytest.mark.parametrize('box,code,level', [
@@ -112,14 +111,15 @@ def test_missing_features_never_pass(frame, context):
     assert not result.accepted
 
 
-def test_right_front_is_explicit_manual_exception(frame, context):
+def test_right_front_remains_a_reshoot_advice_after_waiting(frame, context):
     tick = [0.]
     coach = PhotoCoach(Detector([]), clock=lambda: tick[0])
     context = replace(context, capture_slot=CaptureSlot.INTERIOR_FRONT, entry_side='right')
     assert coach.analyze(frame, context).code == 'FRONT_SEAT_EVIDENCE_UNAVAILABLE'
     tick[0] = 20
     result = coach.analyze(frame, replace(context, frame_id=2))
-    assert result.review_required and not result.accepted
+    assert not result.accepted
+    assert result.action == 'reshoot'
 
 
 def test_unsupported_main_slots_fail_closed(frame, context):
@@ -150,7 +150,7 @@ def test_each_template_uses_its_own_slot_and_door(index):
                   for a in template['anchors'] if a['required']]
     if template['reference_class_id'] is not None:
         detections.append({'class_id': 0, 'confidence': .99, 'box': template['reference_box']})
-    code, _, _, _ = geometry(detections, template['shot_type'],
+    code, _, _ = geometry(detections, template['shot_type'],
                              'sedan' if template['vehicle_type'] == 'shared' else template['vehicle_type'],
                              template.get('entry_side'), config)
     assert code == ('FRONT_SEAT_EVIDENCE_UNAVAILABLE' if template.get('evaluation_mode') == 'guide_only' else 'PASS')

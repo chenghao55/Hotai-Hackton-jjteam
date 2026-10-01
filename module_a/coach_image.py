@@ -2,6 +2,8 @@
 import io
 import threading
 import warnings
+from PIL.Image import open as open_image
+# Keep the decoder independent of Ultralytics optional-format monkey patches.
 
 
 def decode(raw):
@@ -10,7 +12,7 @@ def decode(raw):
         raise ValueError('INVALID_IMAGE_SIZE')
     with warnings.catch_warnings():
         warnings.simplefilter('error', Image.DecompressionBombWarning)
-        with Image.open(io.BytesIO(raw)) as image:
+        with open_image(io.BytesIO(raw), formats=('PNG', 'JPEG')) as image:
             if image.format not in ('PNG', 'JPEG') or image.width * image.height > 20_000_000:
                 raise ValueError('UNSUPPORTED_IMAGE')
             if getattr(image, 'n_frames', 1) != 1:

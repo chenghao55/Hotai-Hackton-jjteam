@@ -1,7 +1,6 @@
 {
-  "version": "capture-templates-v0.6-manual-review",
+  "version": "capture-templates-v0.7-shutter-anytime",
   "calibration_status": "uncalibrated",
-  "manual_review_after_ms": 20000,
   "coordinate_space": "exif_corrected_unmirrored_image_normalized_xyxy",
   "model_classes": {
     "0": "car",

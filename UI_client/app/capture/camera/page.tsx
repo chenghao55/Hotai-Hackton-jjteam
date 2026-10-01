@@ -266,8 +266,8 @@ export default function CameraPage() {
       setRequestError('請拍攝或選擇圖片檔案。');
       return;
     }
-    if (file.size > 12 * 1024 * 1024) {
-      setRequestError('照片超過 12 MB，請重新拍攝。');
+    if (file.size > 10 * 1024 * 1024) {
+      setRequestError('照片超過 10 MB，請重新拍攝。');
       return;
     }
     setRequestError('');

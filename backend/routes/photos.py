@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from starlette.concurrency import run_in_threadpool
+from PIL import UnidentifiedImageError, Image
 
 from module_a import CaptureSlot, PhotoType
 
@@ -69,6 +70,10 @@ async def _analyze_guidance(
             status_code=503,
             detail="The current guidance decision is not supported by the product contract",
         ) from exc
+    except (FileNotFoundError, RuntimeError) as exc:
+        raise HTTPException(status_code=503, detail="Photo coach unavailable; check the model configuration") from exc
+    except (ValueError, UnidentifiedImageError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post("/photo-guidance", response_model=PhotoGuidanceResponse)
@@ -125,9 +130,8 @@ async def upload_photo(
         frame_id=frame_id,
         entry_side=entry_side,
         mode=GuidanceMode.FINAL,
-        # /photos also accepts gallery/file uploads, so their provenance cannot
-        # truthfully be declared camera_raw without a future explicit signal.
-        source=None,
+        # Describe the submitted file without asserting camera provenance.
+        source=GuidanceImageSource.UPLOADED_PHOTO,
     )
     guidance = await _analyze_guidance(guidance_service, image, context)
     if not guidance.accepted:

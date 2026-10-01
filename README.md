@@ -63,7 +63,7 @@ the local `file_path`.
 **Current repo state**
 - Photo storage already exists.
 - Python guidance core is available as `module_a.PhotoCoach`; setup and contract gaps are documented in [Module A coach integration](docs/tasks/module-a-coach.md).
-- E currently uses a replaceable guidance stub.
+- E actively calls the Module A photo coach through a lazy, cached model provider.
 
 **Guidance implementation contract**
 A must expose a stable Python-level API that E can wrap with an adapter.
@@ -329,7 +329,7 @@ GET  /photos/{photo_id}
 - Photo guidance route complete
 - Photo upload route complete
 - Photo retrieval route complete
-- Guidance request context is wired through E/UI, but the active provider remains the stub. The real Module A adapter is implemented but inactive while calibration, unsupported slots, manual-only decisions, and gallery provenance remain unresolved.
+- Guidance context is wired through E/UI and the real Module A adapter is active. Preview gives advice without locking the shutter; final upload independently accepts or requests a reshoot. Uncalibrated templates remain a blocking guidance result.
 - Case schemas, in-memory state, and routes are extracted into `backend/`
 - `backend/main.py` is the canonical Module E composition root
 - `module_d/api.py` is a legacy compatibility layer that reuses the canonical app
@@ -337,7 +337,7 @@ GET  /photos/{photo_id}
 
 **Next E work**
 ```text
-1. Resolve Module A activation blockers before replacing the active guidance stub
+1. Calibrate Module A templates with real photos
 2. Connect the UI client to the production Case-creation API
 3. Run end-to-end demo
 ```
@@ -472,7 +472,7 @@ No agent should rewrite another module merely because doing so is easier locally
 - Optional `source_photo_id`
 - Review / appeal / priority / workflow / payment
 - Module E photo HTTP schemas (`backend/schemas/photos.py`)
-- Module E `POST /photo-guidance` route with a replaceable stub service
+- Module E `POST /photo-guidance` route with the active Module A coach
 - Module E `POST /photos` final guidance and Module A storage flow
 - Module E `GET /photos/{photo_id}` binary retrieval through Module A storage
 - Module E Case HTTP schemas, in-memory state, and routes
@@ -483,12 +483,12 @@ No agent should rewrite another module merely because doing so is easier locally
 Current full-suite checkpoint:
 
 ```text
-400 passed
-2 warnings
+408 passed
+1 warning
 0 failed
 ```
 
-The warnings are third-party FastAPI/Starlette TestClient deprecations and are not functional failures.
+The warning is a third-party Starlette TestClient/httpx deprecation, not a functional failure. Verified on 2026-10-01.
 
 ### Temporary / transitional
 
@@ -717,9 +717,24 @@ frame_id
 entry_side   = left | right (required only for interior slots)
 ```
 
-Module E supplies `mode=final`. Because this endpoint also accepts gallery/file uploads, the
-real Module A adapter remains inactive until non-camera provenance is supported without
-mislabeling those files as `camera_raw`.
+Module E supplies `mode=final` and `source=uploaded_photo`. It independently checks the
+submitted file without claiming it came directly from the live camera. Rejected images
+return `photo_id=null` and are not stored. The shutter is always available; there is no
+timed unlock or manual-review fallback.
+
+Set `HOTAI_MODULE_A_CHECKPOINT_PATH` to the trusted local `best.pt` path (default:
+the server user's `Downloads/best.pt`). `HOTAI_MODULE_A_DEVICE` defaults to `cpu`.
+The model is loaded lazily and cached once per process. Missing/broken models return
+HTTP 503; malformed images return HTTP 422, never a fallback PASS. Restart the backend
+after updating code or model configuration. Point `NEXT_PUBLIC_MODULE_E_BASE_URL`
+at that backend and rebuild/restart the UI as required by its deployment.
+
+`TEMPLATE_NOT_CALIBRATED` and `FRONT_SEAT_EVIDENCE_UNAVAILABLE` are supported
+rejection codes with `action=reshoot`. Templates are still uncalibrated, so the six
+coached slots cannot automatically PASS yet. `fuel_parking_card`, `other_damage`, and
+the legacy `rear` slot receive PNG/JPEG format validation only, with an explicit
+format-only message; they do not receive an AI angle verdict. Images must be no larger
+than 10 MiB and 20 million pixels. The request fields and response object shape are unchanged.
 
 Accepted example:
 
@@ -940,7 +955,7 @@ When updating this README:
 Current E sequence:
 
 ```text
-1. Resolve guidance calibration, unsupported-slot, manual-decision, and gallery-provenance blockers before activating the merged Module A adapter
+1. Calibrate guidance templates; the real Module A adapter is active
 2. Replace the current `UI_backstage` vehicle/gallery placeholders when the Case API gains rental/customer and photo-gallery data
 3. Run an end-to-end demo against the real Module E process and model checkpoint
 ```

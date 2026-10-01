@@ -66,7 +66,7 @@ UI 不傳 `case_id`；Module E 產生 ID 並回傳完整 Case：
 
 卡片、前座與後座照片仍經 `POST /photos` 保存，但不放入 Case request。左前、右前、左後、右後與選填 `OTHER_DAMAGE` 的 `photo_id` 才會送往 Case 建立。正式結果頁不衍生風險、建議動作、賠償估價、清潔或付款值。
 
-目前 Module E 的 active guidance provider 仍是 stub。真實 Module A adapter 尚未啟用，因模板未校正、卡片／OTHER_DAMAGE slot 尚未支援、manual-only decision 尚未定案，且 gallery file 不能被誤標為 `camera_raw`。
+Module E 已啟用真實 Module A adapter。預覽不鎖快門，正式照片以 `uploaded_photo` 來源重新檢核，不合格要求重拍；沒有逾時人工審核。卡片／OTHER_DAMAGE／rear 僅驗證圖片格式。模板未校正仍會回傳不通過。啟動後端前設定 `HOTAI_MODULE_A_CHECKPOINT_PATH`，並將 UI 的 `NEXT_PUBLIC_MODULE_E_BASE_URL` 指向該後端。
 
 案件狀態直接呈現 Module D 值：`unassigned`、`dispatched`、`processing`、`pending_payment`、`completed`。
 

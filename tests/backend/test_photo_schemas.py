@@ -106,6 +106,9 @@ def test_non_manual_module_a_codes_are_supported(code):
     "manual_code",
     ["TEMPLATE_NOT_CALIBRATED", "FRONT_SEAT_EVIDENCE_UNAVAILABLE"],
 )
-def test_manual_only_module_a_codes_are_not_exposed(manual_code):
-    with pytest.raises(ValueError):
-        GuidanceCode(manual_code)
+def test_inconclusive_module_a_codes_allow_reshoot(manual_code):
+    response = PhotoGuidanceResponse(accepted=False, check=PhotoCheck(
+        level=GuidanceLevel.L6, code=GuidanceCode(manual_code),
+        message="Unable to confirm composition.", action=GuidanceAction.RESHOOT,
+    ))
+    assert response.check.code.value == manual_code

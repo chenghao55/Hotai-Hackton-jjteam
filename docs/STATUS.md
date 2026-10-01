@@ -4,11 +4,11 @@ This file records shared repository status. It is not an individual agent checkp
 
 ## Last verified checkpoint
 
-- Verified on: 2026-09-28
+- Verified on: 2026-10-01
 - Verified against: integrated Module A Python coach and current main changes
-- Full Python suite: **400 passed, 2 warnings, 0 failed**
+- Full Python suite: **408 passed, 1 warning, 0 failed**
 - Command: `python -m pytest -q`
-- The warnings are third-party FastAPI/Starlette TestClient deprecations in the validation environment.
+- The warning is a third-party Starlette TestClient/httpx deprecation in the validation environment. Focused backend/core checks: 89 passed. Frontend capture/API checks: 26 passed (jsdom scroll/navigation notices).
 
 ## Current cross-module flow
 
@@ -44,7 +44,7 @@ Completed:
 
 Open:
 
-- A Python guidance core is available (`module_a.PhotoCoach`), including draft quality/geometry checks and manual-capture advice. E/UI now carry the non-manual capture context, and an inactive E adapter maps automatic PASS and ordinary blocking results. The active provider remains `StubPhotoGuidanceService`; templates still require real-photo calibration.
+- `module_a.PhotoCoach` is active through E. The shutter remains available; final upload reruns checks and returns accept/reshoot. Timed manual-review fallback is removed. Templates remain uncalibrated and cannot yet automatically PASS.
 
 ## Module B
 
@@ -101,7 +101,7 @@ Completed:
 - Module B checkpoint and device configuration are centralized in `backend/services/case_building.py`; tests override the lazy provider and do not load ML.
 - In-memory Case state for the MVP.
 - `module_d.api.app` remains a legacy compatibility import for the canonical app.
-- Photo guidance requests now carry photo type, capture slot, vehicle type, session/frame identity, and derived interior side. `ModuleAPhotoGuidanceService` exists but is intentionally inactive; the provider still returns the stub.
+- Photo guidance carries photo type, slot, vehicle type, session/frame identity and interior side. `ModuleAPhotoGuidanceService` is active and loads the configured model lazily. Model failures return 503, not PASS.
 
 Open:
 
@@ -131,12 +131,12 @@ Implemented integration:
 - Return-only damage evidence is supported end to end. Module D accepts an explicitly supplied
   `borrow_photo_id=None`, and Module B uses it for RETURN exterior/damage photos without
   fabricating borrow evidence.
-- Module A activation remains blocked by uncalibrated templates, required UI slots that A reports as unsupported (`FUEL_PARKING_CARD` and `OTHER_DAMAGE`), unresolved manual-only decisions, and the inability to truthfully label gallery uploads as `camera_raw`.
+- Template calibration still blocks automatic acceptance of the six coached slots. Card, other-damage and legacy rear slots receive image-format validation only. Final files have `uploaded_photo` provenance, not a fabricated camera origin.
 - The displayed vehicle/gallery decorations in `UI_backstage` remain placeholders because Case responses do not contain rental/customer metadata or a photo-gallery contract.
 
 ## Team-level next steps
 
-1. Resolve the documented Module A activation blockers, then explicitly switch the E provider from the stub to the real adapter.
+1. Calibrate Module A templates and verify the deployed UI against the real model service.
 2. Replace the current placeholder vehicle/gallery decorations in the staff UI when the Case API gains rental/customer and photo-gallery data.
 3. Run an end-to-end demo covering capture, upload, Case creation, review, workflow, and payment.
 
@@ -147,7 +147,7 @@ Repository inspection found three differences from the supplied starting notes:
 - Module B now follows the deployed single-image model: return-only exterior evidence is valid,
   while card and interior photos are filtered out before inference.
 - Module D already supports nullable borrow evidence for generic return-only detections, so that contract is no longer blocking integration.
-- The confirmed full pytest checkpoint is now 400 passed, including the guidance-contract and inactive-adapter coverage.
+- The confirmed full pytest checkpoint is now 408 passed, including real-provider wiring, final-upload provenance, uncoached slots, model failure handling and independent preview/final rejection coverage.
 
 ## Status-recording rule
 

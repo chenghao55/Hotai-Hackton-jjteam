@@ -11,9 +11,9 @@ from backend.schemas.photos import (
     PhotoGuidanceResponse,
     PhotoUploadResponse,
 )
-from backend.services.photo_guidance import PhotoGuidanceService
+from backend.services.photo_guidance import PhotoGuidanceService, ModuleAPhotoGuidanceService
 from backend.services.photo_storage import PhotoStorageService
-from module_a import CaptureSlot, PhotoType
+from module_a import CaptureSlot, PhotoType, GuidanceResult
 
 
 @pytest.fixture
@@ -173,7 +173,7 @@ def test_uploaded_bytes_are_passed_to_guidance_service(app):
     assert response.status_code == 200
     assert guidance.received == b"final-frame"
     assert guidance.received_context.mode.value == "final"
-    assert guidance.received_context.source is None
+    assert guidance.received_context.source.value == "uploaded_photo"
     assert guidance.received_context.image_mirrored is False
 
 
@@ -192,6 +192,8 @@ def test_invalid_capture_slot_is_a_request_validation_error(app):
 
 
 def test_interior_upload_requires_entry_side(app):
+    from backend.services.photo_guidance import StubPhotoGuidanceService
+    app.dependency_overrides[photo_routes.get_photo_guidance_service] = StubPhotoGuidanceService
     with TestClient(app) as client:
         missing = upload(client, capture_slot="interior_rear")
         accepted = upload(client, capture_slot="interior_rear", entry_side="left")
@@ -248,3 +250,35 @@ def test_borrow_other_damage_domain_error_is_translated_to_422(app):
 
     assert response.status_code == 422
     assert response.json()["detail"] == "OTHER_DAMAGE is only valid for return photos"
+
+
+def test_final_capture_rechecks_with_context_and_does_not_store_rejected_image(app):
+    class Coach:
+        context = None
+
+        def analyze(self, image, context):
+            self.context = context
+            return GuidanceResult(False, "L6", "TEMPLATE_NOT_CALIBRATED", "構圖基準尚未校正",
+                                  "reshoot")
+
+    class Storage(PhotoStorageService):
+        def save(self, *args):
+            raise AssertionError("rejected image must not be stored")
+
+        def get(self, photo_id):
+            raise AssertionError("not used")
+
+    coach = Coach()
+    app.dependency_overrides[photo_routes.get_photo_guidance_service] = lambda: ModuleAPhotoGuidanceService(coach)
+    app.dependency_overrides[photo_routes.get_photo_storage_service] = Storage
+    with TestClient(app) as client:
+        response = client.post("/photos",
+            data={"photo_type": "return", "capture_slot": "front_left", "vehicle_type": "sedan",
+                  "session_id": "session", "frame_id": "7"},
+            files={"file": ("photo.jpg", b"frame", "image/jpeg")})
+
+    assert response.status_code == 200
+    assert response.json()["accepted"] is False
+    assert response.json()["check"]["action"] == "reshoot"
+    assert response.json()["photo_id"] is None
+    assert coach.context.mode == "final"

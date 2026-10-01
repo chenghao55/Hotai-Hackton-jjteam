@@ -183,6 +183,7 @@ describe('canonical return capture', () => {
   });
 
   it('uses one session and increasing frame IDs for preview and final guidance', async () => {
+    api.requestPhotoGuidance.mockResolvedValue({ accepted: false, check: { level: 'L2', code: 'BLUR', message: '仍可按快門，提交時重新檢核', action: 'reshoot' } });
     const frame = new Blob(['frame'], { type: 'image/jpeg' });
     api.uploadPhoto.mockResolvedValueOnce(acceptedPhoto('cards-id'));
     Object.defineProperty(navigator, 'mediaDevices', {
@@ -207,6 +208,8 @@ describe('canonical return capture', () => {
     fireEvent.click(screen.getByRole('button', { name: /轎車/ }));
     fireEvent.click(screen.getByRole('button', { name: /開啟即時相機/ }));
     await waitFor(() => expect(api.requestPhotoGuidance).toHaveBeenCalled());
+    expect(await screen.findByTestId('photo-guidance')).toHaveTextContent('仍可按快門，提交時重新檢核');
+    expect(screen.getByRole('button', { name: '拍攝照片' })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: '拍攝照片' }));
     fireEvent.click(await screen.findByRole('button', { name: /儲存並拍下一張/ }));
     await waitFor(() => expect(api.uploadPhoto).toHaveBeenCalled());

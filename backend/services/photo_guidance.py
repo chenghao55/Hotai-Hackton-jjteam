@@ -1,5 +1,9 @@
 """Replaceable E adapters for camera-frame shooting guidance."""
 
+import os
+import tempfile
+from pathlib import Path
+from functools import lru_cache
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
@@ -13,7 +17,9 @@ from backend.schemas.photos import (
     PhotoGuidanceResponse,
     VehicleType,
 )
-from module_a import CaptureContext, CaptureSlot, PhotoCoach, PhotoType
+from module_a import CaptureContext, CaptureSlot, PhotoCoach, PhotoType, YoloDetector, load_config
+from module_a.coach_image import decode
+from module_a.guidance import SLOTS
 
 
 class GuidanceMode(str, Enum):
@@ -23,6 +29,7 @@ class GuidanceMode(str, Enum):
 
 class GuidanceImageSource(str, Enum):
     CAMERA_RAW = "camera_raw"
+    UPLOADED_PHOTO = "uploaded_photo"
 
 
 @dataclass(frozen=True)
@@ -74,14 +81,9 @@ class StubPhotoGuidanceService(PhotoGuidanceService):
 
 
 class ModuleAPhotoGuidanceService(PhotoGuidanceService):
-    """Inactive adapter for automatic Module A decisions only."""
+    """Active adapter; preview guides, final upload accepts or requests a reshoot."""
 
-    _MANUAL_ONLY_CODES = {
-        "TEMPLATE_NOT_CALIBRATED",
-        "FRONT_SEAT_EVIDENCE_UNAVAILABLE",
-    }
-
-    def __init__(self, coach: PhotoCoach):
+    def __init__(self, coach: PhotoCoach | None = None):
         self.coach = coach
 
     def analyze(
@@ -89,12 +91,21 @@ class ModuleAPhotoGuidanceService(PhotoGuidanceService):
         image: bytes,
         context: PhotoGuidanceContext,
     ) -> PhotoGuidanceResponse:
-        if context.source != GuidanceImageSource.CAMERA_RAW:
-            raise UnsupportedGuidanceDecisionError(
-                "Module A currently accepts only truthful camera_raw provenance"
-            )
+        if context.source != GuidanceImageSource.CAMERA_RAW and not (
+            context.mode == GuidanceMode.FINAL
+            and context.source == GuidanceImageSource.UPLOADED_PHOTO
+        ):
+            raise UnsupportedGuidanceDecisionError("Unsupported image provenance")
 
-        result = self.coach.analyze(
+        if context.capture_slot not in SLOTS:
+            decode(image)
+            return PhotoGuidanceResponse(accepted=True, check=PhotoCheck(
+                level=GuidanceLevel.PASS, code=GuidanceCode.PASS,
+                message="此類照片不適用車角 AI 構圖檢核；照片格式有效，可以拍攝。",
+                action=GuidanceAction.ACCEPT,
+            ))
+
+        result = (self.coach or get_module_a_photo_coach()).analyze(
             image,
             CaptureContext(
                 photo_type=context.photo_type,
@@ -108,16 +119,6 @@ class ModuleAPhotoGuidanceService(PhotoGuidanceService):
                 source=context.source.value,
             ),
         )
-        if (
-            result.review_required
-            or (not result.accepted and result.can_capture)
-            or result.action == "human_review"
-            or result.code in self._MANUAL_ONLY_CODES
-        ):
-            raise UnsupportedGuidanceDecisionError(
-                "Module A returned a decision outside the approved automatic contract"
-            )
-
         try:
             level = GuidanceLevel(result.level)
             code = GuidanceCode(result.code)
@@ -138,6 +139,20 @@ class ModuleAPhotoGuidanceService(PhotoGuidanceService):
         )
 
 
+@lru_cache(maxsize=1)
+def get_module_a_photo_coach() -> PhotoCoach:
+    checkpoint = Path(os.getenv("HOTAI_MODULE_A_CHECKPOINT_PATH") or Path.home() / "Downloads" / "best.pt")
+    if not checkpoint.is_file():
+        raise FileNotFoundError("Module A checkpoint is unavailable")
+    config = load_config()
+    os.environ.setdefault("YOLO_CONFIG_DIR", str(Path(tempfile.gettempdir()) / "hotai-ultralytics"))
+    try:
+        detector = YoloDetector(checkpoint, config, os.getenv("HOTAI_MODULE_A_DEVICE", "cpu"))
+    except Exception as exc:
+        raise RuntimeError("Module A model could not be loaded") from exc
+    return PhotoCoach(detector, config=config)
+
+
 def get_photo_guidance_service() -> PhotoGuidanceService:
-    """Active provider remains the stub until Module A activation blockers resolve."""
-    return StubPhotoGuidanceService()
+    """Use the real coach; loading the checkpoint is deferred until a coached request."""
+    return ModuleAPhotoGuidanceService()
