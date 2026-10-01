@@ -381,11 +381,11 @@ function DamageChoice({ normalPhotoCount, damagePhotoCount, onAddDamage, onConti
 }
 
 function getCaptureOverlay(vehicleType: VehicleType, shotType: string) {
-  if (shotType === 'front_cabin') return { src: '/overlays/interior-front.svg', flip: false, scale: 1 };
-  if (shotType === 'rear_cabin') return { src: '/overlays/interior-rear.svg', flip: false, scale: 1 };
+  if (shotType === 'front_cabin') return { src: '/overlays/interior-front-realistic.png', flip: false, scale: 0.94 };
+  if (shotType === 'rear_cabin') return { src: '/overlays/interior-rear-realistic.png', flip: false, scale: 0.94 };
   const isRear = shotType.startsWith('rear_');
   const isRight = shotType.includes('_right_');
-  return { src: `/overlays/${vehicleType}-${isRear ? 'rear' : 'front'}.png`, flip: isRight, scale: 1.14 };
+  return { src: `/overlays/${vehicleType}-${isRear ? 'rear' : 'front'}.png`, flip: isRight, scale: 1.22 };
 }
 
 async function captureVideoFrame(video: HTMLVideoElement | null, canvas: HTMLCanvasElement | null, quality: number): Promise<Blob | null> {

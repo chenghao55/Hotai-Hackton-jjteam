@@ -226,7 +226,8 @@ describe('canonical return capture', () => {
     api.uploadPhoto
       .mockResolvedValueOnce(acceptedPhoto('cards'))
       .mockResolvedValueOnce(acceptedPhoto('front-cabin'))
-      .mockResolvedValueOnce(acceptedPhoto('rear-cabin'));
+      .mockResolvedValueOnce(acceptedPhoto('rear-cabin'))
+      .mockResolvedValueOnce(acceptedPhoto('front-left'));
     Object.defineProperty(navigator, 'mediaDevices', {
       configurable: true,
       value: {
@@ -247,7 +248,14 @@ describe('canonical return capture', () => {
     fireEvent.click(screen.getByRole('button', { name: /開啟即時相機/ }));
     const overlay = await screen.findByTestId('vehicle-alignment-overlay');
     expect(overlay).toHaveAttribute('src', '/overlays/sedan-front.png');
-    expect(overlay).toHaveStyle({ transform: 'scale(1.14)' });
+    expect(overlay).toHaveStyle({ transform: 'scale(1.22)' });
+
+    await uploadCurrentFile('front-left');
+    await waitFor(() => expect(screen.getByRole('heading', { name: '車身右前方 45°' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /開啟即時相機/ }));
+    const rightOverlay = await screen.findByTestId('vehicle-alignment-overlay');
+    expect(rightOverlay).toHaveAttribute('src', '/overlays/sedan-front.png');
+    expect(rightOverlay).toHaveStyle({ transform: 'scaleX(-1) scale(1.22)' });
   });
 
   it('shows the requested front and rear cabin alignment overlays', async () => {
@@ -271,14 +279,16 @@ describe('canonical return capture', () => {
     await uploadCurrentFile('cards');
     await waitFor(() => expect(screen.getByRole('heading', { name: '車內座椅（前座）' })).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: /開啟即時相機/ }));
-    expect(await screen.findByTestId('vehicle-alignment-overlay')).toHaveAttribute('src', '/overlays/interior-front.svg');
+    const frontOverlay = await screen.findByTestId('vehicle-alignment-overlay');
+    expect(frontOverlay).toHaveAttribute('src', '/overlays/interior-front-realistic.png');
+    expect(frontOverlay).toHaveStyle({ transform: 'scale(0.94)' });
 
     await uploadCurrentFile('front-cabin');
     await waitFor(() => expect(screen.getByRole('heading', { name: '車內座椅（後座）' })).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: /開啟即時相機/ }));
     const rearOverlay = await screen.findByTestId('vehicle-alignment-overlay');
-    expect(rearOverlay).toHaveAttribute('src', '/overlays/interior-rear.svg');
-    expect(rearOverlay).toHaveStyle({ transform: 'scale(1)' });
+    expect(rearOverlay).toHaveAttribute('src', '/overlays/interior-rear-realistic.png');
+    expect(rearOverlay).toHaveStyle({ transform: 'scale(0.94)' });
   });
 
   it('uses the default camera first and keeps manual selection for multiple devices', async () => {
