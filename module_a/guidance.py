@@ -67,7 +67,7 @@ MESSAGES = {
     'SUBJECT_TOO_LARGE': '請稍微後退。', 'OFF_CENTER': '請將車身移至取景框中央。',
     'POSSIBLE_WRONG_SLOT': '請確認目前指定的車角。', 'PASS': '構圖與畫質符合要求，可以拍照。',
     'TEMPLATE_NOT_CALIBRATED': '構圖基準尚未校正，目前無法自動判定合格。',
-    'FRONT_SEAT_EVIDENCE_UNAVAILABLE': '目前模型無法確認前排完整，請改從左側車門拍攝。',
+    'FRONT_SEAT_EVIDENCE_UNAVAILABLE': '目前 AI 無法確認車內座椅是否完整；請從駕駛側左門拍攝，並讓座椅完整入鏡。',
     'UNSUPPORTED_SLOT': '目前教練尚未支援此拍攝槽位。',
 }
 

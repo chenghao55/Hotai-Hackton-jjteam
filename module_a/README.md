@@ -13,14 +13,14 @@
 | YOLO 推論 | 載入一次伺服器指定的 `best.pt`；舊七類模型輸出轉為六類 ID，忽略 `car-coach-yolo` |
 | 畫質檢查 | JPEG/PNG 解碼、EXIF 校正、大小限制、光線／曝光／背光與單張清晰度 |
 | 車外構圖 | 轎車／休旅車各四角；檢查主體數量、貼邊、大小、置中、必要特徵及相對位置 |
-| 車內構圖 | 前排／後排依左門或右門選側拍模板；總共 12 組模板（外觀 8 組、內裝共用 4 組） |
+| 車內構圖 | 前排與後排皆由駕駛側左門斜拍；共 10 組模板（外觀 8 組、內裝 2 組） |
 | 漏斗式建議 | 回傳第一個阻擋原因，保留各層檢查狀態 |
 | 快門決策 | 使用者隨時可按快門；即時建議不鎖住快門 |
 | 正式照片重驗 | `mode='final'` 重新分析原圖，不沿用預覽結果；拒絕過期預覽影格 |
 
 服務 class ID：`car=0`、`headlight=1`、`license_plate=2`、`rear_seat_bench=3`、`steering_wheel=4`、`wheel=5`。
 
-支援槽位：`FRONT_LEFT`、`FRONT_RIGHT`、`REAR_LEFT`、`REAR_RIGHT`、`INTERIOR_FRONT`、`INTERIOR_REAR`。車內必須指定 `entry_side`。`REAR`、`FUEL_PARKING_CARD`、`OTHER_DAMAGE` 尚無教練規則，回傳 `UNSUPPORTED_SLOT`；既有照片儲存能力不因此移除。
+支援槽位：`FRONT_LEFT`、`FRONT_RIGHT`、`REAR_LEFT`、`REAR_RIGHT`、`INTERIOR_FRONT`、`INTERIOR_REAR`。車內需指定 `entry_side='left'`；右側拍攝目前不支援，會引導使用者改從駕駛側左門拍攝。`REAR`、`FUEL_PARKING_CARD`、`OTHER_DAMAGE` 尚無教練規則，回傳 `UNSUPPORTED_SLOT`；既有照片儲存能力不因此移除。
 
 ## 判斷範圍與限制
 
@@ -33,7 +33,7 @@
 | L5 | 無法可靠量測手機離地高度，標記 `not_applicable` |
 | L6 | 特徵框相對位置／尺寸符合模板程度；不保證實際 45° |
 
-合格定義為「照片符合指定槽位的構圖與特徵要求」。目前設定仍是 `uncalibrated`，**不啟用真實自動 PASS**；需用照片校正與獨立驗證，不能只修改設定字串。模型缺少前排座椅類別，方向盤不代表前排完整；右前門前排目前會建議改由左側車門拍攝。
+合格定義為「照片符合指定槽位的構圖與特徵要求」。目前設定仍是 `uncalibrated`，**不啟用真實自動 PASS**；需用照片校正與獨立驗證，不能只修改設定字串。模型缺少前排座椅類別，方向盤不代表前排完整；車內只提供從駕駛側左門拍攝的前座與後座模板。
 
 ## 回傳狀態
 
@@ -69,7 +69,7 @@ context = CaptureContext(
 result = coach.analyze(Path('/path/frame.jpg').read_bytes(), context)
 ```
 
-同一拍攝工作階段維持 session ID、遞增 frame ID；車內另加 `entry_side='left'` 或 `'right'`。送入未鏡像且沒有 UI 疊框的原圖。預覽影格順序保存在記憶體，間隔超過 60 秒可重設。E 將同步推論移出 async 事件迴圈。
+同一拍攝工作階段維持 session ID、遞增 frame ID；車內另加 `entry_side='left'`。右側輸入會回傳改從左側拍攝的建議。送入未鏡像且沒有 UI 疊框的原圖。預覽影格順序保存在記憶體，間隔超過 60 秒可重設。E 將同步推論移出 async 事件迴圈。
 
 ## 未完成與團隊交接
 

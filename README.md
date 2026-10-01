@@ -40,7 +40,7 @@ E → A 儲存／指導；E → B 分析；B → D 建立 Case
 
 ### 模組邊界
 
-- `POST /photo-guidance` 和 `POST /photos` 接受 multipart 圖片及拍攝情境。教練槽位需要 `photo_type`、`capture_slot`、`vehicle_type`（`sedan`／`suv`）、`session_id`、遞增的 `frame_id`；內裝另需 `entry_side`（`left`／`right`）。即時分析不儲存照片。
+- `POST /photo-guidance` 和 `POST /photos` 接受 multipart 圖片及拍攝情境。教練槽位需要 `photo_type`、`capture_slot`、`vehicle_type`（`sedan`／`suv`）、`session_id`、遞增的 `frame_id`；內裝另需 `entry_side`。API 接受左右側欄位，但教練只提供駕駛側左門模板，收到右側時會提示改從左側拍攝。即時分析不儲存照片。
 - `POST /photos` 以正式模式重新跑教練；通過才儲存並回傳 `photo_id`。`accepted=false` 是正常的檢查結果，不是 HTTP 傳輸錯誤。
 - `GET /photos/{photo_id}` 讀取已儲存照片。
 - `POST /cases/from-photos` 接受已儲存的 `photo_ids`，由 E 產生案件 ID、呼叫 B，再保存 D 回傳的案件。
