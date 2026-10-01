@@ -141,7 +141,8 @@ class ModuleAPhotoGuidanceService(PhotoGuidanceService):
 
 @lru_cache(maxsize=1)
 def get_module_a_photo_coach() -> PhotoCoach:
-    checkpoint = Path(os.getenv("HOTAI_MODULE_A_CHECKPOINT_PATH") or Path.home() / "Downloads" / "best.pt")
+    default_checkpoint = Path(__file__).resolve().parents[2] / "artifacts" / "module_a" / "best.pt"
+    checkpoint = Path(os.getenv("HOTAI_MODULE_A_CHECKPOINT_PATH") or default_checkpoint)
     if not checkpoint.is_file():
         raise FileNotFoundError("Module A checkpoint is unavailable")
     config = load_config()

@@ -722,8 +722,9 @@ submitted file without claiming it came directly from the live camera. Rejected 
 return `photo_id=null` and are not stored. The shutter is always available; there is no
 timed unlock or manual-review fallback.
 
-Set `HOTAI_MODULE_A_CHECKPOINT_PATH` to the trusted local `best.pt` path (default:
-the server user's `Downloads/best.pt`). `HOTAI_MODULE_A_DEVICE` defaults to `cpu`.
+The Module A checkpoint is included at `artifacts/module_a/best.pt`. Set
+`HOTAI_MODULE_A_CHECKPOINT_PATH` only when you need to override that location.
+`HOTAI_MODULE_A_DEVICE` defaults to `cpu`.
 The model is loaded lazily and cached once per process. Missing/broken models return
 HTTP 503; malformed images return HTTP 422, never a fallback PASS. Restart the backend
 after updating code or model configuration. Point `NEXT_PUBLIC_MODULE_E_BASE_URL`

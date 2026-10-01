@@ -42,6 +42,9 @@ artifacts/*
 artifacts/module_b/*
 !artifacts/module_b/damage_multitask.pth
 !artifacts/module_b/multitask_damage_metrics.json
+!artifacts/module_a/
+artifacts/module_a/*
+!artifacts/module_a/best.pt
 runs/
 tmp/
 data/
@@ -68,6 +71,7 @@ module_b/SOCAR_DATA_REQUEST_DRAFT.md
 output/
 evaluation/
 *.pt
+!artifacts/module_a/best.pt
 /model.py
 /train.py
 /Ultralytics/

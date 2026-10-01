@@ -10,7 +10,7 @@
 - 車內外六個教練槽位的模板仍未校正，因此即使其他檢查通過，仍會回傳 TEMPLATE_NOT_CALIBRATED，不能完成自動合格上傳。這是產品流程的未完成項目，不能宣稱已完成可用的借還車流程。
 - 卡片、額外車損及 legacy rear 僅檢查圖片格式；訊息明示沒有 AI 車角檢核。
 - 保留主線 UI 左側車門的指定流程；API 支援左右側。
-- 模型檔案留在伺服器本地，不提交 GitHub。模型載入失敗為 503，無效圖片為 422，不回固定 PASS。
+- `best.pt` 位於 `artifacts/module_a/best.pt` 並隨主線提供。模型載入失敗為 503，無效圖片為 422，不回固定 PASS。
 
 ## 公開契約
 
@@ -33,13 +33,15 @@
 ## 部署交接
 
 1. 後端更新至合併後的 main，安裝專案依賴。
-2. 設定 HOTAI_MODULE_A_CHECKPOINT_PATH 指向伺服器上的 best.pt，啟動或重啟 backend.main:app。CPU 為預設。
+2. 預設從 `artifacts/module_a/best.pt` 載入；只有模型另放他處時才設定 HOTAI_MODULE_A_CHECKPOINT_PATH。啟動或重啟 backend.main:app。CPU 為預設。
 3. UI 的 NEXT_PUBLIC_MODULE_E_BASE_URL 指向此後端，依部署方式重新建置／啟動。
 4. 用無車或過暗照片確認回傳實際指導，而非固定 PASS。
 5. 另行完成模板／門檻校正與獨立驗證後，才能解除自動合格判定的阻擋。
 
 ## 相對主線 c88f7d1 的全部變更檔案
 
+- .gitignore
+- artifacts/module_a/best.pt
 - README.md
 - UI_client/README.md
 - UI_client/app/capture/camera/page.tsx
