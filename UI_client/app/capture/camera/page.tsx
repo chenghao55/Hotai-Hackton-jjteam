@@ -31,9 +31,12 @@ import {
 } from '@/lib/capture-flow';
 import {
   createCaseFromPhotos,
+  forceSavePhotoForDevelopment,
+  isDevelopmentForceSaveEnabled,
   ModuleERequestError,
   requestPhotoGuidance,
   uploadPhoto,
+  type PhotoGuidanceRequestContext,
   type PhotoGuidanceResponse,
 } from '@/lib/module-e-api';
 
@@ -49,6 +52,7 @@ export default function CameraPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [requestError, setRequestError] = useState('');
   const [guidance, setGuidance] = useState<PhotoGuidanceResponse | null>(null);
+  const [rejectedUploadContext, setRejectedUploadContext] = useState<PhotoGuidanceRequestContext | null>(null);
   const [guidanceLoading, setGuidanceLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [creatingCase, setCreatingCase] = useState(false);
@@ -153,6 +157,7 @@ export default function CameraPage() {
   function clearCurrentPhoto() {
     setPreviewUrl(null);
     setCurrentPhoto(null);
+    setRejectedUploadContext(null);
     if (inputRef.current) inputRef.current.value = '';
   }
 
@@ -256,6 +261,7 @@ export default function CameraPage() {
     }
     setRequestError('');
     setCurrentPhoto(blob);
+    setRejectedUploadContext(null);
     setPreviewUrl(URL.createObjectURL(blob));
     stopCamera();
   }
@@ -273,6 +279,7 @@ export default function CameraPage() {
     setRequestError('');
     stopCamera();
     setCurrentPhoto(file);
+    setRejectedUploadContext(null);
     setPreviewUrl(URL.createObjectURL(file));
   }
 
@@ -281,9 +288,11 @@ export default function CameraPage() {
     setUploading(true);
     setRequestError('');
     try {
-      const response = await uploadPhoto(currentPhoto, guidanceContext());
+      const finalContext = guidanceContext();
+      const response = await uploadPhoto(currentPhoto, finalContext);
       setGuidance(response);
       if (!response.accepted || !response.photo_id) {
+        setRejectedUploadContext(finalContext);
         setUploading(false);
         return;
       }
@@ -309,6 +318,35 @@ export default function CameraPage() {
     } catch (error) {
       setUploading(false);
       setRequestError(`${formatRequestError(error, '照片上傳')} 尚未儲存 photo_id，請重新送出。`);
+    }
+  }
+
+  async function forceSaveRejectedPhoto(action: 'continue' | 'finish' = 'continue') {
+    if (!currentPhoto || uploading || creatingCase || !guidance || guidance.accepted || !rejectedUploadContext) return;
+    setUploading(true);
+    setRequestError('');
+    try {
+      const response = await forceSavePhotoForDevelopment(currentPhoto, rejectedUploadContext);
+      const thumbnail = await createThumbnail(currentPhoto);
+      const completed = [...capturedPhotos, { step: currentStep, photoId: response.photo_id, thumbnail }];
+      setCapturedPhotos(completed);
+      setUploading(false);
+      clearCurrentPhoto();
+
+      if (action === 'finish') {
+        setShowDamageChoice(true);
+        await submitCase(completed);
+        return;
+      }
+      if (captureMode === 'normal' && currentIndex === captureSteps.length - 1) {
+        setShowDamageChoice(true);
+      } else if (currentIndex < activeSteps.length - 1) {
+        setCurrentIndex((value) => value + 1);
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      setRequestError(formatRequestError(error, '測試用強制儲存'));
+      setUploading(false);
     }
   }
 
@@ -358,6 +396,11 @@ export default function CameraPage() {
                   <Button variant="outline" className="h-14 w-full rounded-2xl" onClick={() => void startCamera()} disabled={uploading}><ImagePlus className="size-5" />重新拍攝</Button>
                   {captureMode === 'damage' && currentIndex < damageCaptureSteps.length - 1 && <Button variant="outline" className="h-14 w-full rounded-2xl" onClick={() => void confirmPhoto('continue')} disabled={uploading}><Plus className="size-5" />再新增一張損壞照片</Button>}
                   <Button className="h-16 w-full rounded-2xl bg-[#173e35] text-white" onClick={() => void confirmPhoto(captureMode === 'damage' ? 'finish' : 'continue')} disabled={uploading}>{uploading ? <LoaderCircle className="size-5 animate-spin" /> : <Check className="size-5" />}{captureMode === 'damage' ? '完成並建立案件' : currentIndex === captureSteps.length - 1 ? '儲存並繼續' : '儲存並拍下一張'}</Button>
+                  {isDevelopmentForceSaveEnabled() && guidance && !guidance.accepted && rejectedUploadContext && (
+                    <Button variant="outline" className="h-12 w-full rounded-2xl border-amber-300 text-amber-800" onClick={() => void forceSaveRejectedPhoto(captureMode === 'damage' ? 'finish' : 'continue')} disabled={uploading}>
+                      測試用：強制接受並下一張
+                    </Button>
+                  )}
                 </div>
               ) : cameraStatus === 'live' ? (
                 <div className="mt-5 space-y-4">{videoDevices.length > 1 && <Select value={selectedDeviceId || null} onValueChange={changeCamera}><SelectTrigger aria-label="選擇鏡頭來源" className="h-10 rounded-xl"><SelectValue placeholder="選擇鏡頭" /></SelectTrigger><SelectContent>{videoDevices.map((device, index) => <SelectItem key={device.deviceId || index} value={device.deviceId}>{device.label || `攝影機 ${index + 1}`}</SelectItem>)}</SelectContent></Select>}<div className="grid grid-cols-[1fr_72px_1fr] items-center gap-3"><Button variant="outline" className="h-12 rounded-2xl" onClick={stopCamera}><CameraOff className="size-5" />取消</Button><Button aria-label="拍攝照片" className="size-[72px] rounded-full border-[6px] border-white bg-[#c9ff38] text-[#10251f]" onClick={() => void takePhoto()}><Camera className="size-7" /></Button><span className="text-center text-sm text-[#62756d]">按中央快門</span></div></div>

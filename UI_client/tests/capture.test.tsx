@@ -11,6 +11,8 @@ import { captureSteps, damageCaptureSteps, saveCaptureResult, saveCaptureThumbna
 const api = vi.hoisted(() => ({
   requestPhotoGuidance: vi.fn(),
   uploadPhoto: vi.fn(),
+  forceSavePhotoForDevelopment: vi.fn(),
+  isDevelopmentForceSaveEnabled: vi.fn(() => false),
   createCaseFromPhotos: vi.fn(),
 }));
 
@@ -65,6 +67,7 @@ describe('canonical return capture', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    api.isDevelopmentForceSaveEnabled.mockReturnValue(false);
     sessionStorage.clear();
     window.history.replaceState({}, '', '/capture');
     installImageMocks();
@@ -389,6 +392,27 @@ describe('canonical return capture', () => {
     expect(screen.getByRole('heading', { name: '加油卡與停車卡' })).toBeInTheDocument();
     expect(await screen.findByText('畫面模糊，請重新拍攝')).toBeInTheDocument();
     expect(api.createCaseFromPhotos).not.toHaveBeenCalled();
+  });
+
+  it('shows the development override only after a final rejection and advances with its backend photo ID', async () => {
+    api.isDevelopmentForceSaveEnabled.mockReturnValue(true);
+    api.uploadPhoto.mockResolvedValueOnce({ accepted: false, photo_id: null, check: { level: 'L2', code: 'BLUR', message: '畫面模糊，請重新拍攝', action: 'reshoot' } });
+    api.forceSavePhotoForDevelopment.mockResolvedValueOnce({ photo_id: 'backend-forced-photo' });
+    render(<CameraPage />);
+    fireEvent.click(screen.getByRole('button', { name: /休旅車/ }));
+
+    await uploadCurrentFile('blurred');
+
+    expect(await screen.findByText('畫面模糊，請重新拍攝')).toBeInTheDocument();
+    const forceSave = screen.getByRole('button', { name: '測試用：強制接受並下一張' });
+    fireEvent.click(forceSave);
+    await waitFor(() => expect(api.forceSavePhotoForDevelopment).toHaveBeenCalledWith(
+      expect.any(Blob),
+      expect.objectContaining({ captureSlot: 'fuel_parking_card', photoType: 'return', vehicleType: 'suv' }),
+    ));
+    expect(api.forceSavePhotoForDevelopment.mock.calls[0][1]).toEqual(api.uploadPhoto.mock.calls[0][1]);
+    expect(await screen.findByRole('heading', { name: '車內座椅（前座）' })).toBeInTheDocument();
+    expect(screen.getByText('畫面模糊，請重新拍攝')).toBeInTheDocument();
   });
 
   it('uploads all seven steps but submits only exterior evidence IDs', async () => {

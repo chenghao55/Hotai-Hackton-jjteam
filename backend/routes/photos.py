@@ -1,5 +1,6 @@
 """Photo HTTP routes owned by Module E."""
 
+import os
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
@@ -8,7 +9,13 @@ from PIL import UnidentifiedImageError, Image
 
 from module_a import CaptureSlot, PhotoType
 
-from backend.schemas.photos import EntrySide, PhotoGuidanceResponse, PhotoUploadResponse, VehicleType
+from backend.schemas.photos import (
+    DevelopmentForceSaveResponse,
+    EntrySide,
+    PhotoGuidanceResponse,
+    PhotoUploadResponse,
+    VehicleType,
+)
 from backend.services.photo_guidance import (
     GuidanceImageSource,
     GuidanceMode,
@@ -25,6 +32,11 @@ from backend.services.photo_storage import (
 
 
 router = APIRouter()
+
+
+def _development_force_save_enabled() -> bool:
+    """Keep the test-only storage escape hatch disabled unless explicitly enabled."""
+    return os.getenv("HOTAI_ENABLE_DEV_FORCE_SAVE") == "1"
 
 
 def _guidance_context(
@@ -142,6 +154,51 @@ async def upload_photo(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return PhotoUploadResponse(accepted=True, photo_id=photo_id, check=guidance.check)
+
+
+@router.post("/dev/photos/force-save", response_model=DevelopmentForceSaveResponse)
+async def development_force_save_photo(
+    file: UploadFile = File(...),
+    photo_type: PhotoType = Form(...),
+    capture_slot: CaptureSlot = Form(...),
+    vehicle_type: VehicleType = Form(...),
+    session_id: str = Form(..., min_length=1, max_length=128),
+    frame_id: int = Form(..., ge=0),
+    entry_side: EntrySide | None = Form(None),
+    storage_service: Annotated[PhotoStorageService, Depends(get_photo_storage_service)] = None,
+) -> DevelopmentForceSaveResponse:
+    """Development-only test hook that saves through Module A without PhotoCoach.
+
+    This deliberately has a separate route and response contract from ``POST /photos``.
+    It must be explicitly enabled with ``HOTAI_ENABLE_DEV_FORCE_SAVE=1`` and never
+    changes rejection or storage behavior in the normal final-upload route.
+    """
+    if not _development_force_save_enabled():
+        raise HTTPException(status_code=404, detail="Development force-save endpoint is disabled")
+
+    image = await file.read()
+    if not image:
+        raise HTTPException(status_code=422, detail="image file must not be empty")
+    mime_type = file.content_type
+    if not isinstance(mime_type, str) or not mime_type.strip():
+        raise HTTPException(status_code=422, detail="image content type is required")
+
+    # Validate the same capture metadata shape without invoking PhotoCoach.
+    _guidance_context(
+        photo_type=photo_type,
+        capture_slot=capture_slot,
+        vehicle_type=vehicle_type,
+        session_id=session_id,
+        frame_id=frame_id,
+        entry_side=entry_side,
+        mode=GuidanceMode.FINAL,
+        source=GuidanceImageSource.UPLOADED_PHOTO,
+    )
+    try:
+        photo_id = storage_service.save(image, photo_type, capture_slot, mime_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return DevelopmentForceSaveResponse(photo_id=photo_id)
 
 
 @router.get("/photos/{photo_id}")

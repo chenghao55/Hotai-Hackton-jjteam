@@ -46,6 +46,29 @@ def upload(
     )
 
 
+def force_save(
+    client: TestClient,
+    content: bytes = b"image-bytes",
+    photo_type: str = "return",
+    capture_slot: str = "front_left",
+    entry_side: str | None = None,
+):
+    data = {
+        "photo_type": photo_type,
+        "capture_slot": capture_slot,
+        "vehicle_type": "sedan",
+        "session_id": "capture-session",
+        "frame_id": "2",
+    }
+    if entry_side is not None:
+        data["entry_side"] = entry_side
+    return client.post(
+        "/dev/photos/force-save",
+        data=data,
+        files={"file": ("photo.jpg", content, "image/jpeg")},
+    )
+
+
 def pass_response() -> PhotoGuidanceResponse:
     return PhotoGuidanceResponse(
         accepted=True,
@@ -140,6 +163,45 @@ def test_rejected_photo_does_not_call_storage_and_preserves_guidance(app):
     }
     assert storage.called is False
     assert PhotoUploadResponse.model_validate(response.json()).accepted is False
+
+
+def test_development_force_save_is_disabled_by_default(app):
+    class UnexpectedStorage(PhotoStorageService):
+        def save(self, *args):
+            raise AssertionError("disabled endpoint must not save")
+
+        def get(self, photo_id):
+            raise AssertionError("not used")
+
+    app.dependency_overrides[photo_routes.get_photo_storage_service] = UnexpectedStorage
+    with TestClient(app) as client:
+        response = force_save(client)
+
+    assert response.status_code == 404
+
+
+def test_development_force_save_stores_real_image_without_calling_guidance(app, monkeypatch):
+    class RecordingStorage(PhotoStorageService):
+        calls: list[tuple[bytes, PhotoType, CaptureSlot, str]] = []
+
+        def save(self, image, photo_type, capture_slot, mime_type) -> str:
+            self.calls.append((image, photo_type, capture_slot, mime_type))
+            return "stored-by-module-a"
+
+        def get(self, photo_id):
+            raise AssertionError("not used")
+
+    storage = RecordingStorage()
+    monkeypatch.setenv("HOTAI_ENABLE_DEV_FORCE_SAVE", "1")
+    app.dependency_overrides[photo_routes.get_photo_storage_service] = lambda: storage
+    with TestClient(app) as client:
+        response = force_save(client, b"rejected-final-image")
+
+    assert response.status_code == 200
+    assert response.json() == {"photo_id": "stored-by-module-a"}
+    assert storage.calls == [
+        (b"rejected-final-image", PhotoType.RETURN, CaptureSlot.FRONT_LEFT, "image/jpeg")
+    ]
 
 
 def test_empty_photo_is_rejected_before_services_are_called(app):

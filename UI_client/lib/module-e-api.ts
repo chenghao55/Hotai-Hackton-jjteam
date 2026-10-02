@@ -66,6 +66,14 @@ export type PhotoUploadResponse = PhotoGuidanceResponse & {
   photo_id: string | null;
 };
 
+export type DevelopmentForceSaveResponse = {
+  photo_id: string;
+};
+
+export function isDevelopmentForceSaveEnabled(environment = process.env.NODE_ENV): boolean {
+  return environment === 'development';
+}
+
 export type DetectionResponse = {
   detection_id: string;
   borrow_photo_id: string | null;
@@ -153,6 +161,14 @@ export function uploadPhoto(
 ): Promise<PhotoUploadResponse> {
   const form = imageForm(image, context);
   return requestJson('/photos', { method: 'POST', body: form });
+}
+
+/** Development-only test hook; normal capture must always use uploadPhoto(). */
+export function forceSavePhotoForDevelopment(
+  image: Blob,
+  context: PhotoGuidanceRequestContext,
+): Promise<DevelopmentForceSaveResponse> {
+  return requestJson('/dev/photos/force-save', { method: 'POST', body: imageForm(image, context) });
 }
 
 export function createCaseFromPhotos(photoIds: string[]): Promise<CaseResponse> {

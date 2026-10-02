@@ -324,6 +324,11 @@ POST /photos
 GET  /photos/{photo_id}
 ```
 
+For local UI/end-to-end testing only, Module E also exposes `POST /dev/photos/force-save`
+when `HOTAI_ENABLE_DEV_FORCE_SAVE=1`. It saves through the existing Module A storage adapter
+without invoking PhotoCoach and returns only the real backend-generated `photo_id`; it does not
+alter the `/photos` acceptance contract and is disabled by default.
+
 **Current state**
 - Photo schemas complete
 - Photo guidance route complete

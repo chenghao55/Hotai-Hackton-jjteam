@@ -106,3 +106,9 @@ class PhotoUploadResponse(_PhotoDecisionResponse):
         elif self.photo_id is not None:
             raise ValueError("rejected uploads must have photo_id=None")
         return self
+
+
+class DevelopmentForceSaveResponse(BaseModel):
+    """Development-only storage result; this is not a PhotoCoach decision."""
+
+    photo_id: str = Field(min_length=1)

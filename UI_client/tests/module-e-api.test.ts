@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ModuleERequestError,
   createCaseFromPhotos,
+  forceSavePhotoForDevelopment,
+  isDevelopmentForceSaveEnabled,
   requestPhotoGuidance,
   uploadPhoto,
 } from '@/lib/module-e-api';
@@ -65,6 +67,26 @@ describe('Module E API client', () => {
       photoType: 'return', captureSlot: 'rear_right', vehicleType: 'sedan',
       sessionId: 'session-1', frameId: 3,
     })).resolves.toMatchObject({ accepted: false, photo_id: null });
+  });
+
+  it('uses the isolated development force-save endpoint and receives a backend photo ID', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ photo_id: 'stored-by-backend' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(forceSavePhotoForDevelopment(new Blob(['rejected-final']), {
+      photoType: 'return', captureSlot: 'front_left', vehicleType: 'sedan',
+      sessionId: 'session-1', frameId: 4,
+    })).resolves.toEqual({ photo_id: 'stored-by-backend' });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://127.0.0.1:8000/dev/photos/force-save');
+    expect(init.body).toBeInstanceOf(FormData);
+  });
+
+  it('only enables the UI control in development mode', () => {
+    expect(isDevelopmentForceSaveEnabled('development')).toBe(true);
+    expect(isDevelopmentForceSaveEnabled('production')).toBe(false);
+    expect(isDevelopmentForceSaveEnabled('test')).toBe(false);
   });
 
   it('creates a Case using only photo_ids and no client case_id', async () => {
