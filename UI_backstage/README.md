@@ -25,7 +25,7 @@ npm run build
 src/
   main.jsx              # React 進入點
   App.jsx                       # 掛載正式後台主畫面
-  CaseQueueConsole_v2_2_1.jsx   # 待處理／處理中／已處理三分頁 + 詳情面板
+  CaseQueueConsole_v2_2_2.jsx   # 現行新版：三分頁、詳情面板與開發用新增案件表單
   CaseQueueConsole.test.jsx     # Module E 整合測試
 ```
 

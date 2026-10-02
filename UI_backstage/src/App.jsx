@@ -1,4 +1,4 @@
-import CaseQueueConsole from "./CaseQueueConsole_v2_2_1.jsx";
+import CaseQueueConsole from "./CaseQueueConsole_v2_2_2.jsx";
 
 export default function App() {
   return <CaseQueueConsole />;
