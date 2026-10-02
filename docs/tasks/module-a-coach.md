@@ -17,7 +17,9 @@ Python core; E and UI wiring was completed afterward on the same branch.
 
 Install `python -m pip install -e ".[coach,test]"` in an environment with a compatible
 PyTorch installation. The detector loads once on the first coached request; model paths come
-from server configuration, never an uploaded request. The checkpoint is not committed.
+from server configuration, never an uploaded request. `HOTAI_MODULE_A_CHECKPOINT_PATH` is an
+explicit override; otherwise E resolves the included repository checkpoint at
+`artifacts/module_a/best.pt`.
 
 ```python
 from pathlib import Path

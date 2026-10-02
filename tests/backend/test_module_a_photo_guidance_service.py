@@ -1,4 +1,5 @@
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -9,6 +10,7 @@ from backend.services.photo_guidance import (
     PhotoGuidanceContext,
     StubPhotoGuidanceService,
     UnsupportedGuidanceDecisionError,
+    get_module_a_checkpoint_path,
     get_photo_guidance_service,
 )
 from backend.schemas.photos import EntrySide, VehicleType
@@ -100,6 +102,21 @@ def test_adapter_rejects_unknown_or_gallery_provenance():
 
 def test_active_provider_uses_real_coach():
     assert isinstance(get_photo_guidance_service(), ModuleAPhotoGuidanceService)
+
+
+def test_checkpoint_path_defaults_to_the_repository_artifact(monkeypatch):
+    monkeypatch.delenv("HOTAI_MODULE_A_CHECKPOINT_PATH", raising=False)
+
+    assert get_module_a_checkpoint_path() == (
+        Path(__file__).resolve().parents[2] / "artifacts" / "module_a" / "best.pt"
+    )
+
+
+def test_checkpoint_path_preserves_explicit_override(monkeypatch, tmp_path):
+    override = tmp_path / "override.pt"
+    monkeypatch.setenv("HOTAI_MODULE_A_CHECKPOINT_PATH", str(override))
+
+    assert get_module_a_checkpoint_path() == override
 
 
 def test_uncalibrated_template_is_a_reshoot_result():
