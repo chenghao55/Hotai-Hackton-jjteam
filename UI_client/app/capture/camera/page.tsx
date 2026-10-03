@@ -416,7 +416,38 @@ export default function CameraPage() {
 }
 
 function VehicleTypeSelection({ onSelect }: { onSelect: (type: VehicleType) => void }) {
-  return <main className="min-h-screen bg-[#edf3ef] text-[#10251f] sm:px-5 sm:py-8"><div className="mx-auto min-h-dvh w-full max-w-md bg-white sm:rounded-[32px]"><header className="bg-[#101d1a] px-5 py-4 text-white"><Link href="/capture" aria-label="返回拍照規則"><ArrowLeft /></Link></header><section className="px-5 py-8"><p className="text-sm font-semibold text-[#2d6d5d]">步驟 1</p><h1 className="mt-2 text-[30px] font-semibold">這次拍攝的是哪種車型？</h1><p className="mt-3 text-[#62756d]">我們會在第 2–7 張車內與車身照顯示對應的透明導引框。</p><div className="mt-7 grid gap-4"><button type="button" className="rounded-[28px] border-2 border-[#dce9e1] p-5 text-left" onClick={() => onSelect('sedan')}><Car className="size-6" /><strong className="mt-3 block text-xl">轎車</strong></button><button type="button" className="rounded-[28px] border-2 border-[#dce9e1] p-5 text-left" onClick={() => onSelect('suv')}><Truck className="size-6" /><strong className="mt-3 block text-xl">休旅車</strong></button></div></section></div></main>;
+  return (
+    <main className="min-h-screen bg-[#edf3ef] text-[#10251f] sm:px-5 sm:py-8">
+      <div className="mx-auto min-h-dvh w-full max-w-md overflow-hidden bg-white shadow-[0_0_50px_rgb(16_37_31/10%)] sm:min-h-[calc(100dvh-4rem)] sm:rounded-[32px]">
+        <header className="bg-[#101d1a] px-5 py-4 text-white">
+          <div className="grid grid-cols-[44px_1fr_44px] items-center">
+            <Link href="/capture" aria-label="返回拍照規則" className="grid size-11 place-items-center rounded-2xl border border-white/15 bg-white/10"><ArrowLeft className="size-5" /></Link>
+            <div className="text-center"><p className="font-semibold">選擇車型</p><p className="mt-0.5 text-sm text-white/55">拍攝前設定</p></div>
+            <span className="grid size-11 place-items-center rounded-2xl bg-[#c9ff38] text-[#10251f]"><ShieldCheck className="size-5" /></span>
+          </div>
+        </header>
+        <section className="px-5 pb-10 pt-8 sm:px-7">
+          <p className="text-sm font-semibold text-[#2d6d5d]">步驟 1</p>
+          <h1 className="mt-2 text-[30px] font-semibold leading-tight tracking-tight">這次拍攝的是哪種車型？</h1>
+          <p className="mt-3 text-base leading-7 text-[#62756d]">我們會在第 2–7 張車內與車身照顯示對應的透明導引框。</p>
+          <div className="mt-7 grid gap-4">
+            <button type="button" className="group overflow-hidden rounded-[28px] border-2 border-[#dce9e1] bg-[#f7faf8] text-left transition hover:border-[#8eb62a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#c9ff38]/50" onClick={() => onSelect('sedan')}>
+              <div className="relative grid h-40 place-items-center overflow-hidden bg-[#10251f]">
+                <img src="/overlays/sedan-front.png" alt="轎車透明框架示意" className="h-full w-full object-contain p-3 opacity-85 transition group-hover:scale-[1.03]" />
+              </div>
+              <div className="flex items-center gap-4 p-5"><span className="grid size-12 place-items-center rounded-2xl bg-[#dfff8b] text-[#173e35]"><Car className="size-6" /></span><div><strong className="text-xl">轎車</strong><p className="mt-1 text-sm text-[#62756d]">房車、掀背車等低車身車型</p></div></div>
+            </button>
+            <button type="button" className="group overflow-hidden rounded-[28px] border-2 border-[#dce9e1] bg-[#f7faf8] text-left transition hover:border-[#8eb62a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#c9ff38]/50" onClick={() => onSelect('suv')}>
+              <div className="relative grid h-40 place-items-center overflow-hidden bg-[#10251f]">
+                <img src="/overlays/suv-front.png" alt="休旅車透明框架示意" className="h-full w-full object-contain p-3 opacity-85 transition group-hover:scale-[1.03]" />
+              </div>
+              <div className="flex items-center gap-4 p-5"><span className="grid size-12 place-items-center rounded-2xl bg-[#dfff8b] text-[#173e35]"><Truck className="size-6" /></span><div><strong className="text-xl">休旅車</strong><p className="mt-1 text-sm text-[#62756d]">SUV、跨界休旅等高車身車型</p></div></div>
+            </button>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
 }
 
 function DamageChoice({ normalPhotoCount, damagePhotoCount, onAddDamage, onContinue, creatingCase, error }: { normalPhotoCount: number; damagePhotoCount: number; onAddDamage: () => void; onContinue: () => void; creatingCase: boolean; error: string }) {
