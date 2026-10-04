@@ -77,7 +77,8 @@ Completed:
 
 - `Case`, `Detection`, and `DetectionInput` domain models.
 - Case creation through `create_case()`.
-- Detection assessment, human review, and appeal.
+- Detection assessment, human review, and appeal. An appeal reopens the finding and returns the Case to `UNASSIGNED` so it re-enters review and dispatch; `payment_amount` is kept (team decision).
+- `add_detection()` adds a finding to an `UNASSIGNED` Case with the same initial assessment and priority rules as `create_case()`, so one vehicle with several conditions stays one Case.
 - Priority calculation.
 - Workflow and payment operations.
 - Generic return-only evidence support:
@@ -99,6 +100,7 @@ Completed:
 - `POST /photos`.
 - `GET /photos/{photo_id}`.
 - Case HTTP schemas and routes, including the existing review, appeal, workflow, and payment endpoints.
+- `POST /cases/{case_id}/detections` adds one finding to an existing `UNASSIGNED` Case (body: `DetectionCreateRequest`; 404 unknown Case, 409 wrong status or duplicate `detection_id`, 422 invalid values).
 - `POST /cases/from-photos` accepts accepted `photo_ids`; Module E generates the UUID `case_id`, loads bytes through the storage adapter, calls injected Module B, and stores the Case only after successful analysis.
 - Module B checkpoint and device configuration are centralized in `backend/services/case_building.py`; tests override the lazy provider and do not load ML.
 - In-memory Case state for the MVP.
