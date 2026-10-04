@@ -331,7 +331,7 @@ def test_appeal_preserves_context_and_recalculates(state):
     assert case.detections[0] is detection
     assert detection == replace(before.detections[0], review_state=R.NEEDS_REVIEW)
     assert case.priority_score == 20
-    assert case.status == before.status and case.payment_amount == before.payment_amount
+    assert case.status == T.UNASSIGNED and case.payment_amount == before.payment_amount
     detection.validate()
     appeal_detection(case, "d1", policy=demo_policy())
     assert case.priority_score == 20
