@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import App from "./App.jsx";
+import CaseQueueConsole from "./CaseQueueConsole_v2_2_3.jsx";
 
 const API_BASE = "http://127.0.0.1:8000";
 
@@ -40,7 +40,7 @@ function jsonResponse(body, status = 200) {
 
 async function renderCases(cases) {
   global.fetch.mockResolvedValueOnce(jsonResponse(cases));
-  render(<App />);
+  render(<CaseQueueConsole />);
   await screen.findByText(/已連線到後端/);
 }
 
@@ -512,7 +512,7 @@ describe("production backstage console", () => {
 
   it("does not offer case creation while the backend is unreachable", async () => {
     global.fetch = vi.fn().mockRejectedValueOnce(new Error("offline"));
-    render(<App />);
+    render(<CaseQueueConsole />);
     await screen.findByText(/無法連線到/);
 
     fireEvent.click(screen.getByRole("button", { name: "+ 新增案件" }));

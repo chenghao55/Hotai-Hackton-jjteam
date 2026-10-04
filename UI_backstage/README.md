@@ -25,8 +25,9 @@ npm run build
 src/
   main.jsx              # React 進入點
   App.jsx                       # 掛載正式後台主畫面
-  CaseQueueConsole_v2_2_2.jsx   # 現行新版：三分頁、詳情面板與開發用新增案件表單
-  CaseQueueConsole.test.jsx     # Module E 整合測試
+  CaseQueueConsole_v2_2_3.jsx        # 現行新版：多判讀、真實照片縮圖、詳情面板與開發用新增案件表單
+  CaseQueueConsole.test.jsx          # Active App 的 Module E 整合回歸測試
+  CaseQueueConsole_v2_2_3.test.jsx   # v2.2.3 元件的直接整合測試
 ```
 
 ## 資料狀態
