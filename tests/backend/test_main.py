@@ -46,6 +46,7 @@ def test_case_routes_are_registered() -> None:
         ("/cases/{case_id}/payment", "PUT"),
         ("/cases/{case_id}/confirm-payment", "POST"),
         ("/cases/{case_id}/complete-without-action", "POST"),
+        ("/cases/{case_id}/detections", "POST"),
         ("/cases/{case_id}/detections/{detection_id}/review", "POST"),
         ("/cases/{case_id}/detections/{detection_id}/appeal", "POST"),
     }
