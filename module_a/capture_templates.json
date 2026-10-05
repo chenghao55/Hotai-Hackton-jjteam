@@ -1,6 +1,6 @@
 {
   "version": "capture-templates-v0.8-driver-side-cabin",
-  "calibration_status": "uncalibrated",
+  "calibration_status": "calibrated",
   "coordinate_space": "exif_corrected_unmirrored_image_normalized_xyxy",
   "model_classes": {
     "0": "car",
