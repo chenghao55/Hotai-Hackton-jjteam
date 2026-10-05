@@ -1,0 +1,143 @@
+{
+  "checkpoint": "artifacts\\module_b\\interior_cleanliness.pth",
+  "status": "external_only_review_only",
+  "model_version": "lraspp-mobilenetv3-large-interior-cleanliness-v1",
+  "manifest_sha256": "71b9d1469cbd600e74c161a6130e1b687f714b2b3c490d1a38f88939db6bc393",
+  "split_counts": {
+    "all": 3482,
+    "train": 2091,
+    "validation": 662,
+    "locked_test": 729
+  },
+  "probability_thresholds": {
+    "stain": 0.30000000000000004,
+    "dirt": 0.35
+  },
+  "min_area_pixels": {
+    "stain": 16,
+    "dirt": 256
+  },
+  "selected_epochs": {
+    "head": 3,
+    "finetune": 2
+  },
+  "validation": {
+    "categories": {
+      "stain": {
+        "confusion_matrix": [
+          [
+            204,
+            224
+          ],
+          [
+            17,
+            217
+          ]
+        ],
+        "precision": 0.49206349206349204,
+        "recall": 0.9273504273504274,
+        "specificity": 0.4766355140186916,
+        "f2": 0.7879448075526507,
+        "false_negative_count": 17,
+        "false_positive_count": 224,
+        "pixel_iou": 0.11284781264784258
+      },
+      "dirt": {
+        "confusion_matrix": [
+          [
+            238,
+            282
+          ],
+          [
+            13,
+            129
+          ]
+        ],
+        "precision": 0.31386861313868614,
+        "recall": 0.9084507042253521,
+        "specificity": 0.4576923076923077,
+        "f2": 0.6588355464759958,
+        "false_negative_count": 13,
+        "false_positive_count": 282,
+        "pixel_iou": 0.12991564004670628
+      }
+    },
+    "pixel_confusion_matrix": [
+      [
+        167441112,
+        2230102,
+        1531163
+      ],
+      [
+        1133524,
+        447960,
+        95612
+      ],
+      [
+        300390,
+        62396,
+        297069
+      ]
+    ]
+  },
+  "locked_test": {
+    "categories": {
+      "stain": {
+        "confusion_matrix": [
+          [
+            256,
+            229
+          ],
+          [
+            28,
+            216
+          ]
+        ],
+        "precision": 0.4853932584269663,
+        "recall": 0.8852459016393442,
+        "specificity": 0.5278350515463918,
+        "f2": 0.7600281491907109,
+        "false_negative_count": 28,
+        "false_positive_count": 229,
+        "pixel_iou": 0.20739242223038454
+      },
+      "dirt": {
+        "confusion_matrix": [
+          [
+            319,
+            304
+          ],
+          [
+            9,
+            97
+          ]
+        ],
+        "precision": 0.24189526184538654,
+        "recall": 0.9150943396226415,
+        "specificity": 0.5120385232744783,
+        "f2": 0.5878787878787879,
+        "false_negative_count": 9,
+        "false_positive_count": 304,
+        "pixel_iou": 0.06742519296250617
+      }
+    },
+    "pixel_confusion_matrix": [
+      [
+        185432720,
+        2254340,
+        1008520
+      ],
+      [
+        1094875,
+        917530,
+        90563
+      ],
+      [
+        142979,
+        66817,
+        94632
+      ]
+    ]
+  },
+  "elapsed_seconds": 850.0514522999999
+}

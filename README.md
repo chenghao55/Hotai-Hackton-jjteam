@@ -161,8 +161,9 @@ Module B accepts multiple photos and uses Module A metadata to validate their st
 - A borrow-only damage slot is invalid, and duplicate borrow or return photos for the same fixed
   damage slot are invalid.
 - `OTHER_DAMAGE` is return-only, may appear multiple times, and requires no borrow counterpart.
-- `FUEL_PARKING_CARD`, `INTERIOR_FRONT`, and `INTERIOR_REAR` are stored photo types but are
-  excluded from the damage analyzer.
+- `FUEL_PARKING_CARD` is stored but excluded from AI. `INTERIOR_FRONT` and `INTERIOR_REAR`
+  are routed to the independent cleanliness analyzer; they remain excluded from the exterior
+  damage analyzer.
 - The current AI analyzes model-relevant photos independently; complete pairing is evidence
   mapping, not true before/after visual differencing.
 
@@ -421,8 +422,9 @@ UI should distinguish:
 
 The canonical `UI_client` flow now uses these Module E routes directly. It uploads seven
 required RETURN photos: card (`FUEL_PARKING_CARD`), front cabin (`INTERIOR_FRONT`), rear cabin
-(`INTERIOR_REAR`), and four exterior corners. Card/interior IDs are stored but excluded from
-`POST /cases/from-photos`; exterior IDs and optional `OTHER_DAMAGE` IDs are included. The UI
+(`INTERIOR_REAR`), and four exterior corners. Card IDs remain stored but excluded from
+`POST /cases/from-photos`; interior IDs are included for the optional cleanliness analyzer,
+while exterior IDs and optional `OTHER_DAMAGE` IDs are included for damage analysis. The UI
 does not generate `photo_id` or `case_id`, and the result screen renders the returned Case.
 `dashboard`, `/api/analyze`, analysis-demo, and camera-based appeal are not canonical paths.
 
@@ -598,9 +600,10 @@ Module E loads each photo through `PhotoStorageService`, passes ordered
 Case only after successful analysis. The route does not create D detections or apply D policy.
 
 Module B runtime configuration is centralized in `backend/services/case_building.py`.
-`HOTAI_MODULE_B_CHECKPOINT_PATH` and `HOTAI_MODULE_B_DEVICE` override the default
-`artifacts/module_b/damage_multitask.pth` path and `auto` device. The route receives a lazy
-Module B provider, so tests can override it without loading the ML checkpoint.
+`HOTAI_MODULE_B_CHECKPOINT_PATH` and `HOTAI_MODULE_B_DEVICE` override the damage checkpoint;
+`HOTAI_MODULE_B_CLEANLINESS_CHECKPOINT_PATH` and `HOTAI_MODULE_B_CLEANLINESS_DEVICE` override
+the interior checkpoint (`artifacts/module_b/interior_cleanliness.pth`, device `auto`). The
+route receives a lazy Module B provider, so tests can override it without loading ML checkpoints.
 
 ### E5 — End-to-end demo
 
@@ -799,7 +802,8 @@ Exterior damage slots accept either complete borrow/return evidence or a return 
 When both sides are provided, their `CaptureSlot` associates findings with the evidence pair;
 when only return evidence is provided, Module B passes `borrow_photo_id=None` to Module D.
 The deployed AI performs independent single-photo inference and does not perform true
-before/after visual differencing. Card and interior slots are not sent to the damage analyzer.
+before/after visual differencing. Interior slots are sent only to the separate cleanliness
+analyzer; they are not sent to the exterior damage analyzer.
 
 ---
 

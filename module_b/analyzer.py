@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from module_d.models import ConditionCategory, Severity
 
 if TYPE_CHECKING:
+    from .cleanliness_inference import CleanlinessModelBundle
     from .damage_inference import DamageSegmentationBundle
 
 
@@ -88,6 +89,59 @@ class DamageModelAnalyzer(AIAnalyzer):
                 )
                 for result in results
             )
+        return findings
+
+
+class CleanlinessModelAnalyzer(AIAnalyzer):
+    """Adapt the single-photo interior-cleanliness model to `AIFinding`."""
+
+    def __init__(self, model_bundle: CleanlinessModelBundle) -> None:
+        from .cleanliness_inference import CleanlinessModelBundle
+
+        if not isinstance(model_bundle, CleanlinessModelBundle):
+            raise TypeError("model_bundle must be a CleanlinessModelBundle")
+        self._model_bundle = model_bundle
+
+    @classmethod
+    def from_checkpoint(
+        cls,
+        checkpoint_path: str | Path,
+        *,
+        device: str = "auto",
+    ) -> CleanlinessModelAnalyzer:
+        from .cleanliness_inference import load_cleanliness_model
+
+        return cls(load_cleanliness_model(checkpoint_path, device=device))
+
+    def analyze(self, photos: list[tuple[str, bytes]]) -> list[AIFinding]:
+        from .cleanliness_inference import predict_cleanliness
+
+        if not isinstance(photos, list):
+            raise TypeError("photos must be a list of (photo_id, bytes) pairs")
+        findings: list[AIFinding] = []
+        for photo in photos:
+            if not isinstance(photo, tuple) or len(photo) != 2:
+                raise ValueError("photos must contain only (photo_id, bytes) pairs")
+            photo_id, image_bytes = photo
+            if not isinstance(photo_id, str) or not photo_id.strip():
+                raise ValueError("photo_id must be a nonempty string")
+            if not isinstance(image_bytes, bytes):
+                raise TypeError("photo bytes must be bytes")
+            assessment = predict_cleanliness(
+                self._model_bundle,
+                BytesIO(image_bytes),
+                photo_id=photo_id,
+            )
+            if assessment.cleanliness_state == "dirty":
+                findings.append(
+                    AIFinding(
+                        detection_id=f"{photo_id}:cleanliness",
+                        source_photo_id=photo_id,
+                        category=ConditionCategory.CLEANLINESS,
+                        severity=Severity.MINOR,
+                        confidence=assessment.confidence,
+                    )
+                )
         return findings
 
 

@@ -42,6 +42,8 @@ artifacts/*
 artifacts/module_b/*
 !artifacts/module_b/damage_multitask.pth
 !artifacts/module_b/multitask_damage_metrics.json
+!artifacts/module_b/interior_cleanliness.pth
+!artifacts/module_b/interior_cleanliness_metrics.json
 !artifacts/module_a/
 artifacts/module_a/*
 !artifacts/module_a/best.pt

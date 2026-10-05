@@ -415,7 +415,7 @@ describe('canonical return capture', () => {
     expect(screen.getByText('畫面模糊，請重新拍攝')).toBeInTheDocument();
   });
 
-  it('uploads all seven steps but submits only exterior evidence IDs', async () => {
+  it('uploads all seven steps and submits interior plus exterior evidence IDs', async () => {
     captureSteps.forEach((_, index) => api.uploadPhoto.mockResolvedValueOnce(acceptedPhoto(`photo-${index + 1}`)));
     api.createCaseFromPhotos.mockResolvedValue({ case_id: 'server-case', detections: [], priority_score: null, status: 'unassigned', payment_amount: 0 });
     render(<CameraPage />);
@@ -430,7 +430,7 @@ describe('canonical return capture', () => {
 
     expect(await screen.findByRole('heading', { name: /是否有需要補拍的車損/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /建立車況案件/ }));
-    await waitFor(() => expect(api.createCaseFromPhotos).toHaveBeenCalledWith(['photo-4', 'photo-5', 'photo-6', 'photo-7']));
+    await waitFor(() => expect(api.createCaseFromPhotos).toHaveBeenCalledWith(['photo-2', 'photo-3', 'photo-4', 'photo-5', 'photo-6', 'photo-7']));
     expect(sessionStorage.getItem('capture-case:server-case')).toContain('server-case');
     const contexts = api.uploadPhoto.mock.calls.map((call) => call[1]);
     expect(contexts.map((context) => context.frameId)).toEqual([1, 2, 3, 4, 5, 6, 7]);

@@ -255,6 +255,43 @@ def test_finding_cannot_claim_filtered_auxiliary_photo(photo_metadata):
         build(RecordingAnalyzer([finding("interior-photo")])).analyze("case-1", photos)
 
 
+def test_return_interior_photo_is_routed_only_to_optional_cleanliness_analyzer(
+    photo_metadata,
+):
+    photo = add_photo(
+        photo_metadata,
+        "interior-photo",
+        PhotoType.RETURN,
+        CaptureSlot.INTERIOR_FRONT,
+    )
+    damage = RecordingAnalyzer()
+    cleanliness = RecordingAnalyzer(
+        [
+            AIFinding(
+                detection_id="interior-photo:cleanliness",
+                source_photo_id="interior-photo",
+                category=ConditionCategory.CLEANLINESS,
+                severity=Severity.MINOR,
+                confidence=0.81,
+            )
+        ]
+    )
+
+    case = CaseBuildingModuleB(
+        damage,
+        policy=demo_policy(),
+        cleanliness_analyzer=cleanliness,
+    ).analyze("case-cleanliness", [photo])
+
+    assert damage.received == []
+    assert cleanliness.received == [photo]
+    detection = case.detections[0]
+    assert detection.category == ConditionCategory.CLEANLINESS
+    assert detection.borrow_photo_id is None
+    assert detection.return_photo_id == "interior-photo"
+    assert detection.source_photo_id == "interior-photo"
+
+
 def test_duplicate_photo_id_is_invalid(photo_metadata):
     photo = add_photo(photo_metadata, "same-photo", PhotoType.RETURN, CaptureSlot.OTHER_DAMAGE)
 

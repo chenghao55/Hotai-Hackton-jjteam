@@ -18,7 +18,8 @@ class _EvidencePair:
 
 @dataclass(frozen=True)
 class _PreparedPhotos:
-    analyzer_photos: list[tuple[str, bytes]]
+    damage_photos: list[tuple[str, bytes]]
+    cleanliness_photos: list[tuple[str, bytes]]
     evidence_by_photo_id: dict[str, _EvidencePair]
 
 
@@ -32,28 +33,60 @@ _DAMAGE_FIXED_SLOTS = frozenset({
 
 _AUXILIARY_SLOTS = frozenset({
     CaptureSlot.FUEL_PARKING_CARD,
-    CaptureSlot.INTERIOR_FRONT,
-    CaptureSlot.INTERIOR_REAR,
 })
+
+_INTERIOR_SLOTS = frozenset({CaptureSlot.INTERIOR_FRONT, CaptureSlot.INTERIOR_REAR})
 
 
 class CaseBuildingModuleB(ModuleB):
     """Delegates AI findings and all Case-domain decisions to their owners."""
 
-    def __init__(self, analyzer: AIAnalyzer, *, policy: DecisionPolicy) -> None:
+    def __init__(
+        self,
+        analyzer: AIAnalyzer,
+        *,
+        policy: DecisionPolicy,
+        cleanliness_analyzer: AIAnalyzer | None = None,
+    ) -> None:
         """Store the AI analyzer and decision policy used for every case."""
         self._analyzer = analyzer
+        self._cleanliness_analyzer = cleanliness_analyzer
         self._policy = policy
 
     def analyze(self, case_id: str, photos: list[tuple[str, bytes]]) -> Case:
         """Analyze model-relevant photos, attach evidence, and create a Case."""
         prepared = self._prepare_photos(photos)
-        findings = self._analyzer.analyze(prepared.analyzer_photos)
+        findings = self._validated_findings(
+            self._analyzer.analyze(prepared.damage_photos), prepared.damage_photos
+        )
+        if self._cleanliness_analyzer is not None:
+            findings.extend(
+                self._validated_findings(
+                    self._cleanliness_analyzer.analyze(prepared.cleanliness_photos),
+                    prepared.cleanliness_photos,
+                )
+            )
         detection_inputs = [
             self._to_detection_input(finding, prepared.evidence_by_photo_id)
             for finding in findings
         ]
         return create_case(case_id, detection_inputs, policy=self._policy)
+
+    @staticmethod
+    def _validated_findings(
+        findings: list[AIFinding], photos: list[tuple[str, bytes]]
+    ) -> list[AIFinding]:
+        if not isinstance(findings, list):
+            raise ValueError("AI analyzer must return a list of AIFinding objects")
+        allowed_photo_ids = {photo_id for photo_id, _ in photos}
+        for finding in findings:
+            if not isinstance(finding, AIFinding):
+                raise ValueError("AI analyzer must return only AIFinding objects")
+            if finding.source_photo_id not in allowed_photo_ids:
+                raise ValueError(
+                    "AI finding source_photo_id must match one of the analyzed photos"
+                )
+        return list(findings)
 
     @staticmethod
     def _prepare_photos(
@@ -62,8 +95,8 @@ class CaseBuildingModuleB(ModuleB):
         """Validate metadata and prepare model inputs with their evidence.
 
         Damage slots accept either a complete borrow/return pair or return-only
-        evidence. Auxiliary card and interior slots are valid stored photos but
-        are outside the deployed damage model's input domain.
+        evidence. The card slot is always auxiliary. Return-side interior slots
+        are prepared separately for the optional cleanliness model.
         """
         if not isinstance(photos, list):
             raise TypeError("photos must be a list of (photo_id, bytes) pairs")
@@ -74,6 +107,8 @@ class CaseBuildingModuleB(ModuleB):
         other_damage_returns: list[str] = []
         seen_photo_ids: set[str] = set()
         analyzer_photos: list[tuple[str, bytes]] = []
+        cleanliness_photos: list[tuple[str, bytes]] = []
+        interior_returns: list[str] = []
 
         for photo in photos:
             if not isinstance(photo, tuple) or len(photo) != 2:
@@ -111,6 +146,12 @@ class CaseBuildingModuleB(ModuleB):
             if info.capture_slot in _AUXILIARY_SLOTS:
                 continue
 
+            if info.capture_slot in _INTERIOR_SLOTS:
+                if info.photo_type == PhotoType.RETURN:
+                    interior_returns.append(photo_id)
+                    cleanliness_photos.append(photo)
+                continue
+
             if info.capture_slot not in _DAMAGE_FIXED_SLOTS:
                 raise ValueError(f"unsupported capture slot: {info.capture_slot.value!r}")
 
@@ -139,7 +180,10 @@ class CaseBuildingModuleB(ModuleB):
         for return_photo_id in other_damage_returns:
             evidence_by_photo_id[return_photo_id] = _EvidencePair(None, return_photo_id)
 
-        return _PreparedPhotos(analyzer_photos, evidence_by_photo_id)
+        for return_photo_id in interior_returns:
+            evidence_by_photo_id[return_photo_id] = _EvidencePair(None, return_photo_id)
+
+        return _PreparedPhotos(analyzer_photos, cleanliness_photos, evidence_by_photo_id)
 
     @staticmethod
     def _to_detection_input(

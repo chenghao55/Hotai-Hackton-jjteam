@@ -21,7 +21,7 @@ export const captureSteps: CaptureStep[] = [
   {
     shotType: 'vehicle_cards',
     captureSlot: 'fuel_parking_card',
-    includeInCaseEvidence: false,
+    includeInCaseEvidence: true,
     title: '加油卡與停車卡',
     description: '將加油卡與停車卡並排放好，確認卡片正面、文字與卡號位置清楚可辨。',
     frameLabel: '兩張卡片需完整入鏡',
@@ -30,7 +30,7 @@ export const captureSteps: CaptureStep[] = [
   {
     shotType: 'front_cabin',
     captureSlot: 'interior_front',
-    includeInCaseEvidence: false,
+    includeInCaseEvidence: true,
     entrySide: 'left',
     title: '車內座椅（前座）',
     description: '由左前車門拍攝駕駛座、副駕座與中控區域，確認座椅及腳踏區沒有髒污或遺留物。',

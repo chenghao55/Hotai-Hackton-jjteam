@@ -119,7 +119,7 @@ test('七張正式照片與額外車損會走 Module E，Case 只包含 damage e
     'rear_right',
     'other_damage',
   ]);
-  expect(casePayload).toEqual({ photo_ids: ['photo-4', 'photo-5', 'photo-6', 'photo-7', 'photo-8'] });
+  expect(casePayload).toEqual({ photo_ids: ['photo-2', 'photo-3', 'photo-4', 'photo-5', 'photo-6', 'photo-7', 'photo-8'] });
   expect(casePayload).not.toHaveProperty('case_id');
 });
 

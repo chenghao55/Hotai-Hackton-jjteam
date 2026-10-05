@@ -7,6 +7,8 @@ ARCHITECTURE = "mobilenet_v3_large"
 DEFAULT_IMAGE_SIZE = 320
 DAMAGE_SEGMENTATION_ARCHITECTURE = "lraspp_mobilenet_v3_large"
 DAMAGE_IMAGE_SIZE = 512
+CLEANLINESS_SEGMENTATION_ARCHITECTURE = "lraspp_mobilenet_v3_large"
+CLEANLINESS_IMAGE_SIZE = 512
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
@@ -62,6 +64,21 @@ def build_model(*, pretrained: bool):
 
 def build_damage_segmentation_model(*, pretrained_backbone: bool):
     """Build LR-ASPP with a MobileNetV3-Large backbone and three pixel classes."""
+    from torchvision.models import MobileNet_V3_Large_Weights
+    from torchvision.models.segmentation import lraspp_mobilenet_v3_large
+
+    backbone_weights = (
+        MobileNet_V3_Large_Weights.DEFAULT if pretrained_backbone else None
+    )
+    return lraspp_mobilenet_v3_large(
+        weights=None,
+        weights_backbone=backbone_weights,
+        num_classes=3,
+    )
+
+
+def build_cleanliness_segmentation_model(*, pretrained_backbone: bool):
+    """Build the independent three-class vehicle-interior segmenter."""
     from torchvision.models import MobileNet_V3_Large_Weights
     from torchvision.models.segmentation import lraspp_mobilenet_v3_large
 

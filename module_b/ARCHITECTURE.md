@@ -21,6 +21,18 @@ status = experimental_review_only
 本次租車造成、索賠責任、維修金額或保險條款，因此 `claim_candidate` 只是可見損傷
 候選，不是正式的 claim 決策。所有 detection 均輸出 `needs_review`。
 
+另有獨立的車內 cleanliness 分割模型：
+
+```text
+artifacts/module_b/interior_cleanliness.pth
+model_version = lraspp-mobilenetv3-large-interior-cleanliness-v1
+status = external_only_review_only
+```
+
+它以 512×512 LR-ASPP MobileNetV3-Large 分割 `stain` 與 `dirt`。目前 checkpoint
+只使用授權的 MoLa-VI 外部資料訓練，尚未以 Hotai 車內 clean/dirty 標註資料做 domain
+adaptation，因此只能產生實驗性 `PhotoCleanlinessAssessment`，不能宣稱正式場域準確率。
+
 ## 2. 推論資料流
 
 ```mermaid
@@ -519,8 +531,10 @@ finding 會轉成 `borrow_photo_id=None` 的 `DetectionInput`。完整 pair 的 
 
 `RETURN + OTHER_DAMAGE` 維持可出現多張、不要求 borrow counterpart 的規則，每張
 照片都有獨立的 return-only evidence。`FUEL_PARKING_CARD`、`INTERIOR_FRONT` 與
-`INTERIOR_REAR` 仍可存在於 Module A，但不屬於目前 damage model 的輸入 domain，
-所以 orchestrator 會驗證 metadata 後將它們排除，不傳給 analyzer。
+`INTERIOR_REAR` 仍可存在於 Module A，但不屬於 exterior damage model 的輸入 domain。
+`INTERIOR_FRONT` 與 `INTERIOR_REAR` 會在 metadata 驗證後，傳給獨立的 cleanliness
+analyzer（若 backend 有載入該 checkpoint）；cleanliness finding 會轉成 Module D 的
+`ConditionCategory.CLEANLINESS`、固定 `Severity.MINOR`，並由 D 套用 review policy。
 
 Module D 接著依 `DecisionPolicy.review_confidence_threshold` 決定 `needs_review` 或
 `auto_accepted` 並計算 priority；因此 B 不重作 D 的 review 或 priority 規則。

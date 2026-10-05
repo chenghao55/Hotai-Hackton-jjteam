@@ -1,0 +1,44 @@
+{
+  "dataset_id": "cfsr5kvry3",
+  "version": 1,
+  "doi": "10.17632/cfsr5kvry3.1",
+  "source_url": "https://data.mendeley.com/datasets/cfsr5kvry3/1",
+  "license": "CC BY 4.0",
+  "files": [
+    {
+      "filename": "MoLa-VI.part1.rar",
+      "size": 1073741824,
+      "sha256": "7d6522a09b01225df0ee92d8649d4ad3e24707b8d3bde0f17a1d3713cf059de8"
+    },
+    {
+      "filename": "MoLa-VI.part2.rar",
+      "size": 1073741824,
+      "sha256": "fdd0e4357d9e4a8395071ea242fe2fb9c1090b9ff7655f43c89312b2d5f693ff"
+    },
+    {
+      "filename": "MoLa-VI.part3.rar",
+      "size": 1073741824,
+      "sha256": "7ee42b933216c55bcefde8ac6e0094d69a4c0db9d1a018f19ea9f1722f3d8123"
+    },
+    {
+      "filename": "MoLa-VI.part4.rar",
+      "size": 1073741824,
+      "sha256": "c117a7373257354e9e197064e381e9c6eace7ce12b22224f67269adec8d97b3e"
+    },
+    {
+      "filename": "MoLa-VI.part5.rar",
+      "size": 1073741824,
+      "sha256": "52f35656cdcb6ab8a00b26e76848dc3ae40cc7c6f1b8f971d19380cf6815a698"
+    },
+    {
+      "filename": "MoLa-VI.part6.rar",
+      "size": 1073741824,
+      "sha256": "e6770e2568ace5efe3b1ff3430dedbf76df564177f41e2c541a8cee562a3ca2a"
+    },
+    {
+      "filename": "MoLa-VI.part7.rar",
+      "size": 176834292,
+      "sha256": "40ab596415e74ee282f1665a1fbd201ca139c0a53190da609c886c5a98536576"
+    }
+  ]
+}

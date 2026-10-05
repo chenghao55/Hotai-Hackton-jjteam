@@ -59,13 +59,20 @@ Completed:
 - Exterior damage slots accept a complete BORROW/RETURN pair or RETURN-only evidence.
 - BORROW-only fixed damage slots and duplicate sides remain invalid.
 - Multiple RETURN `OTHER_DAMAGE` photos are supported as return-only evidence.
-- `FUEL_PARKING_CARD`, `INTERIOR_FRONT`, and `INTERIOR_REAR` are excluded from damage-model input.
+- `FUEL_PARKING_CARD` is excluded from AI input; `INTERIOR_FRONT` and `INTERIOR_REAR` are
+  routed to the separate optional cleanliness analyzer and remain excluded from damage input.
 - Findings preserve their true `source_photo_id`.
+- An external-only LR-ASPP MobileNetV3-Large interior cleanliness checkpoint is available at
+  `artifacts/module_b/interior_cleanliness.pth`; it segments `stain`/`dirt` and is wired through
+  the optional `CleanlinessModelAnalyzer`.
 
 Current limitation:
 
 - The included analyzer evaluates model-relevant photos individually. Complete-pair evidence
   mapping is structurally correct, but true before/after visual comparison remains model work.
+- The MoLa-VI-trained interior cleanliness checkpoint is external-only and
+  `external_only_review_only`; it must be adapted and validated with independently labelled
+  Hotai interior clean/dirty photos before production use.
 
 ## Module C
 

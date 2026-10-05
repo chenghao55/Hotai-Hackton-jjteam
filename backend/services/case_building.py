@@ -6,12 +6,16 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from module_b import CaseBuildingModuleB, DamageModelAnalyzer, ModuleB
+from module_b import CaseBuildingModuleB, CleanlinessModelAnalyzer, DamageModelAnalyzer, ModuleB
 from module_d import demo_policy
 
 
 DEFAULT_MODULE_B_CHECKPOINT_PATH = Path("artifacts/module_b/damage_multitask.pth")
 DEFAULT_MODULE_B_DEVICE = "auto"
+DEFAULT_MODULE_B_CLEANLINESS_CHECKPOINT_PATH = Path(
+    "artifacts/module_b/interior_cleanliness.pth"
+)
+DEFAULT_MODULE_B_CLEANLINESS_DEVICE = "auto"
 
 
 @dataclass(frozen=True)
@@ -20,17 +24,27 @@ class ModuleBConfiguration:
 
     checkpoint_path: Path
     device: str
+    cleanliness_checkpoint_path: Path = DEFAULT_MODULE_B_CLEANLINESS_CHECKPOINT_PATH
+    cleanliness_device: str = DEFAULT_MODULE_B_CLEANLINESS_DEVICE
 
 
 def get_module_b_configuration() -> ModuleBConfiguration:
     """Read the centralized Module B runtime configuration for this process."""
     configured_path = os.getenv("HOTAI_MODULE_B_CHECKPOINT_PATH")
     configured_device = os.getenv("HOTAI_MODULE_B_DEVICE")
+    configured_cleanliness_path = os.getenv("HOTAI_MODULE_B_CLEANLINESS_CHECKPOINT_PATH")
+    configured_cleanliness_device = os.getenv("HOTAI_MODULE_B_CLEANLINESS_DEVICE")
     return ModuleBConfiguration(
         checkpoint_path=Path(configured_path)
         if configured_path
         else DEFAULT_MODULE_B_CHECKPOINT_PATH,
         device=configured_device or DEFAULT_MODULE_B_DEVICE,
+        cleanliness_checkpoint_path=(
+            Path(configured_cleanliness_path)
+            if configured_cleanliness_path
+            else DEFAULT_MODULE_B_CLEANLINESS_CHECKPOINT_PATH
+        ),
+        cleanliness_device=configured_cleanliness_device or DEFAULT_MODULE_B_CLEANLINESS_DEVICE,
     )
 
 
@@ -46,7 +60,15 @@ def get_case_building_module_b() -> ModuleB:
         configuration.checkpoint_path,
         device=configuration.device,
     )
-    return CaseBuildingModuleB(analyzer, policy=demo_policy())
+    cleanliness_analyzer = CleanlinessModelAnalyzer.from_checkpoint(
+        configuration.cleanliness_checkpoint_path,
+        device=configuration.cleanliness_device,
+    )
+    return CaseBuildingModuleB(
+        analyzer,
+        policy=demo_policy(),
+        cleanliness_analyzer=cleanliness_analyzer,
+    )
 
 
 def get_case_building_module_b_provider() -> Callable[[], ModuleB]:
