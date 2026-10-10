@@ -1,17 +1,29 @@
 """Photo HTTP routes owned by Module E."""
 
+import os
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from starlette.concurrency import run_in_threadpool
+from PIL import UnidentifiedImageError, Image
 
-from module_a import CaptureContext, CaptureSlot, PhotoType
-from module_a.coach_image import decode
+from module_a import CaptureSlot, PhotoType
 
-from backend.schemas.photos import (GuidanceAction, GuidanceCode, GuidanceLevel,
-                                    PhotoCheck, PhotoGuidanceResponse, PhotoUploadResponse)
-from backend.services.photo_guidance import (ModuleAPhotoGuidanceService,
-                                             PhotoGuidanceService, get_photo_guidance_service)
+from backend.schemas.photos import (
+    DevelopmentForceSaveResponse,
+    EntrySide,
+    PhotoGuidanceResponse,
+    PhotoUploadResponse,
+    VehicleType,
+)
+from backend.services.photo_guidance import (
+    GuidanceImageSource,
+    GuidanceMode,
+    PhotoGuidanceContext,
+    PhotoGuidanceService,
+    UnsupportedGuidanceDecisionError,
+    get_photo_guidance_service,
+)
 from backend.services.photo_storage import (
     PhotoStorageNotFoundError,
     PhotoStorageService,
@@ -20,84 +32,98 @@ from backend.services.photo_storage import (
 
 
 router = APIRouter()
-COACHED_SLOTS = {CaptureSlot.FRONT_LEFT, CaptureSlot.FRONT_RIGHT,
-                 CaptureSlot.REAR_LEFT, CaptureSlot.REAR_RIGHT,
-                 CaptureSlot.INTERIOR_FRONT, CaptureSlot.INTERIOR_REAR}
 
 
-def capture_context(photo_type, capture_slot, vehicle_type, session_id, frame_id,
-                    entry_side, mode):
-    supplied = (vehicle_type, session_id, frame_id)
-    if all(value is None for value in supplied):
-        return None
-    if any(value is None for value in supplied):
-        raise HTTPException(status_code=422, detail="vehicle_type, session_id and frame_id are required together")
-    try:
-        return CaptureContext(photo_type, capture_slot, vehicle_type, session_id,
-                              frame_id, entry_side=entry_side, mode=mode)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+def _development_force_save_enabled() -> bool:
+    """Keep the test-only storage escape hatch disabled unless explicitly enabled."""
+    return os.getenv("HOTAI_ENABLE_DEV_FORCE_SAVE") == "1"
 
 
-def uncoached_response(image: bytes) -> PhotoGuidanceResponse:
-    try:
-        decode(image)
-    except (ValueError, OSError, SyntaxError) as exc:
-        raise HTTPException(status_code=422, detail="invalid image") from exc
-    return PhotoGuidanceResponse(
-        accepted=True,
-        check=PhotoCheck(level=GuidanceLevel.PASS, code=GuidanceCode.PASS,
-                         message="此類照片不適用車角 AI 構圖檢核；照片格式有效，可以拍攝。",
-                         action=GuidanceAction.ACCEPT),
+def _guidance_context(
+    *,
+    photo_type: PhotoType,
+    capture_slot: CaptureSlot,
+    vehicle_type: VehicleType,
+    session_id: str,
+    frame_id: int,
+    entry_side: EntrySide | None,
+    mode: GuidanceMode,
+    source: GuidanceImageSource | None,
+) -> PhotoGuidanceContext:
+    if not session_id.strip():
+        raise HTTPException(status_code=422, detail="session_id must not be blank")
+    interior = capture_slot in {CaptureSlot.INTERIOR_FRONT, CaptureSlot.INTERIOR_REAR}
+    if interior and entry_side is None:
+        raise HTTPException(status_code=422, detail="entry_side is required for interior photos")
+    if not interior and entry_side is not None:
+        raise HTTPException(status_code=422, detail="entry_side is only valid for interior photos")
+    return PhotoGuidanceContext(
+        photo_type=photo_type,
+        capture_slot=capture_slot,
+        vehicle_type=vehicle_type,
+        session_id=session_id,
+        frame_id=frame_id,
+        entry_side=entry_side,
+        mode=mode,
+        image_mirrored=False,
+        source=source,
     )
 
 
-async def analyze(service, image, context):
-    if context is None:
-        # Keep injected legacy test adapters compatible; the real coach rejects absent context.
-        if isinstance(service, ModuleAPhotoGuidanceService):
-            raise HTTPException(status_code=422, detail="capture context is required")
-        return await run_in_threadpool(service.analyze, image)
-    if context.capture_slot not in COACHED_SLOTS:
-        return await run_in_threadpool(uncoached_response, image)
+async def _analyze_guidance(
+    service: PhotoGuidanceService,
+    image: bytes,
+    context: PhotoGuidanceContext,
+) -> PhotoGuidanceResponse:
     try:
         return await run_in_threadpool(service.analyze, image, context)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=503, detail="photo coach checkpoint is unavailable") from exc
-    except (ValueError, OSError, SyntaxError) as exc:
+    except UnsupportedGuidanceDecisionError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="The current guidance decision is not supported by the product contract",
+        ) from exc
+    except (FileNotFoundError, RuntimeError) as exc:
+        raise HTTPException(status_code=503, detail="Photo coach unavailable; check the model configuration") from exc
+    except (ValueError, UnidentifiedImageError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.post("/photo-guidance", response_model=PhotoGuidanceResponse, response_model_exclude_unset=True)
+@router.post("/photo-guidance", response_model=PhotoGuidanceResponse)
 async def photo_guidance(
     file: UploadFile = File(...),
-    photo_type: PhotoType = Form(None),
-    capture_slot: CaptureSlot = Form(None),
-    vehicle_type: str | None = Form(None),
-    session_id: str | None = Form(None),
-    frame_id: int | None = Form(None),
-    entry_side: str | None = Form(None),
+    photo_type: PhotoType = Form(...),
+    capture_slot: CaptureSlot = Form(...),
+    vehicle_type: VehicleType = Form(...),
+    session_id: str = Form(..., min_length=1, max_length=128),
+    frame_id: int = Form(..., ge=0),
+    entry_side: EntrySide | None = Form(None),
     service: Annotated[PhotoGuidanceService, Depends(get_photo_guidance_service)] = None,
 ) -> PhotoGuidanceResponse:
     image = await file.read()
     if not image:
         raise HTTPException(status_code=422, detail="image file must not be empty")
-    if service and isinstance(service, ModuleAPhotoGuidanceService) and (photo_type is None or capture_slot is None):
-        raise HTTPException(status_code=422, detail="photo_type and capture_slot are required")
-    context = capture_context(photo_type, capture_slot, vehicle_type, session_id,
-                              frame_id, entry_side, "preview")
-    return await analyze(service, image, context)
+    context = _guidance_context(
+        photo_type=photo_type,
+        capture_slot=capture_slot,
+        vehicle_type=vehicle_type,
+        session_id=session_id,
+        frame_id=frame_id,
+        entry_side=entry_side,
+        mode=GuidanceMode.PREVIEW,
+        source=GuidanceImageSource.CAMERA_RAW,
+    )
+    return await _analyze_guidance(service, image, context)
 
 
-@router.post("/photos", response_model=PhotoUploadResponse, response_model_exclude_unset=True)
+@router.post("/photos", response_model=PhotoUploadResponse)
 async def upload_photo(
     file: UploadFile = File(...),
     photo_type: PhotoType = Form(...),
     capture_slot: CaptureSlot = Form(...),
-    vehicle_type: str | None = Form(None),
-    session_id: str | None = Form(None),
-    frame_id: int | None = Form(None),
-    entry_side: str | None = Form(None),
+    vehicle_type: VehicleType = Form(...),
+    session_id: str = Form(..., min_length=1, max_length=128),
+    frame_id: int = Form(..., ge=0),
+    entry_side: EntrySide | None = Form(None),
     guidance_service: Annotated[PhotoGuidanceService, Depends(get_photo_guidance_service)] = None,
     storage_service: Annotated[PhotoStorageService, Depends(get_photo_storage_service)] = None,
 ) -> PhotoUploadResponse:
@@ -108,9 +134,18 @@ async def upload_photo(
     if not isinstance(mime_type, str) or not mime_type.strip():
         raise HTTPException(status_code=422, detail="image content type is required")
 
-    context = capture_context(photo_type, capture_slot, vehicle_type, session_id,
-                              frame_id, entry_side, "final")
-    guidance = await analyze(guidance_service, image, context)
+    context = _guidance_context(
+        photo_type=photo_type,
+        capture_slot=capture_slot,
+        vehicle_type=vehicle_type,
+        session_id=session_id,
+        frame_id=frame_id,
+        entry_side=entry_side,
+        mode=GuidanceMode.FINAL,
+        # Describe the submitted file without asserting camera provenance.
+        source=GuidanceImageSource.UPLOADED_PHOTO,
+    )
+    guidance = await _analyze_guidance(guidance_service, image, context)
     if not guidance.accepted:
         return PhotoUploadResponse(accepted=False, photo_id=None, check=guidance.check)
 
@@ -119,6 +154,51 @@ async def upload_photo(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return PhotoUploadResponse(accepted=True, photo_id=photo_id, check=guidance.check)
+
+
+@router.post("/dev/photos/force-save", response_model=DevelopmentForceSaveResponse)
+async def development_force_save_photo(
+    file: UploadFile = File(...),
+    photo_type: PhotoType = Form(...),
+    capture_slot: CaptureSlot = Form(...),
+    vehicle_type: VehicleType = Form(...),
+    session_id: str = Form(..., min_length=1, max_length=128),
+    frame_id: int = Form(..., ge=0),
+    entry_side: EntrySide | None = Form(None),
+    storage_service: Annotated[PhotoStorageService, Depends(get_photo_storage_service)] = None,
+) -> DevelopmentForceSaveResponse:
+    """Development-only test hook that saves through Module A without PhotoCoach.
+
+    This deliberately has a separate route and response contract from ``POST /photos``.
+    It must be explicitly enabled with ``HOTAI_ENABLE_DEV_FORCE_SAVE=1`` and never
+    changes rejection or storage behavior in the normal final-upload route.
+    """
+    if not _development_force_save_enabled():
+        raise HTTPException(status_code=404, detail="Development force-save endpoint is disabled")
+
+    image = await file.read()
+    if not image:
+        raise HTTPException(status_code=422, detail="image file must not be empty")
+    mime_type = file.content_type
+    if not isinstance(mime_type, str) or not mime_type.strip():
+        raise HTTPException(status_code=422, detail="image content type is required")
+
+    # Validate the same capture metadata shape without invoking PhotoCoach.
+    _guidance_context(
+        photo_type=photo_type,
+        capture_slot=capture_slot,
+        vehicle_type=vehicle_type,
+        session_id=session_id,
+        frame_id=frame_id,
+        entry_side=entry_side,
+        mode=GuidanceMode.FINAL,
+        source=GuidanceImageSource.UPLOADED_PHOTO,
+    )
+    try:
+        photo_id = storage_service.save(image, photo_type, capture_slot, mime_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return DevelopmentForceSaveResponse(photo_id=photo_id)
 
 
 @router.get("/photos/{photo_id}")

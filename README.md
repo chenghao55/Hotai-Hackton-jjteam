@@ -54,9 +54,11 @@ E → A 儲存／指導；E → B 分析；B → D 建立 Case
 
 外觀模板依轎車／休旅車及四個車身角度設定。前方模板使用車牌、近側車輪及近側頭燈；後方使用車牌及近側車輪。車身可以部分出框，但必要特徵需留在照片內。內裝模板以方向盤定位前排、後座椅定位後排；方向盤不代表前排座椅完整，幾何符合也不代表已精確量出 45 度或手機離地高度。
 
-`best.pt` 由伺服器端載入，不應由 API 使用者上傳模型。E 以 `HOTAI_MODULE_A_CHECKPOINT_PATH` 指定模型路徑；未設定時，現行 adapter 預設尋找使用者 `Downloads/best.pt`。可用 `HOTAI_MODULE_A_DEVICE` 設定推論裝置，預設為 `cpu`。其他人的電腦也必須各自取得模型檔並設定有效路徑。
+`best.pt` 由伺服器端載入，不應由 API 使用者上傳模型。E 以 `HOTAI_MODULE_A_CHECKPOINT_PATH` 指定模型路徑；未設定時尋找專案內的 `artifacts/module_a/best.pt`。可用 `HOTAI_MODULE_A_DEVICE` 設定推論裝置，預設為 `cpu`。
 
 模板校正狀態不再產生拍攝提示或阻擋上傳；照片仍需通過畫質與構圖規則。通過時提示「照片可提交。」。現有模板尚未經真實照片驗證，demo 結果不能當作實車準確率。
+
+本機展示可設定 `HOTAI_ENABLE_DEV_FORCE_SAVE=1` 啟用 `POST /dev/photos/force-save`，直接將測試照片交給既有儲存介面。此路由預設關閉，不改變正式 `POST /photos` 的教練判斷；正式上傳會以 `uploaded_photo` 記錄提交來源。
 
 ## 車損比較原型
 
@@ -106,7 +108,7 @@ uvicorn backend.main:app --reload
 python -m pytest -q
 ```
 
-最近記錄的完整測試檢查點為 **408 passed、1 warning、0 failed**（2026-10-10；合併駕駛側內裝模板調整後，警告為 Starlette TestClient/httpx 的第三方棄用提醒）。最新團隊紀錄請查 [docs/STATUS.md](docs/STATUS.md)。
+最近記錄的完整測試檢查點為 **465 passed、1 warning、0 failed**（2026-10-10；整合最新主線後，警告為 Starlette TestClient/httpx 的第三方棄用提醒）。最新團隊紀錄請查 [docs/STATUS.md](docs/STATUS.md)。
 
 目前主要待辦：
 

@@ -21,7 +21,9 @@ npm run dev
 - `/capture`：RETURN-only 手機拍攝、品質指導、正式上傳與 Case 建立。
 - `/review`：案件篩選、影像差異、人工覆核及派工。
 
-正式拍攝流程依序呼叫 `POST /photo-guidance`、`POST /photos`、`POST /cases/from-photos`。UI 不產生 `photo_id` 或 `case_id`，且結果頁只顯示後端回傳的 Case 欄位。
+正式拍攝流程依序呼叫 `POST /photo-guidance`、`POST /photos`、`POST /cases/from-photos`。UI 為每次還車拍攝流程建立一個 session ID，並讓 preview/final guidance 共用單調遞增的 frame ID；前後座的 `entry_side` 由步驟固定為 `left`，不要求使用者選擇。UI 不產生 `photo_id` 或 `case_id`，且結果頁只顯示後端回傳的 Case 欄位。Module E 已啟用真實 Module A 教練；快門隨時可用，提交照片會重新檢核，不合格會要求重拍。模板仍待校正，尚不能自動通過六個車內外槽位。
+
+在 `NODE_ENV=development` 時，最終上傳真實回傳拒絕後會顯示「測試用：強制接受並下一張」。此按鈕只呼叫隔離的 `POST /dev/photos/force-save`，後端仍須另外設 `HOTAI_ENABLE_DEV_FORCE_SAVE=1`；其回傳的是既有 Module A 儲存服務生成的真實 `photo_id`，不會改變正常 `/photos` 的拒絕語意。
 
 七個必要步驟為卡片、前座、後座、左前、右前、左後、右後。前三項會保存但不會送入 Case 建立；四張車外照與選填的 `OTHER_DAMAGE` 才會成為分析 evidence。`dashboard` 與拍照式 appeal 已退出正式流程。
 

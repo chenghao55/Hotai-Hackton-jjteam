@@ -47,6 +47,36 @@ def create_case(
     return case
 
 
+def add_detection(case: Case, finding: DetectionInput, *, policy: DecisionPolicy) -> Detection:
+    """Add one finding to an UNASSIGNED Case (e.g. one vehicle with both a scratch and dirt).
+
+    Uses the same initial assessment as ``create_case`` (confidence threshold decides
+    NEEDS_REVIEW / AUTO_ACCEPTED) and recalculates priority. The Case is only changed
+    after every check passes; on failure it is left untouched.
+    """
+    _require_status(case, CaseStatus.UNASSIGNED, "add_detection")
+    policy.validate()
+    if not isinstance(finding, DetectionInput):
+        raise ValueError("finding must be a DetectionInput")
+    detection = Detection(
+        detection_id=finding.detection_id,
+        borrow_photo_id=finding.borrow_photo_id,
+        return_photo_id=finding.return_photo_id,
+        source_photo_id=finding.source_photo_id,
+        category=finding.category,
+        severity=finding.severity,
+        confidence=finding.confidence,
+        review_state=ReviewState.NEEDS_REVIEW,
+    )
+    assess_detection(detection, policy)
+    proposed_case = replace(case, detections=[*case.detections, detection])
+    calculate_priority(proposed_case, policy)  # validates the Case, including unique detection_id
+    case.detections.append(detection)
+    case.priority_score = proposed_case.priority_score
+    case.validate()
+    return detection
+
+
 def assess_detection(detection: Detection, policy: DecisionPolicy) -> None:
     """AI偵測完後，判斷該detection是否需要被review. 填入`detection.review_state`; never overwrite a human decision."""
     detection.validate()
@@ -128,7 +158,11 @@ def apply_review(
 
 
 def appeal_detection(case: Case, detection_id: str, *, policy: DecisionPolicy) -> None:
-    """Reopen a finding while retaining the previous human decision as context. 會保留上一個人工review做為參考"""
+    """Reopen a finding while retaining the previous human decision as context. 會保留上一個人工review做為參考
+
+    The Case returns to UNASSIGNED so it re-enters the review and dispatch workflow
+    (team decision). ``payment_amount`` is kept and can be adjusted while reprocessing.
+    """
     case.validate()
     policy.validate()
     detection = next((d for d in case.detections if d.detection_id == detection_id), None)
@@ -136,12 +170,15 @@ def appeal_detection(case: Case, detection_id: str, *, policy: DecisionPolicy) -
         raise ValueError(f"Unknown detection_id: {detection_id!r}")
     proposed = replace(detection, review_state=ReviewState.NEEDS_REVIEW)
     proposed_case = replace(
-        case, detections=[proposed if d is detection else d for d in case.detections]
+        case,
+        detections=[proposed if d is detection else d for d in case.detections],
+        status=CaseStatus.UNASSIGNED,
     )
     calculate_priority(proposed_case, policy)
     detection.review_state = proposed.review_state
     detection.validate()
     case.priority_score = proposed_case.priority_score
+    case.status = CaseStatus.UNASSIGNED
     case.validate()
 
 

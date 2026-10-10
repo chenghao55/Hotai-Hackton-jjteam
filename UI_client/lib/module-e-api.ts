@@ -15,6 +15,12 @@ export type GuidanceCode =
   | 'BACKLIGHT'
   | 'OVEREXPOSED'
   | 'BLUR'
+  | 'LOW_DETAIL'
+  | 'SUBJECT_NOT_DETECTED'
+  | 'MULTIPLE_SUBJECTS'
+  | 'SUBJECT_NEAR_EDGE'
+  | 'SUBJECT_TOO_SMALL'
+  | 'SUBJECT_TOO_LARGE'
   | 'TOO_FAR'
   | 'TOO_CLOSE'
   | 'OFF_CENTER'
@@ -23,13 +29,26 @@ export type GuidanceCode =
   | 'TOO_FRONT'
   | 'TOO_SIDE'
   | 'INTERIOR_NOT_ALIGNED'
-  | 'LOW_DETAIL' | 'SUBJECT_NOT_DETECTED' | 'MULTIPLE_SUBJECTS'
-  | 'SUBJECT_NEAR_EDGE' | 'SUBJECT_TOO_SMALL' | 'SUBJECT_TOO_LARGE'
-  | 'POSSIBLE_WRONG_SLOT' | 'TEMPLATE_NOT_CALIBRATED'
-  | 'FRONT_SEAT_EVIDENCE_UNAVAILABLE' | 'UNSUPPORTED_SLOT'
-  | 'MISSING_REQUIRED_FEATURE' | 'GEOMETRY_MISMATCH' | 'AMBIGUOUS_TEMPLATES'
+  | 'POSSIBLE_WRONG_SLOT'
+  | 'MISSING_REQUIRED_FEATURE'
+  | 'GEOMETRY_MISMATCH'
+  | 'AMBIGUOUS_TEMPLATES'
+  | 'TEMPLATE_NOT_CALIBRATED'
+  | 'FRONT_SEAT_EVIDENCE_UNAVAILABLE'
+  | 'UNSUPPORTED_SLOT'
   | 'PASS';
 export type GuidanceAction = 'guide' | 'reshoot' | 'accept';
+export type VehicleType = 'sedan' | 'suv';
+export type EntrySide = 'left' | 'right';
+
+export type PhotoGuidanceRequestContext = {
+  photoType: 'return';
+  captureSlot: CaptureSlot;
+  vehicleType: VehicleType;
+  sessionId: string;
+  frameId: number;
+  entrySide?: EntrySide;
+};
 
 export type PhotoCheck = {
   level: GuidanceLevel;
@@ -43,17 +62,17 @@ export type PhotoGuidanceResponse = {
   check: PhotoCheck;
 };
 
-export type CaptureContext = {
-  vehicleType: 'sedan' | 'suv';
-  captureSlot: CaptureSlot;
-  sessionId: string;
-  frameId: number;
-  entrySide?: 'left' | 'right';
-};
-
 export type PhotoUploadResponse = PhotoGuidanceResponse & {
   photo_id: string | null;
 };
+
+export type DevelopmentForceSaveResponse = {
+  photo_id: string;
+};
+
+export function isDevelopmentForceSaveEnabled(environment = process.env.NODE_ENV): boolean {
+  return environment === 'development';
+}
 
 export type DetectionResponse = {
   detection_id: string;
@@ -117,40 +136,39 @@ async function requestJson<T>(path: string, init: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-function imageForm(image: Blob): FormData {
+function imageForm(image: Blob, context: PhotoGuidanceRequestContext): FormData {
   const form = new FormData();
   form.append('file', image, 'capture.jpg');
-  return form;
-}
-
-function appendContext(form: FormData, context: CaptureContext) {
+  form.append('photo_type', context.photoType);
+  form.append('capture_slot', context.captureSlot);
   form.append('vehicle_type', context.vehicleType);
   form.append('session_id', context.sessionId);
   form.append('frame_id', String(context.frameId));
   if (context.entrySide) form.append('entry_side', context.entrySide);
+  return form;
 }
 
-export function requestPhotoGuidance(image: Blob, context?: CaptureContext): Promise<PhotoGuidanceResponse> {
-  const form = imageForm(image);
-  if (context) {
-    form.append('photo_type', 'return');
-    form.append('capture_slot', context.captureSlot);
-    appendContext(form, context);
-  }
-  return requestJson('/photo-guidance', { method: 'POST', body: form });
+export function requestPhotoGuidance(
+  image: Blob,
+  context: PhotoGuidanceRequestContext,
+): Promise<PhotoGuidanceResponse> {
+  return requestJson('/photo-guidance', { method: 'POST', body: imageForm(image, context) });
 }
 
 export function uploadPhoto(
   image: Blob,
-  photoType: 'return',
-  captureSlot: CaptureSlot,
-  context?: CaptureContext,
+  context: PhotoGuidanceRequestContext,
 ): Promise<PhotoUploadResponse> {
-  const form = imageForm(image);
-  form.append('photo_type', photoType);
-  form.append('capture_slot', captureSlot);
-  if (context) appendContext(form, context);
+  const form = imageForm(image, context);
   return requestJson('/photos', { method: 'POST', body: form });
+}
+
+/** Development-only test hook; normal capture must always use uploadPhoto(). */
+export function forceSavePhotoForDevelopment(
+  image: Blob,
+  context: PhotoGuidanceRequestContext,
+): Promise<DevelopmentForceSaveResponse> {
+  return requestJson('/dev/photos/force-save', { method: 'POST', body: imageForm(image, context) });
 }
 
 export function createCaseFromPhotos(photoIds: string[]): Promise<CaseResponse> {

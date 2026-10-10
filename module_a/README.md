@@ -148,6 +148,6 @@ python -m module_a.evaluation.evaluate_pairs --manifest tmp/pair_candidates.json
 
 報告只輸出候選編號、視角、可比較性、原因、對位量測、比較區比例、熱區數量與耗時；不複製原圖，也不輸出原圖路徑。它**不是準確率**：檔名配對尚未核實，索賠資料夾也不是影像變化真值。門檻校正與真實變化標註可留到決賽；初賽展示不得把候選熱區當成自動車損或重拍結論。
 
-比較功能測試：**10 passed**；批次評估測試 **1 passed**；資料清單測試 **2 passed**。最新完整 Python 測試：**408 passed、1 個既有第三方警告、0 failed**（2026-10-10；合併駕駛側內裝模板調整後）。
+比較功能測試：**10 passed**；批次評估測試 **1 passed**；資料清單測試 **2 passed**。最新完整 Python 測試：**465 passed、1 個既有第三方警告、0 failed**（2026-10-10；整合最新主線後）。
 
 第一版保留於 [legacy/capture-coach-v1](../legacy/capture-coach-v1/)。第二版修改本資料夾，沿用 `A_legalityAI`，再透過 PR 合併至 `main`。

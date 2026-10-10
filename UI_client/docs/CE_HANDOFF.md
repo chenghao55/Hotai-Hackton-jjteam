@@ -42,8 +42,8 @@ E 不負責判讀照片是否異常；E 負責驗證系統是否依既定結果�
 
 手機端只呼叫 Module E：
 
-1. 取景時以 `multipart/form-data` 呼叫 `POST /photo-guidance`。`accepted=false` 是有效指導結果，UI 顯示 `check.message` 並留在目前步驟。
-2. 按下快門後呼叫 `POST /photos`，傳送 `file`、`photo_type=return` 與 `capture_slot`。只有 `accepted=true` 才保存後端回傳的 `photo_id`。
+1. 取景時以 `multipart/form-data` 呼叫 `POST /photo-guidance`，傳送 `file`、`photo_type=return`、`capture_slot`、`vehicle_type`、`session_id`、`frame_id` 與 interior step 的 `entry_side`。`accepted=false` 是有效指導結果，UI 顯示 `check.message` 並留在目前步驟。
+2. 按下快門後呼叫 `POST /photos`，傳送相同 context；只有 `accepted=true` 才保存後端回傳的 `photo_id`。單一還車拍攝流程共用 session ID，preview/final request 的 frame ID 單調增加。前後座由既有步驟自動送 `entry_side=left`，不增加使用者選項。
 3. 完成拍攝後呼叫 `POST /cases/from-photos`：
 
 ```json
@@ -65,6 +65,8 @@ UI 不傳 `case_id`；Module E 產生 ID 並回傳完整 Case：
 ```
 
 卡片、前座與後座照片仍經 `POST /photos` 保存，但不放入 Case request。左前、右前、左後、右後與選填 `OTHER_DAMAGE` 的 `photo_id` 才會送往 Case 建立。正式結果頁不衍生風險、建議動作、賠償估價、清潔或付款值。
+
+Module E 已啟用真實 Module A adapter。預覽不鎖快門，正式照片以 `uploaded_photo` 來源重新檢核，不合格要求重拍；沒有逾時人工審核。卡片／OTHER_DAMAGE／rear 僅驗證圖片格式。模板未校正仍會回傳不通過。啟動後端前設定 `HOTAI_MODULE_A_CHECKPOINT_PATH`，並將 UI 的 `NEXT_PUBLIC_MODULE_E_BASE_URL` 指向該後端。
 
 案件狀態直接呈現 Module D 值：`unassigned`、`dispatched`、`processing`、`pending_payment`、`completed`。
 

@@ -1,9 +1,10 @@
-import type { CaptureSlot, CaseResponse } from '@/lib/module-e-api';
+import type { CaptureSlot, CaseResponse, EntrySide } from '@/lib/module-e-api';
 
 export type CaptureStep = {
   shotType: string;
   captureSlot: CaptureSlot;
   includeInCaseEvidence: boolean;
+  entrySide?: EntrySide;
   title: string;
   description: string;
   frameLabel: string;
@@ -30,8 +31,9 @@ export const captureSteps: CaptureStep[] = [
     shotType: 'front_cabin',
     captureSlot: 'interior_front',
     includeInCaseEvidence: false,
+    entrySide: 'left',
     title: '車內座椅（前座）',
-    description: '由前車門拍攝駕駛座、副駕座與中控區域，確認座椅及腳踏區沒有髒污或遺留物。',
+    description: '由左前車門拍攝駕駛座、副駕座與中控區域，確認座椅及腳踏區沒有髒污或遺留物。',
     frameLabel: '前座與中控完整入鏡',
     tips: ['前座完整', '中控清楚', '移除物品'],
   },
@@ -39,8 +41,9 @@ export const captureSteps: CaptureStep[] = [
     shotType: 'rear_cabin',
     captureSlot: 'interior_rear',
     includeInCaseEvidence: false,
+    entrySide: 'left',
     title: '車內座椅（後座）',
-    description: '由後車門拍攝後座椅面、椅背與腳踏區，讓清潔狀況完整且清楚可辨。',
+    description: '由左後車門拍攝後座椅面、椅背與腳踏區，讓清潔狀況完整且清楚可辨。',
     frameLabel: '後座與腳踏區完整入鏡',
     tips: ['椅面完整', '腳踏清楚', '光線充足'],
   },

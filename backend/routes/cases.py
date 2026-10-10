@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from backend.schemas.cases import (
     CaseCreateRequest,
+    DetectionCreateRequest,
     CaseFromPhotosRequest,
     PaymentRequest,
     ReviewRequest,
@@ -21,7 +22,7 @@ from backend.services.photo_storage import (
 from backend.state.cases import cases
 from module_b import ModuleB
 from module_d import logic
-from module_d.models import Case, Detection, ReviewState
+from module_d.models import Case, Detection, DetectionInput, ReviewState
 from module_d.policy import demo_policy
 
 
@@ -159,6 +160,34 @@ async def update_payment(case_id: str, request: PaymentRequest) -> Case:
 async def confirm_payment(case_id: str) -> Case:
     case = _case_or_404(case_id)
     _domain_conflict(lambda: logic.confirm_payment(case))
+    return case
+
+
+@router.post("/cases/{case_id}/detections", response_model=Case)
+async def add_detection(case_id: str, request: DetectionCreateRequest) -> Case:
+    """Add one more finding to an existing UNASSIGNED Case; invalid values are 422, rule conflicts 409."""
+    case = _case_or_404(case_id)
+    finding = DetectionInput(
+        detection_id=request.detection_id,
+        borrow_photo_id=request.borrow_photo_id,
+        return_photo_id=request.return_photo_id,
+        category=request.category,
+        severity=request.severity,
+        confidence=request.confidence,
+    )
+    try:
+        Detection(
+            detection_id=finding.detection_id,
+            borrow_photo_id=finding.borrow_photo_id,
+            return_photo_id=finding.return_photo_id,
+            category=finding.category,
+            severity=finding.severity,
+            confidence=finding.confidence,
+            review_state=ReviewState.NEEDS_REVIEW,
+        ).validate()
+    except ValueError as exc:
+        raise _invalid_create(str(exc)) from exc
+    _domain_conflict(lambda: logic.add_detection(case, finding, policy=demo_policy()))
     return case
 
 

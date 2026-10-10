@@ -311,7 +311,7 @@ def test_appeal_preserves_context_and_uses_original_score(client):
     assert returned["reviewed_severity"] == "severe"
     assert returned["review_note"] == "previous correction"
     assert response.json()["priority_score"] == 20
-    assert response.json()["status"] == "dispatched"
+    assert response.json()["status"] == "unassigned"
     assert response.json()["payment_amount"] == 2400
 
 
@@ -368,10 +368,12 @@ def test_only_requested_endpoints_in_openapi(client):
         "/cases/{case_id}/start-processing", "/cases/{case_id}/finish-processing",
         "/cases/{case_id}/complete-without-action", "/cases/{case_id}/payment",
         "/cases/{case_id}/confirm-payment",
+        "/cases/{case_id}/detections",
         "/cases/{case_id}/detections/{detection_id}/review",
         "/cases/{case_id}/detections/{detection_id}/appeal",
     }
     assert set(paths["/cases"]) == {"get", "post"}
     assert set(paths["/cases/from-photos"]) == {"post"}
     assert set(paths["/cases/{case_id}/payment"]) == {"put"}
+    assert set(paths["/cases/{case_id}/detections"]) == {"post"}
     assert client.get("/docs").status_code == 200

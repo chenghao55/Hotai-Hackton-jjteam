@@ -20,6 +20,12 @@ class GuidanceCode(str, Enum):
     BACKLIGHT = "BACKLIGHT"
     OVEREXPOSED = "OVEREXPOSED"
     BLUR = "BLUR"
+    LOW_DETAIL = "LOW_DETAIL"
+    SUBJECT_NOT_DETECTED = "SUBJECT_NOT_DETECTED"
+    MULTIPLE_SUBJECTS = "MULTIPLE_SUBJECTS"
+    SUBJECT_NEAR_EDGE = "SUBJECT_NEAR_EDGE"
+    SUBJECT_TOO_SMALL = "SUBJECT_TOO_SMALL"
+    SUBJECT_TOO_LARGE = "SUBJECT_TOO_LARGE"
     TOO_FAR = "TOO_FAR"
     TOO_CLOSE = "TOO_CLOSE"
     OFF_CENTER = "OFF_CENTER"
@@ -28,20 +34,24 @@ class GuidanceCode(str, Enum):
     TOO_FRONT = "TOO_FRONT"
     TOO_SIDE = "TOO_SIDE"
     INTERIOR_NOT_ALIGNED = "INTERIOR_NOT_ALIGNED"
-    LOW_DETAIL = "LOW_DETAIL"
-    SUBJECT_NOT_DETECTED = "SUBJECT_NOT_DETECTED"
-    MULTIPLE_SUBJECTS = "MULTIPLE_SUBJECTS"
-    SUBJECT_NEAR_EDGE = "SUBJECT_NEAR_EDGE"
-    SUBJECT_TOO_SMALL = "SUBJECT_TOO_SMALL"
-    SUBJECT_TOO_LARGE = "SUBJECT_TOO_LARGE"
     POSSIBLE_WRONG_SLOT = "POSSIBLE_WRONG_SLOT"
-    TEMPLATE_NOT_CALIBRATED = "TEMPLATE_NOT_CALIBRATED"
-    FRONT_SEAT_EVIDENCE_UNAVAILABLE = "FRONT_SEAT_EVIDENCE_UNAVAILABLE"
-    UNSUPPORTED_SLOT = "UNSUPPORTED_SLOT"
     MISSING_REQUIRED_FEATURE = "MISSING_REQUIRED_FEATURE"
     GEOMETRY_MISMATCH = "GEOMETRY_MISMATCH"
     AMBIGUOUS_TEMPLATES = "AMBIGUOUS_TEMPLATES"
+    UNSUPPORTED_SLOT = "UNSUPPORTED_SLOT"
+    TEMPLATE_NOT_CALIBRATED = "TEMPLATE_NOT_CALIBRATED"
+    FRONT_SEAT_EVIDENCE_UNAVAILABLE = "FRONT_SEAT_EVIDENCE_UNAVAILABLE"
     PASS = "PASS"
+
+
+class VehicleType(str, Enum):
+    SEDAN = "sedan"
+    SUV = "suv"
+
+
+class EntrySide(str, Enum):
+    LEFT = "left"
+    RIGHT = "right"
 
 
 class GuidanceAction(str, Enum):
@@ -96,3 +106,9 @@ class PhotoUploadResponse(_PhotoDecisionResponse):
         elif self.photo_id is not None:
             raise ValueError("rejected uploads must have photo_id=None")
         return self
+
+
+class DevelopmentForceSaveResponse(BaseModel):
+    """Development-only storage result; this is not a PhotoCoach decision."""
+
+    photo_id: str = Field(min_length=1)

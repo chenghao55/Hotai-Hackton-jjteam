@@ -8,83 +8,20 @@ const REVIEW_LABEL = { needs_review: "待人工覆核", auto_accepted: "AI自動
 const STATUS_LABEL = { unassigned: "未派工", dispatched: "已派工", processing: "處理中", pending_payment: "待付款", completed: "已結案" };
 const STATUS_ORDER = ["unassigned", "dispatched", "processing", "pending_payment", "completed"];
 
-// 對應優先度表（白板版本）
-const PRIORITY_TABLE = {
-  scratch: { minor: 20, moderate: 45, severe: 70 },
-  collision_damage: { minor: 50, moderate: 75, severe: 95 },
-  cleanliness: { minor: 10, moderate: 35, severe: 60 },
-};
-// 依 module_d/logic.py 最新版：NEEDS_REVIEW 也會貢獻分數（方便 staff 依優先級排審核佇列），只有 REJECTED 不算
-const PRIORITY_CONTRIBUTING = new Set(["needs_review", "auto_accepted", "confirmed", "corrected"]);
-function calcPriority(detections) {
-  const usable = detections.filter((d) => PRIORITY_CONTRIBUTING.has(d.review_state));
-  if (usable.length === 0) return null;
-  return Math.max(...usable.map((d) => {
-    const cat = d.review_state === "corrected" ? d.reviewed_category : d.category;
-    const sev = d.review_state === "corrected" ? d.reviewed_severity : d.severity;
-    return PRIORITY_TABLE[cat][sev];
-  }));
-}
-
 // 依跟 D 同學討論的規格：每個案件 12 張照片，外觀 8 張 + 內裝 4 張，每張可以有「標記/沒標記」，標記來源是 AI 或人工
 const EXTERIOR_POSITIONS = ["車頭", "車尾", "左側", "右側", "左前角", "右前角", "左後角", "右後角"];
 const INTERIOR_POSITIONS = ["儀表板", "駕駛座", "後座", "後車廂"];
 const ALL_POSITIONS = [...EXTERIOR_POSITIONS, ...INTERIOR_POSITIONS];
-const CATEGORY_FLAG_POSITION = { scratch: "右前角", collision_damage: "左前角", cleanliness: "後座" };
 
 function generatePhotos(c) {
-  const d = c.detections[0];
-  // 人工用「修正標記」手動改過的話，customFlags 蓋過自動判斷
-  if (c.customFlags) {
-    return ALL_POSITIONS.map((label, i) => {
-      const flagged = c.customFlags.includes(label);
-      return { id: `${c.case_id}-P${i + 1}`, label, flagged, markType: flagged ? "human" : null };
-    });
-  }
-  const flagPosition = CATEGORY_FLAG_POSITION[d.category];
-  // ai：AI 標的（待審核/自動通過）；human：人工確認或修正過；rejected：曾經標記過，但人工判斷不成立
-  const markType = d.review_state === "rejected" ? "rejected" : (d.review_state === "confirmed" || d.review_state === "corrected") ? "human" : "ai";
-  return ALL_POSITIONS.map((label, i) => {
-    const flagged = label === flagPosition;
-    return { id: `${c.case_id}-P${i + 1}`, label, flagged, markType: flagged ? markType : null };
-  });
+  return ALL_POSITIONS.map((label, i) => ({
+    id: `${c.case_id}-P${i + 1}`,
+    label,
+    flagged: false,
+    markType: null,
+  }));
 }
 
-const INITIAL_CASES = [
-  // 顧客申訴案例：AI 原本判斷已經 auto_accepted，但顧客認為判斷有誤，appeal_detection() 把 detection 退回 needs_review（案件狀態不變）
-  { case_id: "CASE-3041", status: "unassigned", priority_score: 20, payment_amount: 0, plate: "RST-7777", out: "09:00", in: "12:30", borrower: "顏先生 · Toyota Altis",
-    detections: [{ detection_id: "DET-5999", borrow_photo_id: "borrow-299", return_photo_id: "return-299", category: "scratch", severity: "minor", confidence: 0.88, review_state: "needs_review", disputed: true }] },
-
-  // 待處理（status: unassigned，還沒派工，通常還有 detection 待覆核；needs_review 一樣會貢獻 priority_score）
-  { case_id: "CASE-3042", status: "unassigned", priority_score: 45, payment_amount: 0, plate: "ABC-1234", out: "09:10", in: "14:20", borrower: "林先生 · Toyota Corolla",
-    detections: [{ detection_id: "DET-6001", borrow_photo_id: "borrow-301", return_photo_id: "return-301", category: "scratch", severity: "moderate", confidence: 0.42, review_state: "needs_review" }] },
-  { case_id: "CASE-3043", status: "unassigned", priority_score: null, payment_amount: 0, plate: "EFG-5678", out: "08:30", in: "13:00", borrower: "黃小姐 · Honda Fit",
-    detections: [{ detection_id: "DET-6002", borrow_photo_id: "borrow-302", return_photo_id: "return-302", category: "cleanliness", severity: "minor", confidence: 0.44, review_state: "rejected" }] },
-  { case_id: "CASE-3044", status: "unassigned", priority_score: 75, payment_amount: 0, plate: "HJK-9012", out: "07:50", in: "12:10", borrower: "吳先生 · Nissan Kicks",
-    detections: [{ detection_id: "DET-6003", borrow_photo_id: "borrow-303", return_photo_id: "return-303", category: "collision_damage", severity: "moderate", confidence: 0.55, review_state: "needs_review" }] },
-  { case_id: "CASE-3045", status: "unassigned", priority_score: 60, payment_amount: 0, plate: "LMN-3456", out: "09:40", in: "11:30", borrower: "張小姐 · Toyota Yaris",
-    detections: [{ detection_id: "DET-6004", borrow_photo_id: "borrow-304", return_photo_id: "return-304", category: "cleanliness", severity: "severe", confidence: 0.38, review_state: "needs_review" }] },
-  { case_id: "CASE-3046", status: "unassigned", priority_score: 20, payment_amount: 0, plate: "PQR-7890", out: "10:05", in: "13:45", borrower: "王先生 · Mazda 3",
-    detections: [{ detection_id: "DET-6005", borrow_photo_id: "borrow-305", return_photo_id: "return-305", category: "scratch", severity: "minor", confidence: 0.63, review_state: "needs_review" }] },
-
-  // 處理中（status: dispatched / processing / pending_payment）
-  { case_id: "CASE-3038", status: "dispatched", priority_score: 75, payment_amount: 0, plate: "STU-9990", out: "—", in: "—", borrower: "王先生 · Mazda 3",
-    detections: [{ detection_id: "DET-5998", borrow_photo_id: "borrow-290", return_photo_id: "return-290", category: "collision_damage", severity: "moderate", confidence: 0.74, review_state: "confirmed" }] },
-  { case_id: "CASE-3035", status: "processing", priority_score: 60, payment_amount: 0, plate: "KLM-4521", out: "—", in: "—", borrower: "林小姐 · Honda Fit",
-    detections: [{ detection_id: "DET-5990", borrow_photo_id: "borrow-280", return_photo_id: "return-280", category: "cleanliness", severity: "severe", confidence: 0.69, review_state: "confirmed" }] },
-  { case_id: "CASE-3030", status: "pending_payment", priority_score: 45, payment_amount: 2400, plate: "XYZ-1123", out: "—", in: "—", borrower: "陳先生 · Toyota Yaris",
-    detections: [{ detection_id: "DET-5980", borrow_photo_id: "borrow-270", return_photo_id: "return-270", category: "scratch", severity: "moderate", confidence: 0.71, review_state: "confirmed" }] },
-
-  // 已處理（status: completed）
-  { case_id: "CASE-3020", status: "completed", priority_score: 10, payment_amount: 0, plate: "STU-2345", out: "08:00", in: "10:20", borrower: "李小姐",
-    detections: [{ detection_id: "DET-5900", borrow_photo_id: "borrow-200", return_photo_id: "return-200", category: "cleanliness", severity: "minor", confidence: 0.88, review_state: "auto_accepted" }] },
-  { case_id: "CASE-3015", status: "completed", priority_score: 20, payment_amount: 0, plate: "VWX-6789", out: "07:15", in: "09:40", borrower: "周先生",
-    detections: [{ detection_id: "DET-5895", borrow_photo_id: "borrow-195", return_photo_id: "return-195", category: "scratch", severity: "minor", confidence: 0.95, review_state: "auto_accepted" }] },
-  { case_id: "CASE-3010", status: "completed", priority_score: 95, payment_amount: 1800, plate: "YZA-0123", out: "06:50", in: "09:00", borrower: "蔡小姐",
-    detections: [{ detection_id: "DET-5890", borrow_photo_id: "borrow-190", return_photo_id: "return-190", category: "collision_damage", severity: "severe", confidence: 0.79, review_state: "confirmed" }] },
-];
-
-function confClass(c) { return c >= 0.7 ? "conf-high" : c >= 0.5 ? "conf-mid" : "conf-low"; }
 function reviewPillClass(state) {
   if (state === "needs_review") return "pill-amber";
   if (state === "rejected") return "pill-red";
@@ -106,6 +43,22 @@ function nextAction(status) {
   if (status === "processing") return { label: "完成處理", key: "finish" };
   if (status === "pending_payment") return { label: "確認付款", key: "pay" };
   return null;
+}
+
+// 後端回傳的錯誤訊息可能是英文，統一顯示中文提示，原始訊息只留在瀏覽器 console
+function notifyError(actionName, err) {
+  console.error(`${actionName}失敗：`, err);
+  alert(`${actionName}失敗，請確認案件目前的狀態後再試一次。`);
+}
+
+// 人工修正過就採用修正後的損傷類型／嚴重程度，changed 表示跟 AI 原判不同
+function effectiveJudgement(d) {
+  const adjusted = d.review_state === "corrected" && d.reviewed_category != null && d.reviewed_severity != null;
+  return {
+    category: adjusted ? d.reviewed_category : d.category,
+    severity: adjusted ? d.reviewed_severity : d.severity,
+    changed: adjusted && (d.reviewed_category !== d.category || d.reviewed_severity !== d.severity),
+  };
 }
 
 function CarThumb() {
@@ -146,16 +99,15 @@ function PendingTable({ cases, onOpen }) {
     <div className="table-card">
       <table>
         <thead>
-          <tr><th>處理狀態</th><th>車牌號碼</th><th>借車時間</th><th>還車時間</th><th>借車前照片</th><th>借車後照片</th><th>借車人</th><th>AI信心程度</th><th>優先級</th></tr>
+          <tr><th>處理狀態</th><th>車牌號碼</th><th>借車時間</th><th>還車時間</th><th>借車前照片</th><th>借車後照片</th><th>借車人</th><th>優先級</th></tr>
         </thead>
         <tbody>
           {cases.map((c) => {
             const d = c.detections[0];
             return (
-              <tr key={c.case_id} className={d.disputed ? "disputed-row" : ""} onClick={() => onOpen(c)}>
+              <tr key={c.case_id} onClick={() => onOpen(c)}>
                 <td>
-                  <span className={`pill ${reviewPillClass(d.review_state)}`}>{REVIEW_LABEL[d.review_state]}</span>
-                  {d.disputed && <span className="pill pill-dispute" style={{ marginLeft: 6 }}>顧客申訴</span>}
+                  {d ? <span className={`pill ${reviewPillClass(d.review_state)}`}>{REVIEW_LABEL[d.review_state]}</span> : <span className="pill pill-neutral">無判讀結果</span>}
                 </td>
                 <td className="plate">{c.plate}</td>
                 <td>{c.out}</td>
@@ -163,7 +115,6 @@ function PendingTable({ cases, onOpen }) {
                 <td><CarThumb /></td>
                 <td><CarThumb /></td>
                 <td>{c.borrower.split(" · ")[0]}</td>
-                <td className={`conf ${confClass(d.confidence)}`}>{(d.confidence * 100).toFixed(0)}%</td>
                 <td><PriorityBadge score={c.priority_score} /></td>
               </tr>
             );
@@ -179,15 +130,16 @@ function ProcessingList({ cases, onOpen }) {
     <div className="proc-list">
       {cases.map((c) => {
         const currentIdx = STATUS_ORDER.indexOf(c.status);
+        const d = c.detections[0];
+        const j = d ? effectiveJudgement(d) : null;
         return (
-          <div className={`proc-card ${c.detections.some((det) => det.disputed) ? "disputed-row" : ""}`} key={c.case_id} onClick={() => onOpen(c)}>
+          <div className="proc-card" key={c.case_id} onClick={() => onOpen(c)}>
             <div className="proc-top">
               <div>
                 <div className="proc-title">
                   {c.case_id} · {c.borrower}
-                  {c.detections.some((det) => det.disputed) && <span className="pill pill-dispute" style={{ marginLeft: 8 }}>顧客申訴</span>}
                 </div>
-                <div className="proc-sub">車牌 {c.plate} · {CATEGORY_LABEL[c.detections[0].category]}・{SEVERITY_LABEL[c.detections[0].severity]} · priority_score {c.priority_score}</div>
+                <div className="proc-sub">車牌 {c.plate} · {j ? `${CATEGORY_LABEL[j.category]}・${SEVERITY_LABEL[j.severity]}` : "無判讀結果"} · 優先度分數 {c.priority_score ?? "尚未計算"}</div>
               </div>
               <span className={`pill ${priorityClass(c.priority_score)}`}>{STATUS_LABEL[c.status]}</span>
             </div>
@@ -210,16 +162,15 @@ function DoneTable({ cases, onOpen }) {
     <div className="table-card">
       <table>
         <thead>
-          <tr><th>處理紀錄</th><th>車牌號碼</th><th>借車時間</th><th>還車時間</th><th>借車前照片</th><th>借車後照片</th><th>借車人</th><th>付款狀態</th><th>AI信心程度</th></tr>
+          <tr><th>處理紀錄</th><th>車牌號碼</th><th>借車時間</th><th>還車時間</th><th>借車前照片</th><th>借車後照片</th><th>借車人</th><th>付款狀態</th></tr>
         </thead>
         <tbody>
           {cases.map((c) => {
             const d = c.detections[0];
             return (
-              <tr key={c.case_id} className={d.disputed ? "disputed-row" : ""} onClick={() => onOpen(c)}>
+              <tr key={c.case_id} onClick={() => onOpen(c)}>
                 <td>
-                  <span className="pill pill-neutral">{REVIEW_LABEL[d.review_state]} → 已結案</span>
-                  {d.disputed && <span className="pill pill-dispute" style={{ marginLeft: 6 }}>顧客申訴</span>}
+                  <span className="pill pill-neutral">{d ? REVIEW_LABEL[d.review_state] : "無判讀結果"} → 已結案</span>
                 </td>
                 <td className="plate">{c.plate}</td>
                 <td>{c.out}</td>
@@ -228,7 +179,6 @@ function DoneTable({ cases, onOpen }) {
                 <td><CarThumb /></td>
                 <td>{c.borrower}</td>
                 <td><span className={`pill ${c.payment_amount > 0 ? "pill-lime" : "pill-neutral"}`}>{c.payment_amount > 0 ? `已收款 NT$${c.payment_amount}` : "無需收款"}</span></td>
-                <td className={`conf ${confClass(d.confidence)}`}>{(d.confidence * 100).toFixed(0)}%</td>
               </tr>
             );
           })}
@@ -261,44 +211,89 @@ function PhotoGallery({ photos, editable, onToggle }) {
   );
 }
 
-function Drawer({ item, onClose, onReview, onTransition, onCompleteWithoutAction, onDispute, onCorrectPhotos, connected }) {
+function Drawer({ item, onClose, onReview, onTransition, onCompleteWithoutAction, onDispute, onCorrect, onSetPayment, connected }) {
   const [editMode, setEditMode] = useState(false);
-  const [draftFlags, setDraftFlags] = useState([]);
+  const [draftCategory, setDraftCategory] = useState("scratch");
+  const [draftSeverity, setDraftSeverity] = useState("minor");
+  const [editError, setEditError] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [payEdit, setPayEdit] = useState(false);
+  const [draftAmount, setDraftAmount] = useState("");
+  const [payError, setPayError] = useState("");
+  const [paySaving, setPaySaving] = useState(false);
 
   useEffect(() => {
     setEditMode(false);
-    setDraftFlags([]);
+    setEditError("");
+    setEditSaving(false);
+    setPayEdit(false);
+    setPayError("");
+    setPaySaving(false);
   }, [item && item.case_id]);
 
   if (!item) return null;
   const d = item.detections[0];
+  const j = d ? effectiveJudgement(d) : null;
   const action = nextAction(item.status);
   const noContentToHandle =
     (item.status === "unassigned" || item.status === "dispatched") &&
     item.payment_amount === 0 &&
     item.detections.every((det) => det.review_state === "rejected");
+  // 後端規定：只有未派工／已派工／處理中可以改金額，進入待付款或已結案就鎖住
+  const canEditPayment = ["unassigned", "dispatched", "processing"].includes(item.status);
 
   function startEdit() {
-    setDraftFlags(generatePhotos(item).filter((p) => p.flagged).map((p) => p.label));
+    setDraftCategory(d.reviewed_category ?? d.category);
+    setDraftSeverity(d.reviewed_severity ?? d.severity);
+    setEditError("");
     setEditMode(true);
-  }
-  function toggleDraft(label) {
-    setDraftFlags((prev) => (prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]));
-  }
-  function saveEdit() {
-    onCorrectPhotos(item.case_id, d.detection_id, draftFlags);
-    setEditMode(false);
   }
   function cancelEdit() {
     setEditMode(false);
+    setEditError("");
+  }
+  function saveEdit() {
+    // 後端規定：修正時損傷類型或嚴重程度至少要有一項跟 AI 原判不同，否則會被拒絕
+    if (draftCategory === d.category && draftSeverity === d.severity) {
+      setEditError("修正時，損傷類型或嚴重程度至少要有一項和 AI 原判不同，才能儲存。");
+      return;
+    }
+    setEditError("");
+    setEditSaving(true);
+    Promise.resolve(onCorrect(item.case_id, d.detection_id, { category: draftCategory, severity: draftSeverity })).then((ok) => {
+      setEditSaving(false);
+      if (ok) setEditMode(false);
+    });
   }
 
-  const draftPhotos = ALL_POSITIONS.map((label, i) => ({
-    id: `${item.case_id}-P${i + 1}`,
-    label,
-    flagged: draftFlags.includes(label),
-    markType: draftFlags.includes(label) ? "draft" : null,
-  }));
+  function startPay() {
+    setDraftAmount(item.payment_amount > 0 ? String(item.payment_amount) : "");
+    setPayError("");
+    setPayEdit(true);
+  }
+  function cancelPay() {
+    setPayEdit(false);
+    setPayError("");
+  }
+  function savePay() {
+    // 全形數字（２４００）與千分位逗號先轉成一般數字，再檢查是否為 0 以上的整數
+    const cleaned = draftAmount.trim().replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[,，]/g, "");
+    if (!/^\d+$/.test(cleaned) || !Number.isSafeInteger(Number(cleaned))) {
+      setPayError("請輸入 0 以上的整數（新台幣），不能有小數點或負號。");
+      return;
+    }
+    const amount = Number(cleaned);
+    if (amount === item.payment_amount) {
+      cancelPay();
+      return;
+    }
+    setPayError("");
+    setPaySaving(true);
+    Promise.resolve(onSetPayment(item.case_id, amount)).then((ok) => {
+      setPaySaving(false);
+      if (ok) setPayEdit(false);
+    });
+  }
 
   return (
     <>
@@ -310,39 +305,84 @@ function Drawer({ item, onClose, onReview, onTransition, onCompleteWithoutAction
         <h2>{item.case_id} · {item.borrower}</h2>
         <div className="sub">車牌 {item.plate} · 借車 {item.out} → 還車 {item.in}</div>
 
-        {d.disputed && (
-          <div className="dispute-banner">顧客申訴：認為 AI 判斷有誤，此筆 Detection 已退回待人工複審（案件狀態不變）</div>
-        )}
+        <div className="section-label">照片版位（後端尚未提供照片清單）</div>
+        <PhotoGallery photos={generatePhotos(item)} editable={false} />
 
-        <div className="section-label">車況照片（12 張：外觀 8 ／ 內裝 4）</div>
-        {editMode && <div className="gap-note">修正模式：點擊照片可切換「有標記／沒標記」，改完按「儲存修正」。</div>}
-        <PhotoGallery photos={editMode ? draftPhotos : generatePhotos(item)} editable={editMode} onToggle={toggleDraft} />
-
-        <div className="section-label">AI 判讀（Detection）</div>
-        <div className="diff-chip"><span className="dot"></span><b>{CATEGORY_LABEL[d.category]}</b><span className="conf-text">severity: {SEVERITY_LABEL[d.severity]}</span></div>
-        <br />
-        <div className="diff-chip"><span className="dot" style={{ background: "var(--text-muted)" }}></span><b>confidence</b><span className="conf-text">{d.confidence.toFixed(2)}</span></div>
+        <div className="section-label">AI 判讀結果</div>
+        {d ? <>
+          {editMode ? (
+            <div className="edit-fields">
+              <label className="edit-field">損傷類型
+                <select value={draftCategory} onChange={(e) => setDraftCategory(e.target.value)}>
+                  {Object.keys(CATEGORY_LABEL).map((k) => <option key={k} value={k}>{CATEGORY_LABEL[k]}</option>)}
+                </select>
+              </label>
+              <label className="edit-field">嚴重程度
+                <select value={draftSeverity} onChange={(e) => setDraftSeverity(e.target.value)}>
+                  {Object.keys(SEVERITY_LABEL).map((k) => <option key={k} value={k}>{SEVERITY_LABEL[k]}</option>)}
+                </select>
+              </label>
+            </div>
+          ) : (
+            <div className="diff-chip"><span className="dot"></span><b>{CATEGORY_LABEL[j.category]}</b><span className="conf-text">嚴重程度：{SEVERITY_LABEL[j.severity]}</span></div>
+          )}
+          {(editMode || j.changed) && (
+            <div className="orig-note">AI 原判：{CATEGORY_LABEL[d.category]}・{SEVERITY_LABEL[d.severity]}{!editMode && "（已由人工調整）"}</div>
+          )}
+          <br />
+          {typeof d.confidence === "number" && (
+            <div className="diff-chip"><span className="dot" style={{ background: "var(--text-muted)" }}></span><b>信心度</b><span className="conf-text">{d.confidence.toFixed(2)}</span></div>
+          )}
+        </> : <div className="gap-note">此案件沒有判讀結果；仍可依目前案件狀態執行合法的工作流程操作。</div>}
 
         <div className="checklist">
-          <div className="section-label">案件資訊（Case）</div>
-          <div className="check-row"><span>priority_score</span><PriorityBadge score={item.priority_score} /></div>
-          <div className="check-row"><span>review_state</span><span className={`pill ${reviewPillClass(d.review_state)}`}>{REVIEW_LABEL[d.review_state]}</span></div>
-          <div className="check-row"><span>payment_amount</span><span>{item.payment_amount > 0 ? `NT$ ${item.payment_amount}` : "—"}</span></div>
+          <div className="section-label">案件資訊</div>
+          <div className="check-row"><span>優先度分數</span><PriorityBadge score={item.priority_score} /></div>
+          <div className="check-row"><span>審核狀態</span>{d ? <span className={`pill ${reviewPillClass(d.review_state)}`}>{REVIEW_LABEL[d.review_state]}</span> : <span className="pill pill-neutral">無判讀結果</span>}</div>
+          <div className="check-row pay-row">
+            <span>付款金額</span>
+            {payEdit ? (
+              <span className="pay-edit">
+                <span className="pay-prefix">NT$</span>
+                <input
+                  className="pay-input"
+                  type="text"
+                  inputMode="numeric"
+                  aria-label="付款金額"
+                  autoFocus
+                  value={draftAmount}
+                  onChange={(e) => setDraftAmount(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") savePay(); if (e.key === "Escape") cancelPay(); }}
+                />
+                <button className="pay-btn" onClick={savePay} disabled={paySaving}>儲存</button>
+                <button className="pay-btn pay-btn-ghost" onClick={cancelPay} disabled={paySaving}>取消</button>
+              </span>
+            ) : (
+              <span className="pay-view">
+                {item.payment_amount > 0 ? `NT$ ${item.payment_amount}` : "—"}
+                {canEditPayment && <button className="pay-link" onClick={startPay}>設定金額</button>}
+              </span>
+            )}
+          </div>
+          {payEdit && payError && <div className="pay-error">{payError}</div>}
+          {!canEditPayment && <div className="pay-hint">此階段不能修改金額</div>}
+          {item.status === "processing" && <div className="pay-hint">完成處理時，金額大於 0 會進入待付款，等於 0 直接結案</div>}
         </div>
 
         <div className="section-label">操作</div>
-        {connected && !editMode && <div className="gap-note">已接上真後端：派工／開始處理／完成處理／確認付款／確認／車體無問題／無需處理結案／顧客申訴都會真的呼叫 API。「修正標記」目前只在前端模擬，還沒有對應的後端欄位可以存照片層級的標記。</div>}
+        {connected && !editMode && <div className="gap-note">此畫面的可用操作會直接呼叫 Module E。</div>}
+        {editMode && editError && <div className="form-error">{editError}</div>}
         {editMode ? (
           <div className="actions">
-            <button className="btn btn-primary" onClick={saveEdit}>儲存修正</button>
-            <button className="btn btn-ghost" onClick={cancelEdit}>取消</button>
+            <button className="btn btn-primary" onClick={saveEdit} disabled={editSaving}>儲存修正</button>
+            <button className="btn btn-ghost" onClick={cancelEdit} disabled={editSaving}>取消</button>
           </div>
         ) : (
           <div className="actions">
-            {d.review_state === "needs_review" && (
+            {d?.review_state === "needs_review" && (
               <>
                 <button className="btn btn-primary" onClick={() => onReview(item.case_id, d.detection_id, "confirmed")}>確認</button>
-                <button className="btn btn-secondary" onClick={startEdit}>修正標記</button>
+                <button className="btn btn-secondary" onClick={startEdit}>修正</button>
                 <button className="btn btn-ghost" onClick={() => onReview(item.case_id, d.detection_id, "rejected")}>車體無問題</button>
               </>
             )}
@@ -352,12 +392,12 @@ function Drawer({ item, onClose, onReview, onTransition, onCompleteWithoutAction
             {noContentToHandle && (
               <button className="btn btn-ghost" onClick={() => onCompleteWithoutAction(item.case_id)}>無需處理／結案</button>
             )}
-            {!d.disputed && (
-              <button className="btn btn-ghost" onClick={() => onDispute(item.case_id, d.detection_id)}>模擬顧客申訴（AI判斷有誤）</button>
+            {d && d.review_state !== "needs_review" && (
+              <button className="btn btn-ghost" onClick={() => onDispute(item.case_id, d.detection_id)}>顧客申訴（重新審核）</button>
             )}
           </div>
         )}
-        {!editMode && action && action.key === "finish" && item.detections.some((det) => det.review_state === "needs_review") && (
+        {action && action.key === "finish" && item.detections.some((det) => det.review_state === "needs_review") && (
           <div className="gap-note">還有 Detection 待人工覆核，finish_processing() 目前會拒絕完成處理，需先完成審核。</div>
         )}
       </div>
@@ -380,9 +420,9 @@ function normalizeCase(c) {
 
 export default function CaseQueueConsole() {
   const [activeTab, setActiveTab] = useState("pending");
-  const [cases, setCases] = useState(INITIAL_CASES);
+  const [cases, setCases] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [connected, setConnected] = useState(null); // null = 還在檢查, true = 接上真後端, false = 用示範資料
+  const [connected, setConnected] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -433,14 +473,10 @@ export default function CaseQueueConsole() {
           return res.json();
         })
         .then((updated) => updateCase(case_id, (c) => normalizeAndKeepDecor(c, updated)))
-        .catch((err) => alert(`審核失敗：${err.message}`));
+        .catch((err) => notifyError("審核", err));
       return;
     }
-    // corrected 需要同時送 reviewed_category / reviewed_severity，這裡還沒有欄位可填，先留在前端模擬
-    updateCase(case_id, (c) => {
-      const detections = c.detections.map((d) => (d.detection_id === detection_id ? { ...d, review_state: newState } : d));
-      return { ...c, detections, priority_score: calcPriority(detections) };
-    });
+    alert("審核失敗：後端尚未連線，或此審核結果尚未支援");
   }
 
   const TRANSITION_ENDPOINT = {
@@ -460,19 +496,10 @@ export default function CaseQueueConsole() {
           return res.json();
         })
         .then((updated) => updateCase(case_id, (c) => normalizeAndKeepDecor(c, updated)))
-        .catch((err) => alert(`操作失敗：${err.message}`));
+        .catch((err) => notifyError("操作", err));
       return;
     }
-    // 沒接上後端時，前端模擬同一套狀態機
-    updateCase(case_id, (c) => {
-      let status = c.status;
-      let priority_score = c.priority_score;
-      if (status === "unassigned") status = "dispatched";
-      else if (status === "dispatched") status = "processing";
-      else if (status === "processing") status = c.payment_amount > 0 ? "pending_payment" : "completed";
-      else if (status === "pending_payment") status = "completed";
-      return { ...c, status, priority_score };
-    });
+    alert("操作失敗：後端尚未連線");
   }
 
   function normalizeAndKeepDecor(oldCase, updatedFromApi) {
@@ -490,10 +517,10 @@ export default function CaseQueueConsole() {
           return res.json();
         })
         .then((updated) => updateCase(case_id, (c) => normalizeAndKeepDecor(c, updated)))
-        .catch((err) => alert(`結案失敗：${err.message}`));
+        .catch((err) => notifyError("結案", err));
       return;
     }
-    updateCase(case_id, (c) => ({ ...c, status: "completed", priority_score: c.priority_score ?? 0 }));
+    alert("結案失敗：後端尚未連線");
   }
 
   // 顧客認為 AI 判斷有誤：對應真後端的 appeal_detection()。
@@ -505,27 +532,56 @@ export default function CaseQueueConsole() {
           if (!res.ok) return res.json().then((body) => { throw new Error(body.detail || `HTTP ${res.status}`); });
           return res.json();
         })
-        .then((updated) => updateCase(case_id, (c) => ({
-          ...normalizeAndKeepDecor(c, updated),
-          detections: updated.detections.map((d) => (d.detection_id === detection_id ? { ...d, disputed: true } : d)),
-        })))
-        .catch((err) => alert(`申訴失敗：${err.message}`));
+        .then((updated) => updateCase(case_id, (c) => normalizeAndKeepDecor(c, updated)))
+        .catch((err) => notifyError("申訴", err));
       return;
     }
-    updateCase(case_id, (c) => {
-      const detections = c.detections.map((d) => (d.detection_id === detection_id ? { ...d, review_state: "needs_review", disputed: true } : d));
-      return { ...c, detections, priority_score: calcPriority(detections) };
-    });
+    alert("申訴失敗：後端尚未連線");
   }
 
-  // 修正標記：人工手動勾選哪些照片有問題，目前後端沒有照片層級的標記欄位，先只更新前端狀態，
-  // 但仍把 review_state 設為 corrected，語意上對應 apply_review(CORRECTED)。
-  function handleCorrectPhotos(case_id, detection_id, flaggedLabels) {
-    updateCase(case_id, (c) => ({
-      ...c,
-      customFlags: flaggedLabels,
-      detections: c.detections.map((d) => (d.detection_id === detection_id ? { ...d, review_state: "corrected" } : d)),
-    }));
+  // 修正審核：人工調整 AI 判讀的損傷類型／嚴重程度，對應 POST /cases/{id}/detections/{id}/review（result: corrected）。
+  // 回傳 Promise<boolean>：成功才讓畫面離開修正狀態，失敗時保留使用者已經選好的內容。
+  function handleCorrection(case_id, detection_id, { category, severity }) {
+    if (!connected) {
+      alert("修正失敗：後端尚未連線");
+      return Promise.resolve(false);
+    }
+    return fetch(`${API_BASE}/cases/${case_id}/detections/${detection_id}/review`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ result: "corrected", reviewed_category: category, reviewed_severity: severity }),
+    })
+      .then((res) => {
+        if (!res.ok) return res.json().then((body) => { throw new Error(body.detail || `HTTP ${res.status}`); });
+        return res.json();
+      })
+      .then((updated) => {
+        updateCase(case_id, (c) => normalizeAndKeepDecor(c, updated));
+        return true;
+      })
+      .catch((err) => { notifyError("修正", err); return false; });
+  }
+
+  // 設定付款金額：對應 PUT /cases/{id}/payment（body: { amount: 整數 }），後端只允許在未派工／已派工／處理中修改。
+  function handleSetPayment(case_id, amount) {
+    if (!connected) {
+      alert("設定金額失敗：後端尚未連線");
+      return Promise.resolve(false);
+    }
+    return fetch(`${API_BASE}/cases/${case_id}/payment`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount }),
+    })
+      .then((res) => {
+        if (!res.ok) return res.json().then((body) => { throw new Error(body.detail || `HTTP ${res.status}`); });
+        return res.json();
+      })
+      .then((updated) => {
+        updateCase(case_id, (c) => normalizeAndKeepDecor(c, updated));
+        return true;
+      })
+      .catch((err) => { notifyError("設定金額", err); return false; });
   }
 
   const tabs = [
@@ -568,7 +624,6 @@ export default function CaseQueueConsole() {
         .conn-banner{font-size:12.5px;font-weight:600;padding:10px 16px;border-radius:12px;margin-bottom:18px;}
         .conn-ok{background:var(--accent-lime-soft);color:var(--accent-lime-deep);}
         .conn-off{background:var(--amber-soft);color:#6B4A12;}
-        .dispute-banner{background:var(--red-deep);color:#FBEAE3;font-size:12.5px;font-weight:600;line-height:1.6;padding:12px 16px;border-radius:12px;margin-bottom:18px;}
         .table-card{background:var(--surface-light-2);border-radius:20px;padding:6px 6px 14px;}
         table{width:100%;border-collapse:collapse;}
         thead th{text-align:left;font-size:11.5px;font-weight:700;color:var(--text-muted);padding:16px 14px 10px;white-space:nowrap;}
@@ -583,14 +638,6 @@ export default function CaseQueueConsole() {
         .pill-lime{background:var(--accent-lime-soft);color:var(--accent-lime-deep);}
         .pill-red{background:var(--red-soft);color:var(--red-deep);}
         .pill-neutral{background:rgba(20,34,25,0.08);color:var(--text-muted);}
-        .pill-dispute{background:var(--red-deep);color:#FBEAE3;font-weight:700;}
-        tbody tr.disputed-row{background:rgba(138,63,39,0.07);box-shadow:inset 3px 0 0 var(--red-deep);}
-        tbody tr.disputed-row:hover{background:rgba(138,63,39,0.13);}
-        .proc-card.disputed-row{background:rgba(138,63,39,0.09);box-shadow:inset 3px 0 0 var(--red-deep);}
-        .conf{font-weight:700;}
-        .conf-low{color:var(--red-deep);}
-        .conf-mid{color:#6B4A12;}
-        .conf-high{color:var(--accent-lime-deep);}
         .proc-list{display:flex;flex-direction:column;gap:12px;}
         .proc-card{background:var(--surface-light-2);border-radius:20px;padding:18px 22px;cursor:pointer;}
         .proc-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;}
@@ -623,10 +670,6 @@ export default function CaseQueueConsole() {
         .photo-tile.flagged .photo-tile-label{color:var(--red-deep);font-weight:700;}
         .photo-tile.rejected .photo-tile-label{color:var(--text-muted);text-decoration:line-through;}
         .flag-badge{position:absolute;top:3px;right:3px;font-size:9px;font-weight:700;padding:2px 5px;border-radius:6px;line-height:1.3;}
-        .flag-badge-ai{background:var(--surface-dark);color:var(--text-onDark);}
-        .flag-badge-human{background:var(--red-deep);color:#FBEAE3;}
-        .flag-badge-rejected{background:var(--text-muted);color:var(--bg-page);}
-        .flag-badge-draft{background:var(--amber);color:#3A2A05;}
         .photo-tile.editable{cursor:pointer;}
         .photo-tile.editable .photo-tile-frame{transition:transform .1s;}
         .photo-tile.editable:hover .photo-tile-frame{transform:scale(1.04);}
@@ -647,9 +690,27 @@ export default function CaseQueueConsole() {
         .check-row:first-child{padding-top:0;}
         .actions{display:flex;flex-wrap:wrap;gap:10px;}
         .btn{border:none;border-radius:100px;padding:11px 18px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+        .btn:disabled{cursor:not-allowed;opacity:.55;}
         .btn-primary{background:var(--surface-dark);color:var(--text-onDark);}
         .btn-secondary{background:var(--surface-light);color:var(--text-dark);}
         .btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border-hair);}
+        .orig-note{font-size:11.5px;color:var(--text-muted);margin:2px 0 4px 4px;}
+        .edit-fields{display:flex;gap:10px;margin-bottom:8px;}
+        .edit-field{flex:1;display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text-muted);font-weight:600;}
+        .edit-field select{font-family:inherit;font-size:13px;padding:8px 10px;border-radius:10px;border:1px solid var(--border-hair);background:var(--surface-light-2);color:var(--text-dark);}
+        .form-error{background:var(--red-soft);color:var(--red-deep);font-size:12.5px;font-weight:600;line-height:1.6;padding:10px 14px;border-radius:12px;margin-bottom:12px;}
+        .check-row.pay-row{border-bottom:none;padding-bottom:0;}
+        .pay-view{display:inline-flex;align-items:center;}
+        .pay-edit{display:inline-flex;align-items:center;gap:6px;}
+        .pay-prefix{color:var(--text-onDark-muted);font-size:12px;}
+        .pay-input{width:104px;font-family:inherit;font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid var(--border-hair-dark);background:rgba(244,246,236,0.08);color:var(--text-onDark);}
+        .pay-input:focus{outline:2px solid var(--accent-lime);outline-offset:1px;}
+        .pay-btn{border:none;border-radius:100px;padding:5px 12px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;background:var(--accent-lime);color:var(--surface-dark);}
+        .pay-btn:disabled{opacity:0.5;cursor:default;}
+        .pay-btn-ghost{background:transparent;color:var(--text-onDark-muted);border:1px solid var(--border-hair-dark);}
+        .pay-link{background:none;border:none;margin-left:10px;padding:0;font-family:inherit;font-size:12px;font-weight:600;color:var(--accent-lime);text-decoration:underline;cursor:pointer;}
+        .pay-hint{font-size:11.5px;line-height:1.6;color:var(--text-onDark-muted);padding-top:8px;}
+        .pay-error{font-size:12px;line-height:1.6;color:#F2B8A2;padding-top:8px;}
       `}</style>
 
       <Header pendingCount={pending.length} />
@@ -657,14 +718,14 @@ export default function CaseQueueConsole() {
       <div className="main">
         <div className="page-head">
           <h1>案件佇列</h1>
-          <p>review_state = needs_review 的案件也會計算 priority_score（方便依優先級排審核佇列），只有已退回（rejected）的判斷不計分。</p>
+          <p>待人工覆核的案件也會計算優先度分數（方便依優先度排審核順序），只有標為「車體無問題」的判斷不計分。</p>
         </div>
 
         {!loading && (
           <div className={connected ? "conn-banner conn-ok" : "conn-banner conn-off"}>
             {connected
               ? `已連線到後端 ${API_BASE}，資料為即時 /cases 內容。`
-              : `無法連線到 ${API_BASE}（後端可能沒有啟動），目前顯示示範資料。`}
+              : `無法連線到 ${API_BASE}（後端可能沒有啟動），目前沒有載入任何案件。`}
           </div>
         )}
 
@@ -681,7 +742,7 @@ export default function CaseQueueConsole() {
         {activeTab === "done" && <DoneTable cases={done} onOpen={setSelected} />}
       </div>
 
-      <Drawer item={selected} onClose={() => setSelected(null)} onReview={handleReview} onTransition={handleTransition} onCompleteWithoutAction={handleCompleteWithoutAction} onDispute={handleDispute} onCorrectPhotos={handleCorrectPhotos} connected={connected} />
+      <Drawer item={selected} onClose={() => setSelected(null)} onReview={handleReview} onTransition={handleTransition} onCompleteWithoutAction={handleCompleteWithoutAction} onDispute={handleDispute} onCorrect={handleCorrection} onSetPayment={handleSetPayment} connected={connected} />
     </div>
   );
 }

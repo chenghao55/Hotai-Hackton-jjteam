@@ -31,15 +31,19 @@ import {
 } from '@/lib/capture-flow';
 import {
   createCaseFromPhotos,
+  forceSavePhotoForDevelopment,
+  isDevelopmentForceSaveEnabled,
   ModuleERequestError,
   requestPhotoGuidance,
   uploadPhoto,
+  type PhotoGuidanceRequestContext,
   type PhotoGuidanceResponse,
-  type CaptureContext,
 } from '@/lib/module-e-api';
 
 type CaptureMode = 'normal' | 'damage';
 type VehicleType = 'sedan' | 'suv';
+const guidanceSessionKey = 'capture-guidance-session-id';
+const guidanceFrameKey = 'capture-guidance-frame-id';
 
 export default function CameraPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -48,13 +52,13 @@ export default function CameraPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [requestError, setRequestError] = useState('');
   const [guidance, setGuidance] = useState<PhotoGuidanceResponse | null>(null);
+  const [rejectedUploadContext, setRejectedUploadContext] = useState<PhotoGuidanceRequestContext | null>(null);
   const [guidanceLoading, setGuidanceLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [creatingCase, setCreatingCase] = useState(false);
   const [cameraStatus, setCameraStatus] = useState<'idle' | 'starting' | 'live'>('idle');
   const [captureMode, setCaptureMode] = useState<CaptureMode>('normal');
   const [vehicleType, setVehicleType] = useState<VehicleType | null>(null);
-  const [entrySide, setEntrySide] = useState<'left' | 'right'>('left');
   const [showDamageChoice, setShowDamageChoice] = useState(false);
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
@@ -63,8 +67,6 @@ export default function CameraPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const guidanceInFlightRef = useRef(false);
-  const sessionIdRef = useRef(globalThis.crypto?.randomUUID?.() ?? `capture-${Date.now()}-${Math.random()}`);
-  const frameIdRef = useRef(0);
 
   const activeSteps = useMemo(
     () => captureMode === 'damage' ? damageCaptureSteps : captureSteps,
@@ -72,19 +74,35 @@ export default function CameraPage() {
   );
   const currentStep = activeSteps[currentIndex] ?? activeSteps[0];
   const progress = ((currentIndex + 1) / activeSteps.length) * 100;
-  const overlay = captureMode === 'normal' && currentIndex >= 3 && vehicleType
-    ? getVehicleOverlay(vehicleType, currentStep.shotType)
+  const overlay = captureMode === 'normal' && currentIndex >= 1 && vehicleType
+    ? getCaptureOverlay(vehicleType, currentStep.shotType)
     : null;
 
-  function nextContext(): CaptureContext {
-    frameIdRef.current += 1;
+  function ensureGuidanceSession(): string {
+    const existing = sessionStorage.getItem(guidanceSessionKey);
+    if (existing) return existing;
+    const created = crypto.randomUUID();
+    sessionStorage.setItem(guidanceSessionKey, created);
+    sessionStorage.setItem(guidanceFrameKey, '0');
+    return created;
+  }
+
+  function nextGuidanceFrameId(): number {
+    const current = Number.parseInt(sessionStorage.getItem(guidanceFrameKey) || '0', 10);
+    const next = Number.isSafeInteger(current) && current >= 0 ? current + 1 : 1;
+    sessionStorage.setItem(guidanceFrameKey, String(next));
+    return next;
+  }
+
+  function guidanceContext() {
+    if (!vehicleType) throw new Error('vehicle_type is required before guidance');
     return {
-      vehicleType: vehicleType as VehicleType,
+      photoType: 'return' as const,
       captureSlot: currentStep.captureSlot,
-      sessionId: sessionIdRef.current,
-      frameId: frameIdRef.current,
-      ...(currentStep.captureSlot === 'interior_front' || currentStep.captureSlot === 'interior_rear'
-        ? { entrySide } : {}),
+      vehicleType,
+      sessionId: ensureGuidanceSession(),
+      frameId: nextGuidanceFrameId(),
+      entrySide: currentStep.entrySide,
     };
   }
 
@@ -98,7 +116,7 @@ export default function CameraPage() {
   }, [previewUrl]);
 
   useEffect(() => {
-    if (cameraStatus !== 'live' || !vehicleType) return;
+    if (cameraStatus !== 'live') return;
     let active = true;
 
     async function checkFrame() {
@@ -108,7 +126,7 @@ export default function CameraPage() {
       guidanceInFlightRef.current = true;
       setGuidanceLoading(true);
       try {
-        const response = await requestPhotoGuidance(frame, nextContext());
+        const response = await requestPhotoGuidance(frame, guidanceContext());
         if (active) {
           setGuidance(response);
           setRequestError('');
@@ -127,7 +145,7 @@ export default function CameraPage() {
       active = false;
       window.clearInterval(timer);
     };
-  }, [cameraStatus, currentStep.captureSlot, entrySide, vehicleType]);
+  }, [cameraStatus, currentStep, vehicleType]);
 
   function stopCamera() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -139,11 +157,13 @@ export default function CameraPage() {
   function clearCurrentPhoto() {
     setPreviewUrl(null);
     setCurrentPhoto(null);
+    setRejectedUploadContext(null);
     if (inputRef.current) inputRef.current.value = '';
   }
 
   function chooseVehicle(type: VehicleType) {
     sessionStorage.setItem('capture-vehicle-type', type);
+    ensureGuidanceSession();
     setVehicleType(type);
   }
 
@@ -178,6 +198,8 @@ export default function CameraPage() {
             .map((photo) => [photo.photoId, photo.thumbnail as string]),
         ),
       );
+      sessionStorage.removeItem(guidanceSessionKey);
+      sessionStorage.removeItem(guidanceFrameKey);
       window.location.assign(`/capture/result?case_id=${encodeURIComponent(result.case_id)}`);
     } catch (error) {
       setRequestError(`${formatRequestError(error, '案件建立')} 已接受的照片仍保留在本頁，請重新送出。`);
@@ -239,6 +261,7 @@ export default function CameraPage() {
     }
     setRequestError('');
     setCurrentPhoto(blob);
+    setRejectedUploadContext(null);
     setPreviewUrl(URL.createObjectURL(blob));
     stopCamera();
   }
@@ -256,6 +279,7 @@ export default function CameraPage() {
     setRequestError('');
     stopCamera();
     setCurrentPhoto(file);
+    setRejectedUploadContext(null);
     setPreviewUrl(URL.createObjectURL(file));
   }
 
@@ -264,9 +288,11 @@ export default function CameraPage() {
     setUploading(true);
     setRequestError('');
     try {
-      const response = await uploadPhoto(currentPhoto, 'return', currentStep.captureSlot, nextContext());
+      const finalContext = guidanceContext();
+      const response = await uploadPhoto(currentPhoto, finalContext);
       setGuidance(response);
       if (!response.accepted || !response.photo_id) {
+        setRejectedUploadContext(finalContext);
         setUploading(false);
         return;
       }
@@ -295,6 +321,35 @@ export default function CameraPage() {
     }
   }
 
+  async function forceSaveRejectedPhoto(action: 'continue' | 'finish' = 'continue') {
+    if (!currentPhoto || uploading || creatingCase || !guidance || guidance.accepted || !rejectedUploadContext) return;
+    setUploading(true);
+    setRequestError('');
+    try {
+      const response = await forceSavePhotoForDevelopment(currentPhoto, rejectedUploadContext);
+      const thumbnail = await createThumbnail(currentPhoto);
+      const completed = [...capturedPhotos, { step: currentStep, photoId: response.photo_id, thumbnail }];
+      setCapturedPhotos(completed);
+      setUploading(false);
+      clearCurrentPhoto();
+
+      if (action === 'finish') {
+        setShowDamageChoice(true);
+        await submitCase(completed);
+        return;
+      }
+      if (captureMode === 'normal' && currentIndex === captureSteps.length - 1) {
+        setShowDamageChoice(true);
+      } else if (currentIndex < activeSteps.length - 1) {
+        setCurrentIndex((value) => value + 1);
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      setRequestError(formatRequestError(error, '測試用強制儲存'));
+      setUploading(false);
+    }
+  }
+
   if (!vehicleType) return <VehicleTypeSelection onSelect={chooseVehicle} />;
   if (showDamageChoice) {
     return (
@@ -319,14 +374,13 @@ export default function CameraPage() {
           <h1 className="mt-5 text-[28px] font-semibold leading-tight tracking-tight">{currentStep.title}</h1>
           <p className="mt-2 text-base leading-6 text-[#62756d]">{currentStep.description}</p>
           {captureMode === 'damage' && <div className="mt-4 rounded-2xl border border-[#cfe1d7] bg-[#eff6f1] p-4 text-sm leading-6 text-[#355f54]"><strong className="block text-[#173e35]">損壞照片為選填</strong>拍 1 張即可進入下一流程，最多可補充 4 張。</div>}
-          {(currentStep.captureSlot === 'interior_front' || currentStep.captureSlot === 'interior_rear') && <div className="mt-4"><label htmlFor="entry-side" className="mb-2 block text-sm font-semibold">從哪一側車門拍攝？</label><select id="entry-side" value={entrySide} onChange={(event) => { setEntrySide(event.target.value as 'left' | 'right'); setGuidance(null); }} className="h-11 w-full rounded-xl border border-[#cfe1d7] bg-white px-3"><option value="left">左側車門</option><option value="right">右側車門</option></select></div>}
 
           {creatingCase ? (
             <div className="mt-8 grid min-h-[360px] place-items-center rounded-[28px] bg-[#10251f] px-8 text-center text-white" role="status"><div><LoaderCircle className="mx-auto size-10 animate-spin text-[#c9ff38]" /><h2 className="mt-5 text-2xl font-semibold">正在建立案件</h2><p className="mt-2 text-base text-white/65">正在分析已接受的車身照片，請不要關閉頁面。</p></div></div>
           ) : (
             <>
               <div className="relative mt-5 aspect-[4/3] overflow-hidden rounded-[28px] bg-[#10251f] shadow-[0_12px_32px_rgb(16_37_31/18%)]">
-                {previewUrl ? <img src={previewUrl} alt={`${currentStep.title}照片預覽`} className="size-full object-cover" /> : cameraStatus === 'live' || cameraStatus === 'starting' ? <><video ref={videoRef} data-testid="live-camera" aria-label="即時攝影機預覽" className="relative z-0 size-full object-cover" autoPlay muted playsInline />{cameraStatus === 'starting' && <div className="absolute inset-0 z-10 grid place-items-center bg-[#10251f]/85 text-white"><LoaderCircle className="size-8 animate-spin text-[#c9ff38]" /></div>}{cameraStatus === 'live' && overlay && <img src={overlay.src} alt="" data-testid="vehicle-alignment-overlay" className="pointer-events-none absolute inset-0 z-20 size-full object-contain p-2 opacity-75" style={{ transform: overlay.flip ? 'scaleX(-1)' : undefined }} />}</> : <div className="grid size-full place-items-center px-8 text-center text-white"><div><Camera className="mx-auto size-10 text-[#c9ff38]" /><p className="mt-4 text-lg font-semibold">將拍攝部位對準框線</p></div></div>}
+                {previewUrl ? <img src={previewUrl} alt={`${currentStep.title}照片預覽`} className="size-full object-cover" /> : cameraStatus === 'live' || cameraStatus === 'starting' ? <><video ref={videoRef} data-testid="live-camera" aria-label="即時攝影機預覽" className="relative z-0 size-full object-cover" autoPlay muted playsInline />{cameraStatus === 'starting' && <div className="absolute inset-0 z-10 grid place-items-center bg-[#10251f]/85 text-white"><LoaderCircle className="size-8 animate-spin text-[#c9ff38]" /></div>}{cameraStatus === 'live' && overlay && <img src={overlay.src} alt="" data-testid="vehicle-alignment-overlay" className="pointer-events-none absolute inset-0 z-20 size-full object-contain p-2 opacity-75" style={{ transform: `${overlay.flip ? 'scaleX(-1) ' : ''}scale(${overlay.scale})` }} />}</> : <div className="grid size-full place-items-center px-8 text-center text-white"><div><Camera className="mx-auto size-10 text-[#c9ff38]" /><p className="mt-4 text-lg font-semibold">將拍攝部位對準框線</p></div></div>}
                 <div className="pointer-events-none absolute inset-5 z-30 rounded-[22px] border-2 border-dashed border-[#c9ff38]/80" />
                 <span className="pointer-events-none absolute bottom-4 left-1/2 z-40 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/60 px-3 py-1.5 text-sm text-white">{currentStep.frameLabel}</span>
               </div>
@@ -342,6 +396,11 @@ export default function CameraPage() {
                   <Button variant="outline" className="h-14 w-full rounded-2xl" onClick={() => void startCamera()} disabled={uploading}><ImagePlus className="size-5" />重新拍攝</Button>
                   {captureMode === 'damage' && currentIndex < damageCaptureSteps.length - 1 && <Button variant="outline" className="h-14 w-full rounded-2xl" onClick={() => void confirmPhoto('continue')} disabled={uploading}><Plus className="size-5" />再新增一張損壞照片</Button>}
                   <Button className="h-16 w-full rounded-2xl bg-[#173e35] text-white" onClick={() => void confirmPhoto(captureMode === 'damage' ? 'finish' : 'continue')} disabled={uploading}>{uploading ? <LoaderCircle className="size-5 animate-spin" /> : <Check className="size-5" />}{captureMode === 'damage' ? '完成並建立案件' : currentIndex === captureSteps.length - 1 ? '儲存並繼續' : '儲存並拍下一張'}</Button>
+                  {isDevelopmentForceSaveEnabled() && guidance && !guidance.accepted && rejectedUploadContext && (
+                    <Button variant="outline" className="h-12 w-full rounded-2xl border-amber-300 text-amber-800" onClick={() => void forceSaveRejectedPhoto(captureMode === 'damage' ? 'finish' : 'continue')} disabled={uploading}>
+                      測試用：強制接受並下一張
+                    </Button>
+                  )}
                 </div>
               ) : cameraStatus === 'live' ? (
                 <div className="mt-5 space-y-4">{videoDevices.length > 1 && <Select value={selectedDeviceId || null} onValueChange={changeCamera}><SelectTrigger aria-label="選擇鏡頭來源" className="h-10 rounded-xl"><SelectValue placeholder="選擇鏡頭" /></SelectTrigger><SelectContent>{videoDevices.map((device, index) => <SelectItem key={device.deviceId || index} value={device.deviceId}>{device.label || `攝影機 ${index + 1}`}</SelectItem>)}</SelectContent></Select>}<div className="grid grid-cols-[1fr_72px_1fr] items-center gap-3"><Button variant="outline" className="h-12 rounded-2xl" onClick={stopCamera}><CameraOff className="size-5" />取消</Button><Button aria-label="拍攝照片" className="size-[72px] rounded-full border-[6px] border-white bg-[#c9ff38] text-[#10251f]" onClick={() => void takePhoto()}><Camera className="size-7" /></Button><span className="text-center text-sm text-[#62756d]">按中央快門</span></div></div>
@@ -357,17 +416,50 @@ export default function CameraPage() {
 }
 
 function VehicleTypeSelection({ onSelect }: { onSelect: (type: VehicleType) => void }) {
-  return <main className="min-h-screen bg-[#edf3ef] text-[#10251f] sm:px-5 sm:py-8"><div className="mx-auto min-h-dvh w-full max-w-md bg-white sm:rounded-[32px]"><header className="bg-[#101d1a] px-5 py-4 text-white"><Link href="/capture" aria-label="返回拍照規則"><ArrowLeft /></Link></header><section className="px-5 py-8"><p className="text-sm font-semibold text-[#2d6d5d]">步驟 1</p><h1 className="mt-2 text-[30px] font-semibold">這次拍攝的是哪種車型？</h1><p className="mt-3 text-[#62756d]">我們會在第 4–7 張車身照顯示對應的透明導引框。</p><div className="mt-7 grid gap-4"><button type="button" className="rounded-[28px] border-2 border-[#dce9e1] p-5 text-left" onClick={() => onSelect('sedan')}><Car className="size-6" /><strong className="mt-3 block text-xl">轎車</strong></button><button type="button" className="rounded-[28px] border-2 border-[#dce9e1] p-5 text-left" onClick={() => onSelect('suv')}><Truck className="size-6" /><strong className="mt-3 block text-xl">休旅車</strong></button></div></section></div></main>;
+  return (
+    <main className="min-h-screen bg-[#edf3ef] text-[#10251f] sm:px-5 sm:py-8">
+      <div className="mx-auto min-h-dvh w-full max-w-md overflow-hidden bg-white shadow-[0_0_50px_rgb(16_37_31/10%)] sm:min-h-[calc(100dvh-4rem)] sm:rounded-[32px]">
+        <header className="bg-[#101d1a] px-5 py-4 text-white">
+          <div className="grid grid-cols-[44px_1fr_44px] items-center">
+            <Link href="/capture" aria-label="返回拍照規則" className="grid size-11 place-items-center rounded-2xl border border-white/15 bg-white/10"><ArrowLeft className="size-5" /></Link>
+            <div className="text-center"><p className="font-semibold">選擇車型</p><p className="mt-0.5 text-sm text-white/55">拍攝前設定</p></div>
+            <span className="grid size-11 place-items-center rounded-2xl bg-[#c9ff38] text-[#10251f]"><ShieldCheck className="size-5" /></span>
+          </div>
+        </header>
+        <section className="px-5 pb-10 pt-8 sm:px-7">
+          <p className="text-sm font-semibold text-[#2d6d5d]">步驟 1</p>
+          <h1 className="mt-2 text-[30px] font-semibold leading-tight tracking-tight">這次拍攝的是哪種車型？</h1>
+          <p className="mt-3 text-base leading-7 text-[#62756d]">我們會在第 2–7 張車內與車身照顯示對應的透明導引框。</p>
+          <div className="mt-7 grid gap-4">
+            <button type="button" className="group overflow-hidden rounded-[28px] border-2 border-[#dce9e1] bg-[#f7faf8] text-left transition hover:border-[#8eb62a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#c9ff38]/50" onClick={() => onSelect('sedan')}>
+              <div className="relative grid h-40 place-items-center overflow-hidden bg-[#10251f]">
+                <img src="/overlays/sedan-front.png" alt="轎車透明框架示意" className="h-full w-full object-contain p-3 opacity-85 transition group-hover:scale-[1.03]" />
+              </div>
+              <div className="flex items-center gap-4 p-5"><span className="grid size-12 place-items-center rounded-2xl bg-[#dfff8b] text-[#173e35]"><Car className="size-6" /></span><div><strong className="text-xl">轎車</strong><p className="mt-1 text-sm text-[#62756d]">房車、掀背車等低車身車型</p></div></div>
+            </button>
+            <button type="button" className="group overflow-hidden rounded-[28px] border-2 border-[#dce9e1] bg-[#f7faf8] text-left transition hover:border-[#8eb62a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#c9ff38]/50" onClick={() => onSelect('suv')}>
+              <div className="relative grid h-40 place-items-center overflow-hidden bg-[#10251f]">
+                <img src="/overlays/suv-front.png" alt="休旅車透明框架示意" className="h-full w-full object-contain p-3 opacity-85 transition group-hover:scale-[1.03]" />
+              </div>
+              <div className="flex items-center gap-4 p-5"><span className="grid size-12 place-items-center rounded-2xl bg-[#dfff8b] text-[#173e35]"><Truck className="size-6" /></span><div><strong className="text-xl">休旅車</strong><p className="mt-1 text-sm text-[#62756d]">SUV、跨界休旅等高車身車型</p></div></div>
+            </button>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
 }
 
 function DamageChoice({ normalPhotoCount, damagePhotoCount, onAddDamage, onContinue, creatingCase, error }: { normalPhotoCount: number; damagePhotoCount: number; onAddDamage: () => void; onContinue: () => void; creatingCase: boolean; error: string }) {
   return <main className="min-h-screen bg-[#edf3ef] text-[#10251f] sm:px-5 sm:py-8"><div className="mx-auto min-h-dvh w-full max-w-md bg-white sm:rounded-[32px]"><header className="bg-[#101d1a] px-5 py-4 text-white"><p className="font-semibold">基本拍攝完成</p><p className="text-sm text-white/55">7 個步驟皆已確認</p></header><section className="px-5 py-10"><h1 className="text-[30px] font-semibold">是否有需要補拍的車損？</h1><p className="mt-3 text-[#62756d]">損壞照片為選填，最多可補充 4 張。</p><div className="mt-5 rounded-2xl bg-[#eff6f1] p-4 text-sm">已儲存 {normalPhotoCount} 張基本照片{damagePhotoCount ? `及 ${damagePhotoCount} 張損壞照片` : ''}。</div>{error && <div role="alert" className="mt-4 rounded-2xl bg-red-50 p-4 text-sm text-red-700">{error}</div>}<div className="mt-8 space-y-3"><Button variant="outline" className="h-16 w-full rounded-2xl" onClick={onAddDamage} disabled={creatingCase || damagePhotoCount >= 4}><Plus className="size-5" />新增損壞照片（選填）</Button><Button className="h-16 w-full rounded-2xl bg-[#173e35] text-white" onClick={onContinue} disabled={creatingCase}>{creatingCase ? <LoaderCircle className="size-5 animate-spin" /> : <Check className="size-5" />}建立車況案件</Button></div></section></div></main>;
 }
 
-function getVehicleOverlay(vehicleType: VehicleType, shotType: string) {
+function getCaptureOverlay(vehicleType: VehicleType, shotType: string) {
+  if (shotType === 'front_cabin') return { src: '/overlays/interior-front-realistic.png', flip: false, scale: 0.94 };
+  if (shotType === 'rear_cabin') return { src: '/overlays/interior-rear-realistic.png', flip: false, scale: 0.94 };
   const isRear = shotType.startsWith('rear_');
   const isRight = shotType.includes('_right_');
-  return { src: `/overlays/${vehicleType}-${isRear ? 'rear' : 'front'}.png`, flip: isRight };
+  return { src: `/overlays/${vehicleType}-${isRear ? 'rear' : 'front'}.png`, flip: isRight, scale: 1.22 };
 }
 
 async function captureVideoFrame(video: HTMLVideoElement | null, canvas: HTMLCanvasElement | null, quality: number): Promise<Blob | null> {

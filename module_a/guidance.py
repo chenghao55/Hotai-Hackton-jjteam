@@ -43,7 +43,7 @@ class CaptureContext:
         interior = self.capture_slot in (CaptureSlot.INTERIOR_FRONT, CaptureSlot.INTERIOR_REAR)
         if (interior and self.entry_side not in ('left', 'right')) or (not interior and self.entry_side is not None):
             raise ValueError('INVALID_ENTRY_SIDE')
-        if self.image_mirrored is not False or self.source != 'camera_raw':
+        if self.image_mirrored is not False or (self.source != 'camera_raw' and not (self.mode == 'final' and self.source == 'uploaded_photo')):
             raise ValueError('RAW_UNMIRRORED_IMAGE_REQUIRED')
 
 

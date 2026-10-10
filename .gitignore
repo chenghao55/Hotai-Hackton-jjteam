@@ -33,6 +33,7 @@ node_modules
 dist
 .DS_Store
 *.log
+UI_client/.openai/
 
 # Module B generated artifacts and private source images. Only the reviewed
 # multitask deployment checkpoint and its matching metrics may enter Git.
@@ -41,6 +42,9 @@ artifacts/*
 artifacts/module_b/*
 !artifacts/module_b/damage_multitask.pth
 !artifacts/module_b/multitask_damage_metrics.json
+!artifacts/module_a/
+artifacts/module_a/*
+!artifacts/module_a/best.pt
 runs/
 tmp/
 data/
@@ -57,6 +61,9 @@ module_b/SOCAR_DATA_REQUEST_DRAFT.md
 **/dist/
 **/build/
 **/.vite/
+**/.next/
+**/.vinext/
+**/.wrangler/
 
 # Local Module A development and model artifacts
 .runtime/
@@ -68,6 +75,7 @@ evaluation/
 !module_a/evaluation/pair_manifest.py
 !module_a/evaluation/evaluate_pairs.py
 *.pt
+!artifacts/module_a/best.pt
 /model.py
 /train.py
 /Ultralytics/

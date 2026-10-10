@@ -46,6 +46,7 @@ def test_case_routes_are_registered() -> None:
         ("/cases/{case_id}/payment", "PUT"),
         ("/cases/{case_id}/confirm-payment", "POST"),
         ("/cases/{case_id}/complete-without-action", "POST"),
+        ("/cases/{case_id}/detections", "POST"),
         ("/cases/{case_id}/detections/{detection_id}/review", "POST"),
         ("/cases/{case_id}/detections/{detection_id}/appeal", "POST"),
     }
@@ -73,7 +74,7 @@ def test_photo_guidance_requires_context_through_canonical_app() -> None:
     )
 
     assert response.status_code == 422
-    assert response.json()["detail"] == "photo_type and capture_slot are required"
+    assert isinstance(response.json()["detail"], list)
 
 
 def test_module_d_api_app_reuses_canonical_app() -> None:

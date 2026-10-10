@@ -94,7 +94,7 @@ def test_get_route_does_not_call_guidance_service(app):
     class UnexpectedGuidance(PhotoGuidanceService):
         called = False
 
-        def analyze(self, image):
+        def analyze(self, image, context):
             self.called = True
             raise AssertionError("GET must not invoke guidance")
 
