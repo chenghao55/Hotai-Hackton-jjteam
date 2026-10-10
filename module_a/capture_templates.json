@@ -785,43 +785,6 @@
       "notes": "左駕車，從左前門往內拍；方向盤僅為駕駛區定位證據，不證明前排完整。"
     },
     {
-      "id": "shared_interior_front_right_door",
-      "vehicle_type": "shared",
-      "shot_type": "interior_front",
-      "entry_side": "right",
-      "label": "前排 · 右門",
-      "reference_box": [
-        0,
-        0,
-        1,
-        1
-      ],
-      "reference_class_id": null,
-      "evaluation_mode": "guide_only",
-      "anchors": [
-        {
-          "id": "steering",
-          "class_id": 4,
-          "box": [
-            0.7,
-            0.23,
-            0.82,
-            0.38
-          ],
-          "required": false,
-          "tolerance": [
-            0.15,
-            0.16,
-            0.22,
-            0.22
-          ]
-        }
-      ],
-      "relationships": [],
-      "min_valid_features": 0,
-      "notes": "左駕車，從右前門往內拍；方向盤可遮擋，僅選用。現有模型缺前排座椅類別，不能自動驗證完整前排。"
-    },
-    {
       "id": "shared_interior_rear_left_door",
       "vehicle_type": "shared",
       "shot_type": "interior_rear",
@@ -843,43 +806,6 @@
             0.22,
             0.19,
             0.89,
-            0.85
-          ],
-          "required": true,
-          "tolerance": [
-            0.15,
-            0.15,
-            0.25,
-            0.25
-          ]
-        }
-      ],
-      "relationships": [],
-      "min_valid_features": 1,
-      "notes": "由側門斜拍整排後座；椅背與坐墊形成透視梯形，不採正面對稱模板。"
-    },
-    {
-      "id": "shared_interior_rear_right_door",
-      "vehicle_type": "shared",
-      "shot_type": "interior_rear",
-      "entry_side": "right",
-      "label": "後排 · 右門",
-      "reference_box": [
-        0,
-        0,
-        1,
-        1
-      ],
-      "reference_class_id": null,
-      "evaluation_mode": "geometry",
-      "anchors": [
-        {
-          "id": "rear_bench",
-          "class_id": 3,
-          "box": [
-            0.11,
-            0.19,
-            0.78,
             0.85
           ],
           "required": true,

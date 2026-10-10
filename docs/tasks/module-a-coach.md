@@ -36,8 +36,10 @@ context = CaptureContext(
 result = coach.analyze(Path('/path/frame.jpg').read_bytes(), context)
 ```
 
-Use `entry_side='left'` or `'right'` for cabin slots. Keep the same session and
-increment preview frame IDs. Submit the actual shutter photo with `mode='final'`;
+Cabin requests include `entry_side`. Only the left-door templates are configured;
+right-side requests return the existing unavailable-evidence guidance and ask the
+user to shoot from the driver's-side left door. Keep the same session and increment
+preview frame IDs. Submit the actual shutter photo with `mode='final'`;
 it is decoded and checked again. Preview frame order is kept in memory and
 expires after a gap over 60 seconds. Scope session IDs to an authenticated
 user/case at E's boundary.

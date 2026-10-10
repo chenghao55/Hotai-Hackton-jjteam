@@ -6,7 +6,7 @@ This file records shared repository status. It is not an individual agent checkp
 
 - Verified on: 2026-10-10
 - Verified against: current `A_legalityAI` workspace, including Module A close-up templates and offline photo-comparison prototype
-- Full Python suite: **410 passed, 1 warning, 0 failed**
+- Full Python suite: **408 passed, 1 warning, 0 failed**
 - Command: `python -m pytest -q`
 - The warning is a third-party Starlette TestClient/httpx deprecation in the validation environment.
 
@@ -24,6 +24,8 @@ UI
 Module A, Module B, and Module D communicate through Python calls in the same backend process. Module E owns the HTTP boundary. Module E must not duplicate Module D rules.
 
 ## Module A
+
+- Cabin templates cover driver-side left-door front and rear shots only; right-side requests guide the user to the left door.
 
 Completed:
 

@@ -159,7 +159,7 @@ def test_context_requires_interior_side(context):
         replace(context, capture_slot=CaptureSlot.INTERIOR_REAR)
 
 
-@pytest.mark.parametrize('index', range(12))
+@pytest.mark.parametrize('index', range(10))
 def test_each_template_uses_its_own_slot_and_door(index):
     from module_a.coach_geometry import geometry
     config = load_config()

@@ -13,14 +13,14 @@
 | YOLO 推論 | 載入一次伺服器指定的 `best.pt`；舊七類模型輸出轉為六類 ID，忽略 `car-coach-yolo` |
 | 畫質檢查 | JPEG/PNG 解碼、EXIF 校正、大小限制、光線／曝光／背光與單張清晰度 |
 | 車外構圖 | 轎車／休旅車各四角；檢查主體數量、近拍占比、構圖及必要特徵；允许車身出框、近側輪胎與車牌須完整 |
-| 車內構圖 | 前排／後排依左門或右門選側拍模板；總共 12 組模板（外觀 8 組、內裝共用 4 組） |
+| 車內構圖 | 前排與後排皆由駕駛側左門斜拍；共 10 組模板（外觀 8 組、內裝 2 組） |
 | 漏斗式建議 | 回傳第一個阻擋原因，保留各層檢查狀態 |
 | 快門決策 | 使用者隨時可按快門；即時建議不鎖住快門 |
 | 正式照片重驗 | `mode='final'` 重新分析原圖，不沿用預覽結果；拒絕過期預覽影格 |
 
 服務 class ID：`car=0`、`headlight=1`、`license_plate=2`、`rear_seat_bench=3`、`steering_wheel=4`、`wheel=5`。
 
-支援槽位：`FRONT_LEFT`、`FRONT_RIGHT`、`REAR_LEFT`、`REAR_RIGHT`、`INTERIOR_FRONT`、`INTERIOR_REAR`。車內必須指定 `entry_side`。`REAR`、`FUEL_PARKING_CARD`、`OTHER_DAMAGE` 尚無教練規則，回傳 `UNSUPPORTED_SLOT`；既有照片儲存能力不因此移除。
+支援槽位：`FRONT_LEFT`、`FRONT_RIGHT`、`REAR_LEFT`、`REAR_RIGHT`、`INTERIOR_FRONT`、`INTERIOR_REAR`。車內需指定 `entry_side='left'`；右側拍攝目前不支援，會引導使用者改從駕駛側左門拍攝。`REAR`、`FUEL_PARKING_CARD`、`OTHER_DAMAGE` 尚無教練規則，回傳 `UNSUPPORTED_SLOT`；既有照片儲存能力不因此移除。
 
 ## 判斷範圍與限制
 
@@ -33,7 +33,7 @@
 | L5 | 無法可靠量測手機離地高度，標記 `not_applicable` |
 | L6 | 特徵框相對位置／尺寸符合模板程度；不保證實際 45° |
 
-合格定義為「照片符合指定槽位的構圖與特徵要求」。目前程式可依現有規則回傳 `PASS`，但模板尚未完成真實照片校正與獨立驗證，不能把 `PASS` 當成已驗證的實車準確率。模型缺少前排座椅類別，方向盤不代表前排完整；右前門前排目前會建議改由左側車門拍攝。
+合格定義為「照片符合指定槽位的構圖與特徵要求」。目前程式可依現有規則回傳 `PASS`，但模板尚未完成真實照片校正與獨立驗證，不能把 `PASS` 當成已驗證的實車準確率。模型缺少前排座椅類別，方向盤不代表前排完整；右側車門拍攝內裝時會建議改由左側車門拍攝。
 
 ## 已確認的近拍構圖（2026-09-30）
 
@@ -41,7 +41,7 @@
 
 座標取自設計稿的 **1000×750 影像區**，排除下方文字圖例，轉為校正後原圖的 0–1 座標。車牌在車體中線、靠畫面邊緣；近側燈與輪胎放大。`geometry_reference=image` 避免被裁切的車身框改變特徵基準；單車關聯仍使用車身框。`allow_body_crop=true` 允许車身貼邊，必要特徵保留 1% 畫面邊界。中心、大小及位置容差是設計初值，尚非照片校正結果。UI 若使用 cover 裁切或不同取景比例，需讓原始影像與疊圖使用同一個取景範圍；本次未變更 UI。
 
-前後構圖的車牌與單輪可能相似，現有模型也沒有尾燈類別。因此四模板比較保留歧義拒判：例如前方照片同時吻合另一個後方模板時，回 `AMBIGUOUS_TEMPLATES`。不刪除歧義檢查來製造 PASS。模板目前標記為 `calibrated`，但仍須進行真實照片校正；設定標記不等同驗證辨識能力。內裝模板未變更。`PhotoCoach.analyze`、`GuidanceResult` 及 E 的 HTTP 公開契約均未變更。
+前後構圖的車牌與單輪可能相似，現有模型也沒有尾燈類別。因此四模板比較保留歧義拒判：例如前方照片同時吻合另一個後方模板時，回 `AMBIGUOUS_TEMPLATES`。不刪除歧義檢查來製造 PASS。模板目前標記為 `calibrated`，但仍須進行真實照片校正；設定標記不等同驗證辨識能力。內裝僅保留駕駛側左門模板。`PhotoCoach.analyze`、`GuidanceResult` 及 E 的 HTTP 公開契約均未變更。
 
 驗證：教練與近拍針對性測試 **44 passed**；完整 Python 測試 **408 passed、1 warning、0 failed**。警告為既有 Starlette TestClient/httpx 棄用提醒。測試使用合成影像／框，未聲稱完成真實照片準確率驗證。
 
@@ -81,7 +81,7 @@ context = CaptureContext(
 result = coach.analyze(Path('/path/frame.jpg').read_bytes(), context)
 ```
 
-同一拍攝工作階段維持 session ID、遞增 frame ID；車內另加 `entry_side='left'` 或 `'right'`。送入未鏡像且沒有 UI 疊框的原圖。預覽影格順序保存在記憶體，間隔超過 60 秒可重設。E 將同步推論移出 async 事件迴圈。
+同一拍攝工作階段維持 session ID、遞增 frame ID；車內另加 `entry_side='left'`。右側輸入會回傳改從左側拍攝的建議。送入未鏡像且沒有 UI 疊框的原圖。預覽影格順序保存在記憶體，間隔超過 60 秒可重設。E 將同步推論移出 async 事件迴圈。
 
 ## 未完成與團隊交接
 
@@ -148,6 +148,6 @@ python -m module_a.evaluation.evaluate_pairs --manifest tmp/pair_candidates.json
 
 報告只輸出候選編號、視角、可比較性、原因、對位量測、比較區比例、熱區數量與耗時；不複製原圖，也不輸出原圖路徑。它**不是準確率**：檔名配對尚未核實，索賠資料夾也不是影像變化真值。門檻校正與真實變化標註可留到決賽；初賽展示不得把候選熱區當成自動車損或重拍結論。
 
-比較功能測試：**10 passed**；批次評估測試 **1 passed**；資料清單測試 **2 passed**。最新完整 Python 測試：**410 passed、1 個既有第三方警告、0 failed**（2026-10-07）。
+比較功能測試：**10 passed**；批次評估測試 **1 passed**；資料清單測試 **2 passed**。最新完整 Python 測試：**408 passed、1 個既有第三方警告、0 failed**（2026-10-10；合併駕駛側內裝模板調整後）。
 
 第一版保留於 [legacy/capture-coach-v1](../legacy/capture-coach-v1/)。第二版修改本資料夾，沿用 `A_legalityAI`，再透過 PR 合併至 `main`。
