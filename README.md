@@ -50,11 +50,13 @@ E → A 儲存／指導；E → B 分析；B → D 建立 Case
 
 教練核心為 `module_a.PhotoCoach`，由 E 的 `backend/services/photo_guidance.py` 轉接。YOLO 服務類別 ID 為：`car=0`、`headlight=1`、`license_plate=2`、`rear_seat_bench=3`、`steering_wheel=4`、`wheel=5`。舊模型中額外的 `car-coach-yolo` 類別不納入服務類別。
 
-教練支援四個車外角度與前、後排內裝槽位；`REAR`、`FUEL_PARKING_CARD`、`OTHER_DAMAGE` 不使用角度教練。這些非教練槽位仍可依 HTTP 流程驗證圖片並儲存。模板參數目前標記為 `uncalibrated`，合成資料測試不代表已完成真實車輛驗證，因此不要把目前結果當成已校正的實車準確率。
+教練支援四個車外角度與前、後排內裝槽位；`REAR`、`FUEL_PARKING_CARD`、`OTHER_DAMAGE` 不使用角度教練。這些非教練槽位仍可依 HTTP 流程驗證圖片並儲存。模板設定目前標記為 `calibrated`，但尚未以真實車輛照片完成驗證；合成資料測試不能證明實車準確率。
 
 外觀模板依轎車／休旅車及四個車角設定。前方模板使用車牌、近側車輪及近側頭燈；後方使用車牌及近側車輪。車身可以部分出框，但必要特徵需留在照片內。內裝模板以方向盤定位前排、後座椅定位後排；方向盤不代表前排座椅完整，幾何符合也不代表已精確量出 45 度或手機離地高度。
 
 `best.pt` 由伺服器端載入，不應由 API 使用者上傳模型。E 以 `HOTAI_MODULE_A_CHECKPOINT_PATH` 指定模型路徑；未設定時，現行 adapter 預設尋找使用者 `Downloads/best.pt`。可用 `HOTAI_MODULE_A_DEVICE` 設定推論裝置，預設為 `cpu`。其他人的電腦也必須各自取得模型檔並設定有效路徑。
+
+模板校正狀態不再產生拍攝提示或阻擋上傳；照片仍需通過畫質與構圖規則。通過時提示「照片可提交。」。現有模板尚未經真實照片驗證，demo 結果不能當作實車準確率。
 
 ## 車損比較原型
 
@@ -104,7 +106,7 @@ uvicorn backend.main:app --reload
 python -m pytest -q
 ```
 
-最近記錄的完整測試檢查點為 **408 passed、1 warning、0 failed**（2026-10-02；警告為 Starlette TestClient/httpx 的第三方棄用提醒）。最新團隊紀錄請查 [docs/STATUS.md](docs/STATUS.md)。
+最近記錄的完整測試檢查點為 **410 passed、1 warning、0 failed**（2026-10-10；警告為 Starlette TestClient/httpx 的第三方棄用提醒）。最新團隊紀錄請查 [docs/STATUS.md](docs/STATUS.md)。
 
 目前主要待辦：
 

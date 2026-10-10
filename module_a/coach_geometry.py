@@ -11,6 +11,7 @@ def features(box, ref):
 
 
 def score(template, objects, ref, thresholds):
+    expected_ref = template.get('feature_reference_box', template['reference_box'])
     required = [a for a in template['anchors'] if a['required']]
     if len(required) < template['min_valid_features'] or not required:
         return None
@@ -19,12 +20,16 @@ def score(template, objects, ref, thresholds):
         anchors = [a for a in required if a['class_id'] == cls]
         candidates = sorted((d for d in objects if d['class_id'] == cls),
                             key=lambda d: -d['confidence'])[:8]
+        margin = template.get('required_feature_edge_margin', 0)
+        if margin:
+            candidates = [d for d in candidates if min(d['box'][0], d['box'][1],
+                          1-d['box'][2], 1-d['box'][3]) >= margin]
         if len(candidates) < len(anchors):
             return None
         best = None
         for choice in permutations(candidates, len(anchors)):
             errors = [sqrt(sum(((v - t) / tol) ** 2 for v, t, tol in
-                      zip(features(d['box'], ref), features(a['box'], template['reference_box']),
+                      zip(features(d['box'], ref), features(a['box'], expected_ref),
                           a['tolerance'])) / 4) for a, d in zip(anchors, choice)]
             cost = sum(e * e for e in errors)
             if best is None or cost < best[0]:
@@ -35,8 +40,8 @@ def score(template, objects, ref, thresholds):
     for left, right in template['relationships']:
         a, b = matches[left], matches[right]
         observed = [x - y for x, y in zip(features(a[1]['box'], ref)[:2], features(b[1]['box'], ref)[:2])]
-        expected = [x - y for x, y in zip(features(a[0]['box'], template['reference_box'])[:2],
-                                         features(b[0]['box'], template['reference_box'])[:2])]
+        expected = [x - y for x, y in zip(features(a[0]['box'], expected_ref)[:2],
+                                         features(b[0]['box'], expected_ref)[:2])]
         errors.append(sqrt(sum(((observed[k] - expected[k]) /
                       hypot(a[0]['tolerance'][k], b[0]['tolerance'][k])) ** 2 for k in (0, 1)) / 2))
     error = sqrt(sum(e * e for e in errors) / len(errors))
@@ -59,7 +64,7 @@ def geometry(detections, slot, vehicle_type, entry_side, config):
     checks = {'L3': 'not_applicable', 'L4': 'not_applicable', 'L5': 'not_evaluated', 'L6': 'not_evaluated'}
     def stop(code, level):
         if level:
-            checks[level] = 'unknown' if code in ('TEMPLATE_NOT_CALIBRATED', 'FRONT_SEAT_EVIDENCE_UNAVAILABLE') else 'fail'
+            checks[level] = 'unknown' if code == 'FRONT_SEAT_EVIDENCE_UNAVAILABLE' else 'fail'
         return code, level, checks
     if target.get('evaluation_mode') == 'guide_only':
         return stop('FRONT_SEAT_EVIDENCE_UNAVAILABLE', 'L6')
@@ -71,7 +76,7 @@ def geometry(detections, slot, vehicle_type, entry_side, config):
         ref = cars[0]['box']
         x, y, r, b = ref
         margin = target['edge_margin']
-        if min(x, y, 1-r, 1-b) < margin:
+        if not target.get('allow_body_crop', False) and min(x, y, 1-r, 1-b) < margin:
             return stop('SUBJECT_NEAR_EDGE', 'L3')
         w, h = r-x, b-y
         if w < target['body_width_range'][0] or h < target['body_height_range'][0]:
@@ -88,6 +93,10 @@ def geometry(detections, slot, vehicle_type, entry_side, config):
             a, c, e, f = d['box']
             return max(0, min(e, r)-max(a, x))*max(0, min(f, b)-max(c, y))/((e-a)*(f-c))
         objects = [d for d in objects if inside(d) >= config['thresholds']['association_fraction']]
+        # A cropped car box changes with the crop: use the corrected image itself
+        # as the feature reference for the approved close-up composition.
+        if target.get('geometry_reference') == 'image':
+            ref = [0, 0, 1, 1]
     # L5 physical camera height is not observable from these boxes; never invent it.
     checks['L5'] = 'not_applicable'
     scores = [(t['shot_type'], score(t, objects, ref, config['thresholds'])) for t in templates]
@@ -102,7 +111,5 @@ def geometry(detections, slot, vehicle_type, entry_side, config):
         return stop('GEOMETRY_MISMATCH', 'L6')
     if not distinct:
         return stop('AMBIGUOUS_TEMPLATES', 'L6')
-    if config['calibration_status'] != 'calibrated':
-        return stop('TEMPLATE_NOT_CALIBRATED', 'L6')
     checks['L6'] = 'pass'
     return 'PASS', 'PASS', checks

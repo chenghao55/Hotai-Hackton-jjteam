@@ -11,6 +11,11 @@ from .photo import (
 )
 from .guidance import CaptureContext, GuidanceResult, PhotoCoach, load_config
 from .coach_image import YoloDetector
+from .photo_comparison import (
+    ComparisonResult,
+    Hotspot,
+    compare_stored_photos,
+)
 
 __all__ = [
     "CaptureContext", "GuidanceResult", "PhotoCoach", "YoloDetector", "load_config",
@@ -21,4 +26,7 @@ __all__ = [
     "get_photo",
     "get_photo_info",
     "save_photo",
+    "ComparisonResult",
+    "Hotspot",
+    "compare_stored_photos",
 ]

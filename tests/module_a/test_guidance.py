@@ -53,6 +53,20 @@ def test_calibrated_pass_is_immediate_and_does_not_save(frame, context, tmp_path
     assert not storage.PHOTOS_DIR.exists()
 
 
+def test_uncalibrated_template_does_not_block_matching_photo(frame, context):
+    config = load_config()
+    config['calibration_status'] = 'uncalibrated'
+    config['templates'] = config['templates'][:1]
+    coach = PhotoCoach(Detector(objects(config)), config=config)
+    preview = coach.analyze(frame, context)
+    final = coach.analyze(frame, replace(context, mode='final', frame_id=2))
+    assert preview.accepted and (preview.level, preview.code, preview.action) == ('PASS', 'PASS', 'accept')
+    assert preview.message == '照片可提交。'
+    assert final.accepted and (final.level, final.code, final.action) == ('PASS', 'PASS', 'accept')
+    assert final.checks['L6'] == 'pass'
+    assert final.message == '照片可提交。'
+
+
 def test_shutter_is_always_available_and_final_rechecks(frame, context):
     from PIL import Image
     config = load_config()
@@ -63,7 +77,7 @@ def test_shutter_is_always_available_and_final_rechecks(frame, context):
     tick[0] = 20
     second = coach.analyze(frame, replace(context, frame_id=2))
     assert not second.accepted
-    assert second.code == 'TEMPLATE_NOT_CALIBRATED'
+    assert second.code == 'AMBIGUOUS_TEMPLATES'
     final = coach.analyze(frame, replace(context, mode='final', frame_id=3))
     assert final.action == 'reshoot'
     dark = io.BytesIO()
@@ -90,7 +104,7 @@ def test_stale_frame_expires_after_preview_gap(frame, context):
     with pytest.raises(ValueError, match='STALE_FRAME'):
         coach.analyze(frame, context)
     tick[0] = 61
-    assert coach.analyze(frame, replace(context, frame_id=1)).code == 'TEMPLATE_NOT_CALIBRATED'
+    assert coach.analyze(frame, replace(context, frame_id=1)).code == 'AMBIGUOUS_TEMPLATES'
 
 
 @pytest.mark.parametrize('box,code,level', [
@@ -100,7 +114,13 @@ def test_stale_frame_expires_after_preview_gap(frame, context):
     ([.1, .05, .9, .63], 'OFF_CENTER', 'L4'),
 ])
 def test_distance_and_centering_priority(frame, context, box, code, level):
-    r = PhotoCoach(Detector([{'class_id': 0, 'confidence': .99, 'box': box}])).analyze(frame, context)
+    # Backward-compatible whole-body mode; current close-up behavior is tested separately.
+    config = load_config()
+    template = config['templates'][0]
+    template.update(allow_body_crop=False, reference_box=[.1, .27, .9, .85],
+                    body_width_range=[.6, .93], body_height_range=[.34, .7],
+                    body_center_tolerance=[.08, .1])
+    r = PhotoCoach(Detector([{'class_id': 0, 'confidence': .99, 'box': box}]), config=config).analyze(frame, context)
     assert (r.code, r.level) == (code, level)
 
 
@@ -156,9 +176,20 @@ def test_each_template_uses_its_own_slot_and_door(index):
     assert code == ('FRONT_SEAT_EVIDENCE_UNAVAILABLE' if template.get('evaluation_mode') == 'guide_only' else 'PASS')
 
 
-def test_one_wheel_cannot_satisfy_two_required_anchors(frame, context):
+def test_missing_near_wheel_cannot_pass(frame, context):
     detections = objects(load_config())
     wheels = [d for d in detections if d['class_id'] == 5]
     detections.remove(wheels[0])
     result = PhotoCoach(Detector(detections)).analyze(frame, context)
     assert result.code == 'MISSING_REQUIRED_FEATURE' and not result.accepted
+
+
+def test_missing_feature_advice_stays_specific_to_capture_slot(frame, context):
+    car = [{'class_id': 0, 'confidence': .99, 'box': [0, 0, 1, 1]}]
+    front = PhotoCoach(Detector(car)).analyze(frame, context)
+    rear = PhotoCoach(Detector(car)).analyze(frame, replace(context, capture_slot=CaptureSlot.REAR_LEFT))
+    interior = PhotoCoach(Detector([])).analyze(frame, replace(
+        context, capture_slot=CaptureSlot.INTERIOR_REAR, entry_side='left'))
+    assert '前燈' in front.message
+    assert '前燈' not in rear.message and '車牌' in rear.message
+    assert '輪胎' not in interior.message and '車牌' not in interior.message

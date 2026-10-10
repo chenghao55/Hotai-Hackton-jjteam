@@ -62,7 +62,11 @@ module_b/SOCAR_DATA_REQUEST_DRAFT.md
 .runtime/
 .pnpm-store/
 output/
+outputs/
 evaluation/
+!module_a/evaluation/
+!module_a/evaluation/pair_manifest.py
+!module_a/evaluation/evaluate_pairs.py
 *.pt
 /model.py
 /train.py

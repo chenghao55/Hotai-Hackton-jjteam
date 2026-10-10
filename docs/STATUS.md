@@ -4,9 +4,9 @@ This file records shared repository status. It is not an individual agent checkp
 
 ## Last verified checkpoint
 
-- Verified on: 2026-09-28
-- Verified against: Module A coach connected through Module E and current main changes
-- Full Python suite: **377 passed, 1 warning, 0 failed**
+- Verified on: 2026-10-10
+- Verified against: current `A_legalityAI` workspace, including Module A close-up templates and offline photo-comparison prototype
+- Full Python suite: **410 passed, 1 warning, 0 failed**
 - Command: `python -m pytest -q`
 - The warning is a third-party Starlette TestClient/httpx deprecation in the validation environment.
 
@@ -44,7 +44,12 @@ Completed:
 
 Open:
 
-- The Python guidance core (`module_a.PhotoCoach`) is now wired through Module E with explicit capture context and uncertainty/manual guidance fields. Templates still require real-photo calibration, so automatic PASS remains disabled. Manual-review evidence storage and dispatch remain open; advice alone does not create a review task or photo ID.
+- The exterior coach uses the approved close-up layout (image-relative feature positions, one near wheel, plate, and front headlight where applicable). Body cropping is allowed; doors and taillights are not automatically verified. Real-photo calibration and front/rear disambiguation remain open. No public Python or HTTP contract changed.
+- The Python guidance core (`module_a.PhotoCoach`) is wired through Module E. The shutter stays available; final upload reruns AI on the submitted image and returns accept or reshoot. The 20-second unlock/manual-review fallback is removed. Calibration status no longer produces a guidance code or blocks uploads; quality and geometry checks still apply. Real-photo validation remains open.
+- Module A has a callable offline borrow/return comparison pipeline for two already stored exterior photos. It returns alignment diagnostics, a comparison-area mask, candidate heatmap regions and a failure reason. An automated local batch smoke runner exists; there is still no trusted rental-pair lookup, annotated real-pair calibration, E route, B consumption, or C/UI reshoot integration. The normal final-upload flow is unchanged. The initial-contest scope defers accuracy calibration and human annotation to the final round.
+- A local evaluation script inventories filename-based borrow/return candidates from explicitly selected photo folders. Review outputs remain local and Git-ignored; filename matches are not verified rental evidence.
+
+The existing HTTP `TEMPLATE_NOT_CALIBRATED` enum value remains for compatibility, but the current Module A coach no longer emits it. A successful coach result now says `照片可提交。`.
 
 ## Module B
 
@@ -129,12 +134,12 @@ Implemented integration:
 - Return-only damage evidence is supported end to end. Module D accepts an explicitly supplied
   `borrow_photo_id=None`, and Module B uses it for RETURN exterior/damage photos without
   fabricating borrow evidence.
-- Module A's coach now replaces the fixed-PASS stub. Manual-review submission and template calibration are still required.
+- Module A's coach replaces the fixed-PASS stub. Template calibration is still required.
 - The staff-side `UI_backstage` and `/review` experience still contain prototype data pending a separately scoped production integration.
 
 ## Team-level next steps
 
-1. Calibrate Module A templates and agree on manual-review evidence submission.
+1. Calibrate Module A templates with real vehicle photos.
 2. Plan the staff-side production integration without moving Module D rules into the UI.
 3. Run an end-to-end demo covering capture, upload, Case creation, review, workflow, and payment.
 
@@ -145,7 +150,7 @@ Repository inspection found three differences from the supplied starting notes:
 - Module B now follows the deployed single-image model: return-only exterior evidence is valid,
   while card and interior photos are filtered out before inference.
 - Module D already supports nullable borrow evidence for generic return-only detections, so that contract is no longer blocking integration.
-- The confirmed full pytest checkpoint is now 375 passed, including 26 Python coach tests.
+- The confirmed full pytest checkpoint is now 408 passed, including 44 guidance/close-up tests, 10 comparison tests, 1 batch-runner test and 2 candidate-manifest tests.
 
 ## Status-recording rule
 

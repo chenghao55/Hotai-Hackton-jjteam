@@ -65,8 +65,10 @@ MESSAGES = {
     'SUBJECT_NOT_DETECTED': '請將目標車輛放入畫面。', 'MULTIPLE_SUBJECTS': '請只拍攝目標車輛。',
     'SUBJECT_NEAR_EDGE': '請保留完整車身與輪胎。', 'SUBJECT_TOO_SMALL': '請稍微靠近。',
     'SUBJECT_TOO_LARGE': '請稍微後退。', 'OFF_CENTER': '請將車身移至取景框中央。',
-    'POSSIBLE_WRONG_SLOT': '請確認目前指定的車角。', 'PASS': '構圖與畫質符合要求，可以拍照。',
-    'TEMPLATE_NOT_CALIBRATED': '構圖基準尚未校正，目前無法自動判定合格。',
+    'MISSING_REQUIRED_FEATURE': '請依示意圖完整拍入必要部位。',
+    'GEOMETRY_MISMATCH': '請依示意圖調整必要部位的位置及大小。',
+    'AMBIGUOUS_TEMPLATES': '目前無法明確辨認拍到的是車身哪個角度，請依示意圖調整拍攝位置。',
+    'POSSIBLE_WRONG_SLOT': '請確認目前指定的車角。', 'PASS': '照片可提交。',
     'FRONT_SEAT_EVIDENCE_UNAVAILABLE': '目前模型無法確認前排完整，請改從左側車門拍攝。',
     'UNSUPPORTED_SLOT': '目前教練尚未支援此拍攝槽位。',
 }
@@ -91,8 +93,16 @@ class PhotoCoach:
         checks = {f'L{i}': 'not_evaluated' for i in range(1, 7)}
         def result(code, level):
             accepted = code == 'PASS'
+            message = MESSAGES.get(code, '請依示意圖調整構圖。')
+            if SLOTS.get(context.capture_slot, '').startswith('exterior_'):
+                if code == 'MISSING_REQUIRED_FEATURE':
+                    message = '請完整拍入車牌與近側輪胎。'
+                    if context.capture_slot in (CaptureSlot.FRONT_LEFT, CaptureSlot.FRONT_RIGHT):
+                        message += '同側前燈也需完整入鏡。'
+                elif code == 'GEOMETRY_MISMATCH':
+                    message = '請依近拍示意圖調整車牌與近側特徵的位置及大小。'
             return GuidanceResult(accepted, level, code,
-                MESSAGES.get(code, '請依示意圖調整構圖。'),
+                message,
                 'accept' if accepted else 'reshoot',
                 dict(checks), self.config['version'])
         if context.capture_slot not in SLOTS:
