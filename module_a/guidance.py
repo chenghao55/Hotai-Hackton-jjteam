@@ -67,8 +67,8 @@ MESSAGES = {
     'SUBJECT_TOO_LARGE': '請稍微後退。', 'OFF_CENTER': '請將車身移至取景框中央。',
     'MISSING_REQUIRED_FEATURE': '請依示意圖完整拍入必要部位。',
     'GEOMETRY_MISMATCH': '請依示意圖調整必要部位的位置及大小。',
-    'AMBIGUOUS_TEMPLATES': '目前無法明確辨認拍到的是車身哪個角度，請依示意圖調整拍攝位置。',
-    'POSSIBLE_WRONG_SLOT': '請確認目前指定的車角。', 'PASS': '照片可提交。',
+    'AMBIGUOUS_TEMPLATES': '目前無法明確辨認車身角度，請依示意圖調整拍攝位置。',
+    'POSSIBLE_WRONG_SLOT': '請確認目前指定的車身角度。', 'PASS': '照片可提交。',
     'FRONT_SEAT_EVIDENCE_UNAVAILABLE': '目前模型無法確認前排完整，請改從左側車門拍攝。',
     'UNSUPPORTED_SLOT': '目前教練尚未支援此拍攝槽位。',
 }

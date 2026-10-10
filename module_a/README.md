@@ -132,7 +132,7 @@ else:
 
 ### 本機資料配對清單
 
-`evaluation/pair_manifest.py` 可掃描指定的兩個**本機資料夾**，依檔名車輛鍵、四個車角及「借／還／還2」產生候選配對清單；它只讀檔名與檔案大小，不讀取、搬動或修改照片內容。另輸出檔名不符格式的照片，供人工核對。範例（在專案根目錄執行，將資料夾名稱替換為實際名稱）：
+`evaluation/pair_manifest.py` 可掃描指定的兩個**本機資料夾**，依檔名車輛鍵、四個車身角度及「借／還／還2」產生候選配對清單；它只讀檔名與檔案大小，不讀取、搬動或修改照片內容。另輸出檔名不符格式的照片，供人工核對。範例（在專案根目錄執行，將資料夾名稱替換為實際名稱）：
 
 ```text
 python -m module_a.evaluation.pair_manifest --source-root "C:\Users\ethan\Downloads" --group "沒有進行索賠" --group "進行索賠資料" --output tmp/pair_candidates.json --csv-output tmp/pair_candidates.csv --exceptions-csv-output tmp/other_photos.csv
