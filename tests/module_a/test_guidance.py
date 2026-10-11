@@ -1,19 +1,40 @@
 import io
+import sys
+import types
+from copy import deepcopy
 from dataclasses import replace
 
 import pytest
 
 from module_a import CaptureContext, CaptureSlot, PhotoType, PhotoCoach, load_config
+from module_a.coach_image import YoloDetector
 
 
 class Detector:
-    def __init__(self, detections):
+    def __init__(self, detections, supported_class_ids=None):
         self.detections = detections
         self.calls = 0
+        self.supported_class_ids = supported_class_ids if supported_class_ids is not None else set(range(6))
 
     def predict(self, image):
         self.calls += 1
         return self.detections
+
+
+def test_yolo_class_names_map_old_and_new_weights(monkeypatch):
+    config = load_config()
+    names = []
+    class FakeYOLO:
+        def __init__(self, path):
+            self.names = names[-1]
+    monkeypatch.setitem(sys.modules, 'ultralytics', types.SimpleNamespace(YOLO=FakeYOLO))
+    names.append({int(k): v for k, v in config['raw_model_classes'].items()})
+    old = YoloDetector('old.pt', config)
+    assert old.mapping[1] is None and old.supported_class_ids == set(range(6))
+    names.append({i: name for i, name in enumerate(reversed(list(config['model_classes'].values())))})
+    new = YoloDetector('new.pt', config)
+    assert new.supported_class_ids == set(range(7))
+    assert new.mapping[0] == 6  # mirror is raw class 0 in this reordered model
 
 
 @pytest.fixture
@@ -67,11 +88,48 @@ def test_uncalibrated_template_does_not_block_matching_photo(frame, context):
     assert final.message == '照片可提交。'
 
 
+def test_pilot_portrait_sedan_front_left_geometry(frame, context):
+    # Normalized detections measured from a real portrait demo photo; the image
+    # stays outside the repository because it includes a license plate.
+    detections = [
+        {'class_id': 0, 'confidence': .97, 'box': [.034, .328, .975, .759]},
+        {'class_id': 1, 'confidence': .94, 'box': [.428, .494, .714, .600]},
+        {'class_id': 5, 'confidence': .93, 'box': [.691, .560, .860, .712]},
+        {'class_id': 2, 'confidence': .90, 'box': [.103, .614, .326, .674]},
+    ]
+    result = PhotoCoach(Detector(detections)).analyze(frame, replace(context, mode='final'))
+    assert result.accepted and result.code == 'PASS'
+    assert result.checks['L3'] == result.checks['L6'] == 'pass'
+    missing_plate = PhotoCoach(Detector(detections[:-1])).analyze(frame, replace(context, mode='final'))
+    assert missing_plate.code == 'MISSING_REQUIRED_FEATURE' and not missing_plate.accepted
+
+
+@pytest.mark.parametrize('boxes', [
+    {0: [.005, .314, .979, .717], 5: [.253, .545, .475, .712],
+     1: [.382, .478, .782, .582], 2: [.815, .585, .995, .650]},
+    {0: [.007, .331, .996, .754], 5: [.260, .572, .461, .738],
+     1: [.387, .508, .781, .617], 2: [.836, .606, .997, .689]},
+])
+def test_pilot_portrait_sedan_front_right_geometry(frame, context, boxes):
+    # Model boxes measured from the two local demo photos; no photo is copied
+    # into the repository, and the global ambiguity guard remains active.
+    detections = [{'class_id': cls, 'confidence': .9, 'box': box}
+                  for cls, box in boxes.items()]
+    right_front = replace(context, capture_slot=CaptureSlot.FRONT_RIGHT, mode='final')
+    result = PhotoCoach(Detector(detections)).analyze(frame, right_front)
+    assert result.accepted and result.code == 'PASS'
+    assert result.checks['L3'] == result.checks['L6'] == 'pass'
+
+
 def test_shutter_is_always_available_and_final_rechecks(frame, context):
     from PIL import Image
     config = load_config()
+    # Deliberately make another slot identical so the ambiguity path is exercised
+    # independently of future template calibration.
+    config['templates'][1] = deepcopy(config['templates'][0])
+    config['templates'][1]['shot_type'] = 'exterior_front_right'
     tick = [0.]
-    coach = PhotoCoach(Detector(objects(config)), clock=lambda: tick[0])
+    coach = PhotoCoach(Detector(objects(config)), config=config, clock=lambda: tick[0])
     first = coach.analyze(frame, context)
     assert not first.accepted
     tick[0] = 20
@@ -98,8 +156,11 @@ def test_quality_priority_and_no_inference(context):
 
 
 def test_stale_frame_expires_after_preview_gap(frame, context):
+    config = load_config()
+    config['templates'][1] = deepcopy(config['templates'][0])
+    config['templates'][1]['shot_type'] = 'exterior_front_right'
     tick = [0.]
-    coach = PhotoCoach(Detector(objects(load_config())), clock=lambda: tick[0])
+    coach = PhotoCoach(Detector(objects(config)), config=config, clock=lambda: tick[0])
     coach.analyze(frame, context)
     with pytest.raises(ValueError, match='STALE_FRAME'):
         coach.analyze(frame, context)
@@ -118,7 +179,7 @@ def test_distance_and_centering_priority(frame, context, box, code, level):
     config = load_config()
     template = config['templates'][0]
     template.update(allow_body_crop=False, reference_box=[.1, .27, .9, .85],
-                    body_width_range=[.6, .93], body_height_range=[.34, .7],
+                    body_width_range=[.6, .93], body_max_height=.7,
                     body_center_tolerance=[.08, .1])
     r = PhotoCoach(Detector([{'class_id': 0, 'confidence': .99, 'box': box}]), config=config).analyze(frame, context)
     assert (r.code, r.level) == (code, level)
@@ -151,12 +212,44 @@ def test_unsupported_main_slots_fail_closed(frame, context):
 
 def test_raw_class_ids_rejected(frame, context):
     with pytest.raises(ValueError, match='INVALID_DETECTION'):
-        PhotoCoach(Detector([{'class_id': 6, 'confidence': .9, 'box': [.1, .2, .3, .4]}])).analyze(frame, context)
+        PhotoCoach(Detector([{'class_id': 7, 'confidence': .9, 'box': [.1, .2, .3, .4]}])).analyze(frame, context)
 
 
 def test_context_requires_interior_side(context):
     with pytest.raises(ValueError, match='INVALID_ENTRY_SIDE'):
         replace(context, capture_slot=CaptureSlot.INTERIOR_REAR)
+
+
+@pytest.mark.parametrize('slot,class_id,other_class', [
+    (CaptureSlot.INTERIOR_FRONT, 4, 3),
+    (CaptureSlot.INTERIOR_REAR, 3, 4),
+])
+def test_interior_requires_only_detected_feature(frame, context, slot, class_id, other_class):
+    interior = replace(context, capture_slot=slot, entry_side='left', mode='final')
+    detected = {'class_id': class_id, 'confidence': .9, 'box': [.8, .8, .95, .95]}
+    assert PhotoCoach(Detector([detected])).analyze(frame, interior).accepted
+    assert PhotoCoach(Detector([{**detected, 'confidence': .34}])).analyze(frame, interior).code == 'MISSING_REQUIRED_FEATURE'
+    assert PhotoCoach(Detector([{**detected, 'class_id': other_class}])).analyze(frame, interior).code == 'MISSING_REQUIRED_FEATURE'
+
+
+@pytest.mark.parametrize('slot,template_index', [
+    (CaptureSlot.FRONT_LEFT, 0), (CaptureSlot.FRONT_RIGHT, 1),
+])
+def test_new_model_requires_near_side_mirror(frame, context, slot, template_index):
+    config = load_config()
+    config['templates'] = [config['templates'][template_index]]
+    template = config['templates'][0]
+    detections = [{'class_id': 0, 'confidence': .99, 'box': template['reference_box']}]
+    detections += [{'class_id': a['class_id'], 'confidence': .99, 'box': a['box']}
+                   for a in template['anchors'] if a['class_id'] != 6]
+    front = replace(context, capture_slot=slot, mode='final')
+    supported = set(range(7))
+    assert PhotoCoach(Detector(detections, supported), config=config).analyze(frame, front).code == 'MISSING_REQUIRED_FEATURE'
+    mirror = next(a for a in template['anchors'] if a['class_id'] == 6)
+    detections.append({'class_id': 6, 'confidence': .99, 'box': mirror['box']})
+    assert PhotoCoach(Detector(detections, supported), config=config).analyze(frame, front).accepted
+    detections[-1]['box'] = [.1, .42, .2, .51] if slot == CaptureSlot.FRONT_LEFT else [.8, .4, .9, .48]
+    assert PhotoCoach(Detector(detections, supported), config=config).analyze(frame, front).code == 'GEOMETRY_MISMATCH'
 
 
 @pytest.mark.parametrize('index', range(10))
@@ -166,7 +259,8 @@ def test_each_template_uses_its_own_slot_and_door(index):
     template = config['templates'][index]
     config['templates'] = [template]
     config['calibration_status'] = 'calibrated'
-    detections = [{'class_id': a['class_id'], 'confidence': .99, 'box': a['box']}
+    detections = [{'class_id': a['class_id'], 'confidence': .99,
+                   'box': a.get('box', [.1, .1, .2, .2])}
                   for a in template['anchors'] if a['required']]
     if template['reference_class_id'] is not None:
         detections.append({'class_id': 0, 'confidence': .99, 'box': template['reference_box']})

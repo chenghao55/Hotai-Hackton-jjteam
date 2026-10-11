@@ -48,13 +48,13 @@ E → A 儲存／指導；E → B 分析；B → D 建立 Case
 
 ## Module A 拍攝教練
 
-教練核心為 `module_a.PhotoCoach`，由 E 的 `backend/services/photo_guidance.py` 轉接。YOLO 服務類別 ID 為：`car=0`、`headlight=1`、`license_plate=2`、`rear_seat_bench=3`、`steering_wheel=4`、`wheel=5`。舊模型中額外的 `car-coach-yolo` 類別不納入服務類別。
+教練核心為 `module_a.PhotoCoach`，由 E 的 `backend/services/photo_guidance.py` 轉接。YOLO 服務類別 ID 為：`car=0`、`headlight=1`、`license_plate=2`、`rear_seat_bench=3`、`steering_wheel=4`、`wheel=5`、`mirror=6`。模型類別依名稱對應服務 ID；舊模型中額外的 `car-coach-yolo` 類別不納入服務類別。
 
 教練支援四個車外角度與前、後排內裝槽位；`REAR`、`FUEL_PARKING_CARD`、`OTHER_DAMAGE` 不使用角度教練。這些非教練槽位仍可依 HTTP 流程驗證圖片並儲存。模板設定目前標記為 `calibrated`，但尚未以真實車輛照片完成驗證；合成資料測試不能證明實車準確率。
 
-外觀模板依轎車／休旅車及四個車身角度設定。前方模板使用車牌、近側車輪及近側頭燈；後方使用車牌及近側車輪。車身可以部分出框，但必要特徵需留在照片內。內裝模板以方向盤定位前排、後座椅定位後排；方向盤不代表前排座椅完整，幾何符合也不代表已精確量出 45 度或手機離地高度。
+外觀模板依轎車／休旅車及四個車身角度設定。前方模板使用車牌、近側車輪、近側頭燈，以及近側後照鏡；左前的近側鏡在影像右側，右前的近側鏡在影像左側。只有載入支援 `mirror` 的模型時才要求後照鏡。新模型已由使用者提供，轎車前角的鏡框位置依 demo 的四張照片調整；休旅車尚無實拍校正。前角[拍攝教練模板示意](docs/coach-front-templates.svg)列出四個必要特徵的預期區域。後方使用車牌及近側車輪。車身及必要特徵都可部分出框；必要特徵仍須被模型偵測到，並符合模板的位置及大小。外觀車身沒有高度下限，寬度及最大尺寸仍受檢查。內裝前排只需偵測到方向盤、後排只需偵測到後座座椅，仍先通過影像品質檢查；方向盤不代表前排座椅完整，也不代表已精確量出 45 度或手機離地高度。
 
-`best.pt` 由伺服器端載入，不應由 API 使用者上傳模型。E 以 `HOTAI_MODULE_A_CHECKPOINT_PATH` 指定模型路徑；未設定時尋找專案內的 `artifacts/module_a/best.pt`。可用 `HOTAI_MODULE_A_DEVICE` 設定推論裝置，預設為 `cpu`。
+`best.pt` 由伺服器端載入，不應由 API 使用者上傳模型。E 以 `HOTAI_MODULE_A_CHECKPOINT_PATH` 指定模型路徑；未設定時尋找專案內的 `artifacts/module_a/best.pt`（目前為含 `mirror` 的新權重）。可用 `HOTAI_MODULE_A_DEVICE` 設定推論裝置，預設為 `cpu`。
 
 模板校正狀態不再產生拍攝提示或阻擋上傳；照片仍需通過畫質與構圖規則。通過時提示「照片可提交。」。現有模板尚未經真實照片驗證，demo 結果不能當作實車準確率。
 
@@ -108,7 +108,7 @@ uvicorn backend.main:app --reload
 python -m pytest -q
 ```
 
-最近記錄的完整測試檢查點為 **465 passed、1 warning、0 failed**（2026-10-10；整合最新主線後，警告為 Starlette TestClient/httpx 的第三方棄用提醒）。最新團隊紀錄請查 [docs/STATUS.md](docs/STATUS.md)。
+最近記錄的完整測試檢查點為 **474 passed、1 warning、0 failed**（2026-10-12；包含近側後照鏡準備與內裝特徵偵測規則，警告為 Starlette TestClient/httpx 的第三方棄用提醒）。最新團隊紀錄請查 [docs/STATUS.md](docs/STATUS.md)。
 
 目前主要待辦：
 

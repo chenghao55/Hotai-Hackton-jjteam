@@ -10,7 +10,7 @@
 |---|---|
 | Python 模組化 | 將獨立 Node/Python 教練移植至 `module_a`，提供 `PhotoCoach.analyze(image_bytes, context)` |
 | 主線格式 | 沿用 `PhotoType`、`CaptureSlot` 與既有照片儲存／讀取介面 |
-| YOLO 推論 | 載入一次伺服器指定的 `best.pt`；舊七類模型輸出轉為六類 ID，忽略 `car-coach-yolo` |
+| YOLO 推論 | 載入一次伺服器指定的 `best.pt`；依類別名稱映射服務 ID，忽略 `car-coach-yolo`；新八類模型含 `mirror` |
 | 畫質檢查 | JPEG/PNG 解碼、EXIF 校正、大小限制、光線／曝光／背光與單張清晰度 |
 | 車外構圖 | 轎車／休旅車各四角；檢查主體數量、近拍占比、構圖及必要特徵；允许車身出框、近側輪胎與車牌須完整 |
 | 車內構圖 | 前排與後排皆由駕駛側左門斜拍；共 10 組模板（外觀 8 組、內裝 2 組） |
@@ -18,7 +18,7 @@
 | 快門決策 | 使用者隨時可按快門；即時建議不鎖住快門 |
 | 正式照片重驗 | `mode='final'` 重新分析原圖，不沿用預覽結果；拒絕過期預覽影格 |
 
-服務 class ID：`car=0`、`headlight=1`、`license_plate=2`、`rear_seat_bench=3`、`steering_wheel=4`、`wheel=5`。
+服務 class ID：`car=0`、`headlight=1`、`license_plate=2`、`rear_seat_bench=3`、`steering_wheel=4`、`wheel=5`、`mirror=6`。原始 YOLO 類別依名稱映射至服務 ID，因此新權重可使用不同的原始 ID。
 
 支援槽位：`FRONT_LEFT`、`FRONT_RIGHT`、`REAR_LEFT`、`REAR_RIGHT`、`INTERIOR_FRONT`、`INTERIOR_REAR`。車內需指定 `entry_side='left'`；右側拍攝目前不支援，會引導使用者改從駕駛側左門拍攝。`REAR`、`FUEL_PARKING_CARD`、`OTHER_DAMAGE` 尚無教練規則，回傳 `UNSUPPORTED_SLOT`；既有照片儲存能力不因此移除。
 
@@ -28,7 +28,7 @@
 |---|---|
 | L1 | 光線與曝光 |
 | L2 | 單張清晰度；不代表已量測手機晃動 |
-| L3 | 主體狀態與近拍占比；車身可出框，不回報實際公尺數 |
+| L3 | 主體狀態、車身寬度與最大尺寸；車身可出框，沒有高度下限，不回報實際公尺數 |
 | L4 | 置中與構圖 |
 | L5 | 無法可靠量測手機離地高度，標記 `not_applicable` |
 | L6 | 特徵框相對位置／尺寸符合模板程度；不保證實際 45° |
@@ -37,13 +37,23 @@
 
 ## 已確認的近拍構圖（2026-09-30）
 
-已將設計稿 v0.7 的八個外觀槽位套入 `capture_templates.json`，規則版本為 `capture-templates-v0.8-closeup-design`。前方要求同側前燈、完整車牌及一個近側前輪；後方要求完整車牌及一個近側後輪。遠側輪胎、另一側燈不再是必要特徵。車門與尾燈缺少模型類別，僅保留為拍攝示意，不能回報已由 AI 確認。
+最初依設計稿 v0.7 建立八個外觀槽位，當時規則版本為 `capture-templates-v0.8-closeup-design`。前方要求同側前燈、完整車牌及一個近側前輪；後方要求完整車牌及一個近側後輪。遠側輪胎、另一側燈不再是必要特徵。車門與尾燈缺少模型類別，僅保留為拍攝示意，不能回報已由 AI 確認。
 
-座標取自設計稿的 **1000×750 影像區**，排除下方文字圖例，轉為校正後原圖的 0–1 座標。車牌在車體中線、靠畫面邊緣；近側燈與輪胎放大。`geometry_reference=image` 避免被裁切的車身框改變特徵基準；單車關聯仍使用車身框。`allow_body_crop=true` 允许車身貼邊，必要特徵保留 1% 畫面邊界。中心、大小及位置容差是設計初值，尚非照片校正結果。UI 若使用 cover 裁切或不同取景比例，需讓原始影像與疊圖使用同一個取景範圍；本次未變更 UI。
+2026-10-12 的展示用小範圍校正將規則版本更新為 `capture-templates-v0.9-sedan-front-left-pilot`：使用一張實拍直式轎車左前照片，調整該槽位的車身高度下限及車牌、近側輪胎、前燈位置。該照片以實際 `best.pt` 在正式模式得到 `PASS`；同車還車照因缺少必要偵測特徵仍被拒絕。其餘槽位未校正，這一張樣本也不構成獨立準確率驗證。照片保留於本機資料夾，未加入版本庫。
 
-前後構圖的車牌與單輪可能相似，現有模型也沒有尾燈類別。因此四模板比較保留歧義拒判：例如前方照片同時吻合另一個後方模板時，回 `AMBIGUOUS_TEMPLATES`。不刪除歧義檢查來製造 PASS。模板目前標記為 `calibrated`，但仍須進行真實照片校正；設定標記不等同驗證辨識能力。內裝僅保留駕駛側左門模板。`PhotoCoach.analyze`、`GuidanceResult` 及 E 的 HTTP 公開契約均未變更。
+規則版本 `capture-templates-v0.10-no-feature-edge-or-body-height-floor` 移除了所有外觀槽位的車身高度下限及必要特徵距影像邊界 1% 的門檻。模型仍須偵測到車牌、近側輪胎及前方照片的同側前燈，並通過車身寬度、最大尺寸、特徵位置與角度歧義檢查。
 
-驗證：教練與近拍針對性測試 **44 passed**；完整 Python 測試 **408 passed、1 warning、0 failed**。警告為既有 Starlette TestClient/httpx 棄用提醒。測試使用合成影像／框，未聲稱完成真實照片準確率驗證。
+規則版本 `capture-templates-v0.11-sedan-front-right-pilot` 曾依 demo 資料夾兩張直式轎車右前照片，校正右前的車牌、近側輪胎、前燈位置與容差。兩張照片用當時的 `best.pt` 在正式模式均得到 `PASS`；同資料夾兩張左後照片仍回 `AMBIGUOUS_TEMPLATES`。這是針對展示照片的局部校正，不是跨車款或新照片的準確率驗證。
+
+規則版本 `capture-templates-v0.12-mirror-ready-interior-presence` 在左前、右前新增近側後照鏡位置要求（轎車與休旅車）。兩側都使用模型類別 `mirror`，以影像中的位置判斷近側；舊權重不提供該類別時跳過此要求。內裝前座／後座分別只需偵測到方向盤／後座座椅，框的位置和大小不再評分；影像品質門檻維持。
+
+目前版本 `capture-templates-v0.13-new-mirror-model` 使用新八類模型，將轎車左前／右前的鏡框改為新模型在 demo 各兩張照片的實際偵測位置。這四張前角照片均回 `PASS`；前座借車照、兩張後座照沒有偵測到指定類別，兩張右後照仍為 `GEOMETRY_MISMATCH`。這些缺失尚未由模板調整掩蓋，也不能代表獨立準確率。休旅車後照鏡位置尚無實拍校正。[左右前教練模板示意](../docs/coach-front-templates.svg)直接顯示車牌、近側前燈、近側前輪和相應後照鏡的框位。
+
+座標取自設計稿的 **1000×750 影像區**，排除下方文字圖例，轉為校正後原圖的 0–1 座標。車牌在車體中線、靠畫面邊緣；近側燈與輪胎放大。`geometry_reference=image` 避免被裁切的車身框改變特徵基準；單車關聯仍使用車身框。`allow_body_crop=true` 允許車身貼邊；必要特徵也可貼邊或部分出框，只要模型仍能偵測且位置、大小符合模板。UI 若使用 cover 裁切或不同取景比例，需讓原始影像與疊圖使用同一個取景範圍；本次未變更 UI。
+
+左前／右後與右前／左後的車牌和近側輪胎會在畫面中形成相似排列。現有模型沒有尾燈類別，也可能把後方車燈偵測成前燈；單靠這些特徵框的位置不能可靠判斷車頭或車尾。因此四模板比較保留歧義拒判：前方照片同時吻合另一個後方模板時，回 `AMBIGUOUS_TEMPLATES`。要可靠區分前後，需加入以獨立實拍資料驗證的前後方向證據，例如尾燈類別或車頭／車尾分類模型。模板目前標記為 `calibrated`，但仍須進行真實照片校正；設定標記不等同驗證辨識能力。內裝僅保留駕駛側左門模板。`PhotoCoach.analyze`、`GuidanceResult` 及 E 的 HTTP 公開契約均未變更。
+
+驗證：教練與近拍針對性測試 **53 passed**；完整 Python 測試 **474 passed、1 warning、0 failed**。警告為既有 Starlette TestClient/httpx 棄用提醒。測試使用合成影像／框，未聲稱完成真實照片準確率驗證。
 
 校正狀態不再產生拍攝提示或阻擋上傳；畫質與構圖檢查通過時，預覽及正式提交均回「照片可提交。」。其他失敗仍須重拍。這不代表已完成真實照片校正。
 
@@ -148,6 +158,6 @@ python -m module_a.evaluation.evaluate_pairs --manifest tmp/pair_candidates.json
 
 報告只輸出候選編號、視角、可比較性、原因、對位量測、比較區比例、熱區數量與耗時；不複製原圖，也不輸出原圖路徑。它**不是準確率**：檔名配對尚未核實，索賠資料夾也不是影像變化真值。門檻校正與真實變化標註可留到決賽；初賽展示不得把候選熱區當成自動車損或重拍結論。
 
-比較功能測試：**10 passed**；批次評估測試 **1 passed**；資料清單測試 **2 passed**。最新完整 Python 測試：**465 passed、1 個既有第三方警告、0 failed**（2026-10-10；整合最新主線後）。
+比較功能測試：**10 passed**；批次評估測試 **1 passed**；資料清單測試 **2 passed**。最新完整 Python 測試：**474 passed、1 個既有第三方警告、0 failed**（2026-10-12；包含近側後照鏡準備與內裝特徵偵測規則）。
 
 第一版保留於 [legacy/capture-coach-v1](../legacy/capture-coach-v1/)。第二版修改本資料夾，沿用 `A_legalityAI`，再透過 PR 合併至 `main`。

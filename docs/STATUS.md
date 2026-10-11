@@ -4,9 +4,9 @@ This file records shared repository status. It is not an individual agent checkp
 
 ## Last verified checkpoint
 
-- Verified on: 2026-10-10
-- Verified against: merged `A_legalityAI` and latest `main`, including Module A close-up templates, offline photo comparison, and current Module E integration
-- Full Python suite: **465 passed, 1 warning, 0 failed**
+- Verified on: 2026-10-12
+- Verified against: the previous Module A mirror-ready configuration, interior presence rules, sedan front demo pilots, and current Module E integration; this checkpoint predates the new model replacement
+- Full Python suite: **474 passed, 1 warning, 0 failed**
 - Command: `python -m pytest -q`
 - The warning is a third-party Starlette TestClient/httpx deprecation in the validation environment.
 
@@ -26,6 +26,7 @@ Module A, Module B, and Module D communicate through Python calls in the same ba
 ## Module A
 
 - Cabin templates cover driver-side left-door front and rear shots only; right-side requests guide the user to the left door.
+- Front exterior templates require a near-side `mirror` detection when the loaded model supports that class. The supplied eight-class checkpoint is now installed as `artifacts/module_a/best.pt`; sedan mirror positions were adjusted using its detections on four demo front-angle photos. Those four front-angle photos return `PASS`. SUV positions remain unvalidated. The model misses the required class in one demo front-cabin and both rear-cabin photos; both demo right-rear photos return `GEOMETRY_MISMATCH`. Cabin front/rear composition passes on steering-wheel/rear-seat-bench detection respectively, after image quality checks.
 
 Completed:
 
@@ -46,7 +47,9 @@ Completed:
 
 Open:
 
-- The exterior coach uses the approved close-up layout (image-relative feature positions, one near wheel, plate, and front headlight where applicable). Body cropping is allowed; doors and taillights are not automatically verified. Real-photo calibration and front/rear disambiguation remain open. No public Python or HTTP contract changed.
+- The exterior coach uses the approved close-up layout (image-relative feature positions, one near wheel, plate, and front headlight where applicable). Body cropping and detected features touching the image edge are allowed; there is no body-height minimum. Body width, maximum size, required detections, geometry, and ambiguity checks remain. Doors and taillights are not automatically verified. Real-photo calibration and front/rear disambiguation remain open. No public Python or HTTP contract changed.
+- A 2026-10-12 pilot adjusted the sedan front-left template from one real portrait photo; that sample passes the actual model in final mode, while its paired return photo still lacks required detections. A second pilot calibrated sedan front-right from two portrait demo photos; both pass the actual model in final mode, while the two demo rear-left photos remain ambiguous. Independent validation and other slots remain open. These demo samples do not establish a real-photo pass rate.
+- Left-front/rear-right and right-front/rear-left can share plate and near-wheel geometry. The current detector has no taillight class and sometimes identifies rear lamps as headlights, so the template matcher is not a reliable front-versus-rear classifier. An independently validated front/rear cue is still needed; ambiguity rejection remains enabled.
 - The Python guidance core (`module_a.PhotoCoach`) is wired through Module E. The shutter stays available; final upload reruns AI on the submitted image and returns accept or reshoot. The 20-second unlock/manual-review fallback is removed. Calibration status no longer produces a guidance code or blocks uploads; quality and geometry checks still apply. Real-photo validation remains open.
 - Module A has a callable offline borrow/return comparison pipeline for two already stored exterior photos. It returns alignment diagnostics, a comparison-area mask, candidate heatmap regions and a failure reason. An automated local batch smoke runner exists; there is still no trusted rental-pair lookup, annotated real-pair calibration, E route, B consumption, or C/UI reshoot integration. The normal final-upload flow is unchanged. The initial-contest scope defers accuracy calibration and human annotation to the final round.
 - A local evaluation script inventories filename-based borrow/return candidates from explicitly selected photo folders. Review outputs remain local and Git-ignored; filename matches are not verified rental evidence.

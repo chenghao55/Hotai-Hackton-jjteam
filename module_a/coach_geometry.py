@@ -10,20 +10,18 @@ def features(box, ref):
             (r - x) / w, (b - y) / h)
 
 
-def score(template, objects, ref, thresholds):
+def score(template, objects, ref, thresholds, supported_classes=None):
     expected_ref = template.get('feature_reference_box', template['reference_box'])
-    required = [a for a in template['anchors'] if a['required']]
-    if len(required) < template['min_valid_features'] or not required:
+    required = [a for a in template['anchors'] if a['required'] and
+                (not a.get('requires_class_support') or supported_classes is None or
+                 a['class_id'] in supported_classes)]
+    if not required or len(required) < template['min_valid_features']:
         return None
     matches = {}
     for cls in {a['class_id'] for a in required}:
         anchors = [a for a in required if a['class_id'] == cls]
         candidates = sorted((d for d in objects if d['class_id'] == cls),
                             key=lambda d: -d['confidence'])[:8]
-        margin = template.get('required_feature_edge_margin', 0)
-        if margin:
-            candidates = [d for d in candidates if min(d['box'][0], d['box'][1],
-                          1-d['box'][2], 1-d['box'][3]) >= margin]
         if len(candidates) < len(anchors):
             return None
         best = None
@@ -38,6 +36,8 @@ def score(template, objects, ref, thresholds):
             matches[a['id']] = (a, d, e)
     errors = [m[2] for m in matches.values()]
     for left, right in template['relationships']:
+        if left not in matches or right not in matches:
+            continue
         a, b = matches[left], matches[right]
         observed = [x - y for x, y in zip(features(a[1]['box'], ref)[:2], features(b[1]['box'], ref)[:2])]
         expected = [x - y for x, y in zip(features(a[0]['box'], expected_ref)[:2],
@@ -48,7 +48,7 @@ def score(template, objects, ref, thresholds):
     return error, error <= thresholds['max_match_error'] and max(errors) <= thresholds['max_per_anchor_error']
 
 
-def geometry(detections, slot, vehicle_type, entry_side, config):
+def geometry(detections, slot, vehicle_type, entry_side, config, supported_classes=None):
     for d in detections:
         box = d['box']
         if (type(d['class_id']) is not int or str(d['class_id']) not in config['model_classes']
@@ -83,9 +83,9 @@ def geometry(detections, slot, vehicle_type, entry_side, config):
         if not target.get('allow_body_crop', False) and min(x, y, 1-r, 1-b) < margin:
             return stop('SUBJECT_NEAR_EDGE', 'L3')
         w, h = r-x, b-y
-        if w < target['body_width_range'][0] or h < target['body_height_range'][0]:
+        if w < target['body_width_range'][0]:
             return stop('SUBJECT_TOO_SMALL', 'L3')
-        if w > target['body_width_range'][1] or h > target['body_height_range'][1]:
+        if w > target['body_width_range'][1] or h > target['body_max_height']:
             return stop('SUBJECT_TOO_LARGE', 'L3')
         checks['L3'] = 'pass'
         expected = target['reference_box']
@@ -103,7 +103,13 @@ def geometry(detections, slot, vehicle_type, entry_side, config):
             ref = [0, 0, 1, 1]
     # L5 physical camera height is not observable from these boxes; never invent it.
     checks['L5'] = 'not_applicable'
-    scores = [(t['shot_type'], score(t, objects, ref, config['thresholds'])) for t in templates]
+    if target.get('evaluation_mode') == 'presence':
+        required = [a['class_id'] for a in target['anchors'] if a['required']]
+        if not required or any(not any(d['class_id'] == cls for d in objects) for cls in required):
+            return stop('MISSING_REQUIRED_FEATURE', 'L6')
+        checks['L6'] = 'pass'
+        return 'PASS', 'PASS', checks
+    scores = [(t['shot_type'], score(t, objects, ref, config['thresholds'], supported_classes)) for t in templates]
     requested = next(s for name, s in scores if name == slot)
     if requested is None:
         return stop('MISSING_REQUIRED_FEATURE', 'L6')

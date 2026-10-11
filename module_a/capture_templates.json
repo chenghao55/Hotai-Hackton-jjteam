@@ -1,5 +1,5 @@
 {
-  "version": "capture-templates-v0.8-closeup-design",
+  "version": "capture-templates-v0.13-new-mirror-model",
   "calibration_status": "calibrated",
   "coordinate_space": "exif_corrected_unmirrored_image_normalized_xyxy",
   "model_classes": {
@@ -8,7 +8,8 @@
     "2": "license_plate",
     "3": "rear_seat_bench",
     "4": "steering_wheel",
-    "5": "wheel"
+    "5": "wheel",
+    "6": "mirror"
   },
   "vehicle_types": [
     "sedan",
@@ -50,10 +51,6 @@
         0.7,
         1
       ],
-      "body_height_range": [
-        0.55,
-        1
-      ],
       "edge_margin": 0.025,
       "reference_class_id": 0,
       "anchors": [
@@ -61,10 +58,10 @@
           "id": "plate",
           "class_id": 2,
           "box": [
-            0.05267,
-            0.561894,
-            0.176926,
-            0.688551
+            0.103,
+            0.614,
+            0.326,
+            0.674
           ],
           "required": true,
           "tolerance": [
@@ -78,10 +75,10 @@
           "id": "near_wheel",
           "class_id": 5,
           "box": [
-            0.566836,
-            0.503964,
-            0.723504,
-            0.906603
+            0.691,
+            0.56,
+            0.86,
+            0.712
           ],
           "required": true,
           "tolerance": [
@@ -95,10 +92,10 @@
           "id": "near_headlight",
           "class_id": 1,
           "box": [
-            0.191593,
-            0.43129,
-            0.566577,
-            0.553023
+            0.428,
+            0.494,
+            0.714,
+            0.6
           ],
           "required": true,
           "tolerance": [
@@ -106,6 +103,24 @@
             0.09,
             0.1,
             0.08
+          ]
+        },
+        {
+          "id": "left_mirror",
+          "class_id": 6,
+          "box": [
+            0.722,
+            0.401,
+            0.897,
+            0.457
+          ],
+          "required": true,
+          "requires_class_support": true,
+          "tolerance": [
+            0.1,
+            0.1,
+            0.1,
+            0.1
           ]
         }
       ],
@@ -117,10 +132,14 @@
         [
           "near_headlight",
           "near_wheel"
+        ],
+        [
+          "left_mirror",
+          "near_wheel"
         ]
       ],
       "min_valid_features": 3,
-      "notes": "Approved v0.7 design: feature boxes in 1000x750 image area (exclude footer). Body cropping allowed. Door and taillight are visual guidance only; no detector class. Draft tolerances require photo calibration.",
+      "notes": "Pilot adjustment from one real portrait sedan front-left photo: plate, near wheel and headlight. Body-height minimum and required-feature edge margin were later removed. This is a demo sample, not independent validation. Door and taillight are not detector classes. The near-side mirror is required when the loaded model supports mirror; sedan mirror boxes were adjusted using four demo photos and the new model; SUV mirror positions remain unvalidated.",
       "geometry_reference": "image",
       "feature_reference_box": [
         0,
@@ -129,7 +148,7 @@
         1
       ],
       "allow_body_crop": true,
-      "required_feature_edge_margin": 0.01
+      "body_max_height": 1
     },
     {
       "id": "sedan_exterior_front_right",
@@ -150,10 +169,6 @@
         0.7,
         1
       ],
-      "body_height_range": [
-        0.55,
-        1
-      ],
       "edge_margin": 0.025,
       "reference_class_id": 0,
       "anchors": [
@@ -161,51 +176,69 @@
           "id": "plate",
           "class_id": 2,
           "box": [
-            0.823074,
-            0.561894,
-            0.94733,
-            0.688551
+            0.826,
+            0.596,
+            0.996,
+            0.67
           ],
           "required": true,
           "tolerance": [
-            0.055,
-            0.09,
-            0.06,
-            0.07
+            0.05,
+            0.04,
+            0.04,
+            0.04
           ]
         },
         {
           "id": "near_wheel",
           "class_id": 5,
           "box": [
-            0.276496,
-            0.503964,
-            0.433164,
-            0.906603
+            0.257,
+            0.559,
+            0.468,
+            0.725
           ],
           "required": true,
           "tolerance": [
-            0.08,
-            0.09,
-            0.08,
-            0.1
+            0.07,
+            0.055,
+            0.07,
+            0.075
           ]
         },
         {
           "id": "near_headlight",
           "class_id": 1,
           "box": [
-            0.433423,
-            0.43129,
-            0.808407,
-            0.553023
+            0.385,
+            0.493,
+            0.782,
+            0.6
           ],
           "required": true,
           "tolerance": [
-            0.09,
-            0.09,
+            0.08,
+            0.055,
+            0.08,
+            0.055
+          ]
+        },
+        {
+          "id": "right_mirror",
+          "class_id": 6,
+          "box": [
+            0.123,
+            0.417,
+            0.293,
+            0.472
+          ],
+          "required": true,
+          "requires_class_support": true,
+          "tolerance": [
             0.1,
-            0.08
+            0.1,
+            0.1,
+            0.1
           ]
         }
       ],
@@ -217,10 +250,14 @@
         [
           "near_headlight",
           "near_wheel"
+        ],
+        [
+          "right_mirror",
+          "near_wheel"
         ]
       ],
       "min_valid_features": 3,
-      "notes": "Approved v0.7 design: feature boxes in 1000x750 image area (exclude footer). Body cropping allowed. Door and taillight are visual guidance only; no detector class. Draft tolerances require photo calibration.",
+      "notes": "Pilot calibration from two portrait sedan front-right demo photos. Plate, near-wheel and headlight boxes and tolerances were adjusted without changing the global ambiguity guard. Demo samples are not independent validation. The near-side mirror is required when the loaded model supports mirror; sedan mirror boxes were adjusted using four demo photos and the new model; SUV mirror positions remain unvalidated.",
       "geometry_reference": "image",
       "feature_reference_box": [
         0,
@@ -229,7 +266,7 @@
         1
       ],
       "allow_body_crop": true,
-      "required_feature_edge_margin": 0.01
+      "body_max_height": 1
     },
     {
       "id": "sedan_exterior_rear_left",
@@ -248,10 +285,6 @@
       ],
       "body_width_range": [
         0.7,
-        1
-      ],
-      "body_height_range": [
-        0.55,
         1
       ],
       "edge_margin": 0.025,
@@ -308,7 +341,7 @@
         1
       ],
       "allow_body_crop": true,
-      "required_feature_edge_margin": 0.01
+      "body_max_height": 1
     },
     {
       "id": "sedan_exterior_rear_right",
@@ -327,10 +360,6 @@
       ],
       "body_width_range": [
         0.7,
-        1
-      ],
-      "body_height_range": [
-        0.55,
         1
       ],
       "edge_margin": 0.025,
@@ -387,7 +416,7 @@
         1
       ],
       "allow_body_crop": true,
-      "required_feature_edge_margin": 0.01
+      "body_max_height": 1
     },
     {
       "id": "suv_exterior_front_left",
@@ -406,10 +435,6 @@
       ],
       "body_width_range": [
         0.7,
-        1
-      ],
-      "body_height_range": [
-        0.55,
         1
       ],
       "edge_margin": 0.025,
@@ -465,6 +490,24 @@
             0.1,
             0.08
           ]
+        },
+        {
+          "id": "left_mirror",
+          "class_id": 6,
+          "box": [
+            0.722,
+            0.401,
+            0.897,
+            0.457
+          ],
+          "required": true,
+          "requires_class_support": true,
+          "tolerance": [
+            0.1,
+            0.1,
+            0.1,
+            0.1
+          ]
         }
       ],
       "relationships": [
@@ -475,10 +518,14 @@
         [
           "near_headlight",
           "near_wheel"
+        ],
+        [
+          "left_mirror",
+          "near_wheel"
         ]
       ],
       "min_valid_features": 3,
-      "notes": "Approved v0.7 design: feature boxes in 1000x750 image area (exclude footer). Body cropping allowed. Door and taillight are visual guidance only; no detector class. Draft tolerances require photo calibration.",
+      "notes": "Approved v0.7 design: feature boxes in 1000x750 image area (exclude footer). Body cropping allowed. Door and taillight are visual guidance only; no detector class. Draft tolerances require photo calibration. The near-side mirror is required when the loaded model supports mirror; sedan mirror boxes were adjusted using four demo photos and the new model; SUV mirror positions remain unvalidated.",
       "geometry_reference": "image",
       "feature_reference_box": [
         0,
@@ -487,7 +534,7 @@
         1
       ],
       "allow_body_crop": true,
-      "required_feature_edge_margin": 0.01
+      "body_max_height": 1
     },
     {
       "id": "suv_exterior_front_right",
@@ -506,10 +553,6 @@
       ],
       "body_width_range": [
         0.7,
-        1
-      ],
-      "body_height_range": [
-        0.55,
         1
       ],
       "edge_margin": 0.025,
@@ -565,6 +608,24 @@
             0.1,
             0.08
           ]
+        },
+        {
+          "id": "right_mirror",
+          "class_id": 6,
+          "box": [
+            0.123,
+            0.417,
+            0.293,
+            0.472
+          ],
+          "required": true,
+          "requires_class_support": true,
+          "tolerance": [
+            0.1,
+            0.1,
+            0.1,
+            0.1
+          ]
         }
       ],
       "relationships": [
@@ -575,10 +636,14 @@
         [
           "near_headlight",
           "near_wheel"
+        ],
+        [
+          "right_mirror",
+          "near_wheel"
         ]
       ],
       "min_valid_features": 3,
-      "notes": "Approved v0.7 design: feature boxes in 1000x750 image area (exclude footer). Body cropping allowed. Door and taillight are visual guidance only; no detector class. Draft tolerances require photo calibration.",
+      "notes": "Approved v0.7 design: feature boxes in 1000x750 image area (exclude footer). Body cropping allowed. Door and taillight are visual guidance only; no detector class. Draft tolerances require photo calibration. The near-side mirror is required when the loaded model supports mirror; sedan mirror boxes were adjusted using four demo photos and the new model; SUV mirror positions remain unvalidated.",
       "geometry_reference": "image",
       "feature_reference_box": [
         0,
@@ -587,7 +652,7 @@
         1
       ],
       "allow_body_crop": true,
-      "required_feature_edge_margin": 0.01
+      "body_max_height": 1
     },
     {
       "id": "suv_exterior_rear_left",
@@ -606,10 +671,6 @@
       ],
       "body_width_range": [
         0.7,
-        1
-      ],
-      "body_height_range": [
-        0.55,
         1
       ],
       "edge_margin": 0.025,
@@ -666,7 +727,7 @@
         1
       ],
       "allow_body_crop": true,
-      "required_feature_edge_margin": 0.01
+      "body_max_height": 1
     },
     {
       "id": "suv_exterior_rear_right",
@@ -685,10 +746,6 @@
       ],
       "body_width_range": [
         0.7,
-        1
-      ],
-      "body_height_range": [
-        0.55,
         1
       ],
       "edge_margin": 0.025,
@@ -745,7 +802,7 @@
         1
       ],
       "allow_body_crop": true,
-      "required_feature_edge_margin": 0.01
+      "body_max_height": 1
     },
     {
       "id": "shared_interior_front_left_door",
@@ -760,29 +817,17 @@
         1
       ],
       "reference_class_id": null,
-      "evaluation_mode": "geometry",
+      "evaluation_mode": "presence",
       "anchors": [
         {
           "id": "steering",
           "class_id": 4,
-          "box": [
-            0.115,
-            0.26,
-            0.29,
-            0.49
-          ],
-          "required": true,
-          "tolerance": [
-            0.15,
-            0.16,
-            0.22,
-            0.22
-          ]
+          "required": true
         }
       ],
       "relationships": [],
       "min_valid_features": 1,
-      "notes": "左駕車，從左前門往內拍；方向盤僅為駕駛區定位證據，不證明前排完整。"
+      "notes": "A detected steering wheel is sufficient for the left-door front-cabin slot after image quality checks; this does not prove that the whole front row is visible."
     },
     {
       "id": "shared_interior_rear_left_door",
@@ -797,29 +842,17 @@
         1
       ],
       "reference_class_id": null,
-      "evaluation_mode": "geometry",
+      "evaluation_mode": "presence",
       "anchors": [
         {
           "id": "rear_bench",
           "class_id": 3,
-          "box": [
-            0.22,
-            0.19,
-            0.89,
-            0.85
-          ],
-          "required": true,
-          "tolerance": [
-            0.15,
-            0.15,
-            0.25,
-            0.25
-          ]
+          "required": true
         }
       ],
       "relationships": [],
       "min_valid_features": 1,
-      "notes": "由側門斜拍整排後座；椅背與坐墊形成透視梯形，不採正面對稱模板。"
+      "notes": "A detected rear seat bench is sufficient for the left-door rear-cabin slot after image quality checks; box position and size are not checked."
     }
   ],
   "raw_model_classes": {

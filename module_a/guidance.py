@@ -96,9 +96,11 @@ class PhotoCoach:
             message = MESSAGES.get(code, '請依示意圖調整構圖。')
             if SLOTS.get(context.capture_slot, '').startswith('exterior_'):
                 if code == 'MISSING_REQUIRED_FEATURE':
-                    message = '請完整拍入車牌與近側輪胎。'
+                    message = '模型尚未辨識到車牌或近側輪胎；特徵部分出框仍可接受。'
                     if context.capture_slot in (CaptureSlot.FRONT_LEFT, CaptureSlot.FRONT_RIGHT):
-                        message += '同側前燈也需完整入鏡。'
+                        message += '前方照片也需辨識到同側前燈。'
+                        if 6 in getattr(self.detector, 'supported_class_ids', set()):
+                            message += '並請拍入近側後照鏡。'
                 elif code == 'GEOMETRY_MISMATCH':
                     message = '請依近拍示意圖調整車牌與近側特徵的位置及大小。'
             return GuidanceResult(accepted, level, code,
@@ -135,7 +137,8 @@ class PhotoCoach:
         if not isinstance(detections, list) or len(detections) > 200:
             raise ValueError('INVALID_DETECTIONS')
         code, level, geometry_checks = geometry(detections, SLOTS[context.capture_slot],
-                                                context.vehicle_type, context.entry_side, self.config)
+                                                context.vehicle_type, context.entry_side, self.config,
+                                                getattr(self.detector, 'supported_class_ids', None))
         cars = [d for d in detections if d['class_id'] == 0 and
                 d['confidence'] >= self.config['thresholds']['detection_confidence']]
         if len(cars) == 1:

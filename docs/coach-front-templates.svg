@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="760" viewBox="0 0 960 760">
+<rect width="960" height="760" fill="#f3f7f4"/>
+<text x="480" y="43" text-anchor="middle" font-size="27" font-weight="700" fill="#10251f" font-family="Microsoft JhengHei, sans-serif">拍攝教練模板｜左前與右前</text>
+<text x="480" y="72" text-anchor="middle" font-size="15" fill="#52675d" font-family="Microsoft JhengHei, sans-serif">依新模型於 demo 照片的偵測位置調整；色框為必要特徵的預期區域</text>
+<rect x="45" y="74" width="390" height="645" rx="22" fill="white" stroke="#d2e1d8" stroke-width="2"/>
+<text x="240" y="104" text-anchor="middle" font-size="23" font-weight="700" fill="#173e35" font-family="Microsoft JhengHei, sans-serif">左前構圖</text>
+<rect x="55" y="119" width="370" height="580" rx="10" fill="#17302b"/>
+<rect x="93.1" y="475.1" width="82.5" height="34.8" rx="4" fill="#38bdf8" fill-opacity=".16" stroke="#38bdf8" stroke-width="4"/>
+<text x="93.1" y="468.1" font-size="17" font-weight="700" fill="#38bdf8" stroke="#10251f" stroke-width="3" paint-order="stroke" font-family="Microsoft JhengHei, sans-serif">車牌</text>
+<rect x="310.7" y="443.8" width="62.5" height="88.2" rx="4" fill="#facc15" fill-opacity=".16" stroke="#facc15" stroke-width="4"/>
+<text x="310.7" y="436.8" font-size="17" font-weight="700" fill="#facc15" stroke="#10251f" stroke-width="3" paint-order="stroke" font-family="Microsoft JhengHei, sans-serif">近側前輪</text>
+<rect x="213.4" y="405.5" width="105.8" height="61.5" rx="4" fill="#fb923c" fill-opacity=".16" stroke="#fb923c" stroke-width="4"/>
+<text x="213.4" y="398.5" font-size="17" font-weight="700" fill="#fb923c" stroke="#10251f" stroke-width="3" paint-order="stroke" font-family="Microsoft JhengHei, sans-serif">近側前燈</text>
+<rect x="322.1" y="351.6" width="64.8" height="32.5" rx="4" fill="#4ade80" fill-opacity=".16" stroke="#4ade80" stroke-width="4"/>
+<text x="322.1" y="344.6" font-size="17" font-weight="700" fill="#4ade80" stroke="#10251f" stroke-width="3" paint-order="stroke" font-family="Microsoft JhengHei, sans-serif">左後照鏡</text>
+<rect x="515" y="74" width="390" height="645" rx="22" fill="white" stroke="#d2e1d8" stroke-width="2"/>
+<text x="710" y="104" text-anchor="middle" font-size="23" font-weight="700" fill="#173e35" font-family="Microsoft JhengHei, sans-serif">右前構圖</text>
+<rect x="525" y="119" width="370" height="580" rx="10" fill="#17302b"/>
+<rect x="830.6" y="464.7" width="62.9" height="42.9" rx="4" fill="#38bdf8" fill-opacity=".16" stroke="#38bdf8" stroke-width="4"/>
+<text x="830.6" y="457.7" font-size="17" font-weight="700" fill="#38bdf8" stroke="#10251f" stroke-width="3" paint-order="stroke" font-family="Microsoft JhengHei, sans-serif">車牌</text>
+<rect x="620.1" y="443.2" width="78.1" height="96.3" rx="4" fill="#facc15" fill-opacity=".16" stroke="#facc15" stroke-width="4"/>
+<text x="620.1" y="436.2" font-size="17" font-weight="700" fill="#facc15" stroke="#10251f" stroke-width="3" paint-order="stroke" font-family="Microsoft JhengHei, sans-serif">近側前輪</text>
+<rect x="667.5" y="404.9" width="146.9" height="62.1" rx="4" fill="#fb923c" fill-opacity=".16" stroke="#fb923c" stroke-width="4"/>
+<text x="667.5" y="397.9" font-size="17" font-weight="700" fill="#fb923c" stroke="#10251f" stroke-width="3" paint-order="stroke" font-family="Microsoft JhengHei, sans-serif">近側前燈</text>
+<rect x="570.5" y="360.9" width="62.9" height="31.9" rx="4" fill="#4ade80" fill-opacity=".16" stroke="#4ade80" stroke-width="4"/>
+<text x="570.5" y="353.9" font-size="17" font-weight="700" fill="#4ade80" stroke="#10251f" stroke-width="3" paint-order="stroke" font-family="Microsoft JhengHei, sans-serif">右後照鏡</text>
+<text x="480" y="737" text-anchor="middle" font-size="15" fill="#52675d" font-family="Microsoft JhengHei, sans-serif">左右後照鏡都由同一個 mirror 類別偵測；拍攝槽位決定使用畫面哪一側</text>
+</svg>

@@ -41,12 +41,14 @@ class YoloDetector:
         self.device = device
         self.lock = threading.Lock()
         names = {str(k): v for k, v in self.model.names.items()}
-        if names == config['raw_model_classes']:
-            self.mapping = {int(k): v for k, v in config['raw_to_service_class_id'].items()}
-        elif names == config['model_classes']:
-            self.mapping = {int(k): int(k) for k in names}
-        else:
+        service = {name: int(cls) for cls, name in config['model_classes'].items()}
+        allowed = set(service) | {'car-coach-yolo'}
+        if (not names or len(set(names.values())) != len(names)
+                or not set(names.values()) <= allowed
+                or not (set(service) - {'mirror'}) <= set(names.values())):
             raise ValueError('MODEL_CLASSES_MISMATCH')
+        self.mapping = {int(raw): service.get(name) for raw, name in names.items()}
+        self.supported_class_ids = set(self.mapping.values()) - {None}
 
     def predict(self, image):
         with self.lock:
