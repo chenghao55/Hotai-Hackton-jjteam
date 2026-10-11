@@ -26,7 +26,7 @@ Module A, Module B, and Module D communicate through Python calls in the same ba
 ## Module A
 
 - Cabin templates cover driver-side left-door front and rear shots only; right-side requests guide the user to the left door.
-- Front exterior templates require a near-side `mirror` detection when the loaded model supports that class. The supplied eight-class checkpoint is now installed as `artifacts/module_a/best.pt`; sedan mirror positions were adjusted using its detections on four demo front-angle photos. Those four front-angle photos return `PASS`. SUV positions remain unvalidated. The model misses the required class in one demo front-cabin and both rear-cabin photos; both demo right-rear photos return `GEOMETRY_MISMATCH`. Cabin front/rear composition passes on steering-wheel/rear-seat-bench detection respectively, after image quality checks.
+- Front templates require a near-side `mirror` detection when the loaded model supports that class. The supplied eight-class checkpoint is installed as `artifacts/module_a/best.pt`; sedan front mirrors and both sedan rear templates were calibrated on demo detections. All four front and four rear demo photos return `PASS`. See `docs/coach-front-templates.svg` and `docs/coach-rear-templates.svg`. SUV calibration remains open. The model misses the required class in one demo front-cabin and both rear-cabin photos. Cabin front/rear composition passes on steering-wheel/rear-seat-bench detection respectively, after image quality checks.
 
 Completed:
 

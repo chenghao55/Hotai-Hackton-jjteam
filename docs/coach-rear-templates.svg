@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="760" viewBox="0 0 960 760">
+<rect width="960" height="760" fill="#f3f7f4"/>
+<text x="480" y="43" text-anchor="middle" font-size="27" font-weight="700" fill="#10251f" font-family="Microsoft JhengHei, sans-serif">拍攝教練模板｜左後與右後</text>
+<text x="480" y="72" text-anchor="middle" font-size="15" fill="#52675d" font-family="Microsoft JhengHei, sans-serif">轎車 demo 借車與還車照片校正；色框為必要特徵預期區域</text>
+<rect x="45" y="74" width="390" height="645" rx="22" fill="white" stroke="#d2e1d8" stroke-width="2"/>
+<text x="240" y="104" text-anchor="middle" font-size="23" font-weight="700" fill="#173e35" font-family="Microsoft JhengHei, sans-serif">左後構圖</text>
+<rect x="55" y="119" width="370" height="580" rx="10" fill="#17302b"/>
+<rect x="356.5" y="405.5" width="67.7" height="38.3" rx="4" fill="#38bdf8" fill-opacity=".16" stroke="#38bdf8" stroke-width="4"/>
+<text x="356.5" y="398.5" font-size="17" font-weight="700" fill="#38bdf8" stroke="#10251f" stroke-width="3" paint-order="stroke" font-family="Microsoft JhengHei, sans-serif">車牌</text>
+<rect x="158.6" y="447.3" width="90.3" height="98.0" rx="4" fill="#facc15" fill-opacity=".16" stroke="#facc15" stroke-width="4"/>
+<text x="158.6" y="440.3" font-size="17" font-weight="700" fill="#facc15" stroke="#10251f" stroke-width="3" paint-order="stroke" font-family="Microsoft JhengHei, sans-serif">近側後輪</text>
+<rect x="515" y="74" width="390" height="645" rx="22" fill="white" stroke="#d2e1d8" stroke-width="2"/>
+<text x="710" y="104" text-anchor="middle" font-size="23" font-weight="700" fill="#173e35" font-family="Microsoft JhengHei, sans-serif">右後構圖</text>
+<rect x="525" y="119" width="370" height="580" rx="10" fill="#17302b"/>
+<rect x="536.8" y="408.4" width="83.6" height="39.4" rx="4" fill="#38bdf8" fill-opacity=".16" stroke="#38bdf8" stroke-width="4"/>
+<text x="536.8" y="401.4" font-size="17" font-weight="700" fill="#38bdf8" stroke="#10251f" stroke-width="3" paint-order="stroke" font-family="Microsoft JhengHei, sans-serif">車牌</text>
+<rect x="732.6" y="458.9" width="93.2" height="102.7" rx="4" fill="#facc15" fill-opacity=".16" stroke="#facc15" stroke-width="4"/>
+<text x="732.6" y="451.9" font-size="17" font-weight="700" fill="#facc15" stroke="#10251f" stroke-width="3" paint-order="stroke" font-family="Microsoft JhengHei, sans-serif">近側後輪</text>
+<text x="480" y="737" text-anchor="middle" font-size="15" fill="#52675d" font-family="Microsoft JhengHei, sans-serif">藍框為車牌｜黃框為近側後輪｜車身可部分出框</text>
+</svg>

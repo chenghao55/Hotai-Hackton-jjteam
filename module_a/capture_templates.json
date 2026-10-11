@@ -1,5 +1,5 @@
 {
-  "version": "capture-templates-v0.13-new-mirror-model",
+  "version": "capture-templates-v0.14-demo-rear-pilot",
   "calibration_status": "calibrated",
   "coordinate_space": "exif_corrected_unmirrored_image_normalized_xyxy",
   "model_classes": {
@@ -294,16 +294,16 @@
           "id": "plate",
           "class_id": 2,
           "box": [
-            0.823074,
-            0.561894,
-            0.94733,
-            0.688551
+            0.815,
+            0.494,
+            0.998,
+            0.56
           ],
           "required": true,
           "tolerance": [
-            0.055,
-            0.09,
-            0.06,
+            0.08,
+            0.07,
+            0.08,
             0.07
           ]
         },
@@ -311,17 +311,17 @@
           "id": "near_wheel",
           "class_id": 5,
           "box": [
-            0.276496,
-            0.503964,
-            0.433164,
-            0.906603
+            0.28,
+            0.566,
+            0.524,
+            0.735
           ],
           "required": true,
           "tolerance": [
+            0.12,
             0.08,
-            0.09,
-            0.08,
-            0.1
+            0.12,
+            0.08
           ]
         }
       ],
@@ -332,7 +332,7 @@
         ]
       ],
       "min_valid_features": 2,
-      "notes": "Approved v0.7 design: feature boxes in 1000x750 image area (exclude footer). Body cropping allowed. Door and taillight are visual guidance only; no detector class. Draft tolerances require photo calibration.",
+      "notes": "Pilot calibration from two new-model sedan demo photos per rear angle. Plate and near-wheel boxes use the mean detected positions; samples are not independent validation.",
       "geometry_reference": "image",
       "feature_reference_box": [
         0,
@@ -369,16 +369,16 @@
           "id": "plate",
           "class_id": 2,
           "box": [
-            0.05267,
-            0.561894,
-            0.176926,
-            0.688551
+            0.032,
+            0.499,
+            0.258,
+            0.567
           ],
           "required": true,
           "tolerance": [
-            0.055,
-            0.09,
-            0.06,
+            0.08,
+            0.07,
+            0.08,
             0.07
           ]
         },
@@ -386,17 +386,17 @@
           "id": "near_wheel",
           "class_id": 5,
           "box": [
-            0.566836,
-            0.503964,
-            0.723504,
-            0.906603
+            0.561,
+            0.586,
+            0.813,
+            0.763
           ],
           "required": true,
           "tolerance": [
+            0.12,
             0.08,
-            0.09,
-            0.08,
-            0.1
+            0.12,
+            0.08
           ]
         }
       ],
@@ -407,7 +407,7 @@
         ]
       ],
       "min_valid_features": 2,
-      "notes": "Approved v0.7 design: feature boxes in 1000x750 image area (exclude footer). Body cropping allowed. Door and taillight are visual guidance only; no detector class. Draft tolerances require photo calibration.",
+      "notes": "Pilot calibration from two new-model sedan demo photos per rear angle. Plate and near-wheel boxes use the mean detected positions; samples are not independent validation.",
       "geometry_reference": "image",
       "feature_reference_box": [
         0,
