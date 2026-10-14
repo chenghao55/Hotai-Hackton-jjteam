@@ -2,13 +2,16 @@
 
 This file records shared repository status. It is not an individual agent checkpoint or a branch diary.
 
-## Last verified checkpoint
+## Latest verification
 
-- Verified on: 2026-10-01
-- Verified against: integrated Module A Python coach and current main changes
-- Full Python suite: **408 passed, 1 warning, 0 failed**
+- Verified on: 2026-10-14
+- Verified against: current `main` working tree during submission documentation cleanup
+- Full Python suite: **430 passed, 4 failed, 2 warnings**
 - Command: `python -m pytest -q`
-- The warning is a third-party Starlette TestClient/httpx deprecation in the validation environment. Focused backend/core checks: 89 passed. Frontend capture/API checks: 26 passed (jsdom scroll/navigation notices).
+- The four failures are existing Module A expectation mismatches: two tests still expect `TEMPLATE_NOT_CALIBRATED`, and two still index 12 templates while the current configuration is calibrated and contains 10. This documentation task did not change Module A code or tests.
+- `UI_client`: **33 passed**, production build passed. `UI_backstage`: **58 passed**, production build passed.
+- The two Python warnings are third-party Starlette/httpx and anyio deprecations.
+- Last all-green Python checkpoint remains **408 passed, 1 warning, 0 failed**, verified on 2026-10-01 before the later Module A template commits.
 
 ## Current cross-module flow
 
@@ -44,9 +47,9 @@ Completed:
 - Photo metadata contains `photo_id`, `photo_type`, `capture_slot`, `mime_type`, and `file_path`.
 - `OTHER_DAMAGE` is validated as RETURN-only.
 
-Open:
+Current:
 
-- `module_a.PhotoCoach` is active through E. The shutter remains available; final upload reruns checks and returns accept/reshoot. Timed manual-review fallback is removed. Templates remain uncalibrated and cannot yet automatically PASS.
+- `module_a.PhotoCoach` is active through E. The shutter remains available; final upload reruns checks and returns accept/reshoot. Timed manual-review fallback is removed. The current configuration is calibrated with 10 templates and can return PASS; broader field validation is still required.
 
 ## Module B
 
@@ -135,12 +138,12 @@ Implemented integration:
 - Return-only damage evidence is supported end to end. Module D accepts an explicitly supplied
   `borrow_photo_id=None`, and Module B uses it for RETURN exterior/damage photos without
   fabricating borrow evidence.
-- Template calibration still blocks automatic acceptance of the six coached slots. Card, other-damage and legacy rear slots receive image-format validation only. Final files have `uploaded_photo` provenance, not a fabricated camera origin.
+- Ten templates are enabled for the six coached slots (8 exterior vehicle-specific templates and 2 shared driver-side cabin templates). Card, other-damage and legacy rear slots receive image-format validation only. Final files have `uploaded_photo` provenance, not a fabricated camera origin.
 - The displayed vehicle/gallery decorations in `UI_backstage` remain placeholders because Case responses do not contain rental/customer metadata or a photo-gallery contract.
 
 ## Team-level next steps
 
-1. Calibrate Module A templates and verify the deployed UI against the real model service.
+1. Expand Module A field validation and verify the deployed UI against the real model service.
 2. Replace the current placeholder vehicle/gallery decorations in the staff UI when the Case API gains rental/customer and photo-gallery data.
 3. Run an end-to-end demo covering capture, upload, Case creation, review, workflow, and payment.
 
@@ -151,7 +154,7 @@ Repository inspection found three differences from the supplied starting notes:
 - Module B now follows the deployed single-image model: return-only exterior evidence is valid,
   while card and interior photos are filtered out before inference.
 - Module D already supports nullable borrow evidence for generic return-only detections, so that contract is no longer blocking integration.
-- The confirmed full pytest checkpoint is now 408 passed, including real-provider wiring, final-upload provenance, uncoached slots, model failure handling and independent preview/final rejection coverage.
+- The former all-green checkpoint was 408 passed. The current run is 430 passed / 4 failed because the Module A tests still encode the previous 12-template, uncalibrated configuration while the source now has 10 calibrated templates.
 
 ## Status-recording rule
 

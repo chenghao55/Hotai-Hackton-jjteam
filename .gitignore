@@ -25,9 +25,6 @@ tests/
 # Local package installation metadata
 *.egg-info/
 
-# Local package installation metadata
-*.egg-info/
-
 # UI backstage
 node_modules
 dist

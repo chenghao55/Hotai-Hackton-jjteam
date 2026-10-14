@@ -1,8 +1,8 @@
 # Module A｜車輛拍攝 AI 教練第二版
 
-更新日期：2026-09-28。開發分支：`A_legalityAI`。
+更新日期：2026-10-14。主線分支：`main`。
 
-**Python 教練核心已接上 E 的 HTTP 介面；構圖模板仍待照片校正。** 本文件供隊友快速了解功能與接線待辦，完整契約見 [整合文件](../docs/tasks/module-a-coach.md)，整體進度見 [STATUS](../docs/STATUS.md)。
+**Python 教練核心已接上 E 的 HTTP 介面；10 組構圖模板目前已啟用，仍需擴大實車場域驗證。** 本文件供隊友快速了解功能與接線待辦，歷史契約見 [整合文件](../docs/tasks/module-a-coach.md)，整體進度見 [STATUS](../docs/STATUS.md)。
 
 ## 第二版已完成
 
@@ -13,7 +13,7 @@
 | YOLO 推論 | 載入一次伺服器指定的 `best.pt`；舊七類模型輸出轉為六類 ID，忽略 `car-coach-yolo` |
 | 畫質檢查 | JPEG/PNG 解碼、EXIF 校正、大小限制、光線／曝光／背光與單張清晰度 |
 | 車外構圖 | 轎車／休旅車各四角；檢查主體數量、貼邊、大小、置中、必要特徵及相對位置 |
-| 車內構圖 | 前排／後排依左門或右門選側拍模板；總共 12 組模板（外觀 8 組、內裝共用 4 組） |
+| 車內構圖 | 前排／後排僅保留駕駛側左門模板；總共 10 組模板（外觀 8 組、內裝共用 2 組） |
 | 漏斗式建議 | 回傳第一個阻擋原因，保留各層檢查狀態 |
 | 快門決策 | 使用者隨時可按快門；即時建議不鎖住快門 |
 | 正式照片重驗 | `mode='final'` 重新分析原圖，不沿用預覽結果；拒絕過期預覽影格 |
@@ -33,7 +33,7 @@
 | L5 | 無法可靠量測手機離地高度，標記 `not_applicable` |
 | L6 | 特徵框相對位置／尺寸符合模板程度；不保證實際 45° |
 
-合格定義為「照片符合指定槽位的構圖與特徵要求」。目前設定仍是 `uncalibrated`，**不啟用真實自動 PASS**；需用照片校正與獨立驗證，不能只修改設定字串。模型缺少前排座椅類別，方向盤不代表前排完整；車內只提供從駕駛側左門拍攝的前座與後座模板。
+合格定義為「照片符合指定槽位的構圖與特徵要求」。目前設定的 `calibration_status` 為 `calibrated`，通過所有適用檢查時會自動 PASS；這不代表已完成大規模場域驗證。模型缺少前排座椅類別，方向盤不代表前排完整；車內只提供從駕駛側左門拍攝的前座與後座模板。
 
 ## 回傳狀態
 
@@ -46,7 +46,7 @@
 
 ## 給 E 的 Python 呼叫範例
 
-倉庫根目錄安裝：`python -m pip install -e ".[coach,test]"`。`best.pt` 另行提供、未放入 GitHub；路徑由伺服器設定。
+倉庫根目錄安裝：`python -m pip install -e ".[coach,test]"`。預設 checkpoint 位於 `artifacts/module_a/best.pt`；只有另放他處時才以伺服器設定覆寫路徑。
 
 ```python
 from pathlib import Path
@@ -75,8 +75,8 @@ result = coach.analyze(Path('/path/frame.jpg').read_bytes(), context)
 
 | 待辦 | 配合模組 |
 |---|---|
-| 真實照片校正模板、畫質門檻及評估誤判率 | A |
-| 用實拍驗證集確認所有六個槽位可在合理條件通過 | A |
+| 擴大真實照片場域驗證，迭代模板與畫質門檻並量測誤判率 | A |
+| 用實拍驗證集持續確認六個槽位在合理條件下的通過率 | A |
 | 補油卡等槽位規則與前端到模型的整體測試 | A、E、UI |
 
 E 已將拍攝情境傳給 A；`accepted=true` 必須是 PASS，拒絕照片不產生 `photo_id`。目前不提供人工待審交付。
@@ -94,16 +94,8 @@ E 已將拍攝情境傳給 A；`accepted=true` 必須是 PASS，拒絕照片不�
 
 核心於 [PR #1](https://github.com/chenghao55/Hotai-Hackton-jjteam/pull/1) 合併。2026-09-28 本次改動驗證：已追蹤的 Python 測試 **377 passed、1 個第三方 Starlette/httpx 棄用警告、0 failed**；工作區另有未提交的照片比較測試，包含它們的完整執行為 **383 passed**。`best.pt` 已成功載入並完成合成影像推論；這不是實拍準確率驗證。
 
-## 借還影像比較原型
-
-`photo_comparison.py` 新增 `compare_stored_photos(borrow_photo_id, return_photo_id, detector=...)`，使用本模組既有 `get_photo_info()`／`get_photo()` 讀取**已保存**的借車與還車照片。它先檢查兩張是同一個車外拍攝視角，再用車輛偵測框內的特徵做對位，回傳可比較性、對位量測、候選熱區及 PNG 熱圖。失敗時回原因，不把無法比較說成沒有變化。
-
-此原型不驗證兩張照片是否來自同一次租借或同一輛車；呼叫端必須從可信租借資料完成配對。門檻尚未經真實借還配對校正，合成影像測試只驗證資料流與基本拒判。尚未接 E 的 HTTP、B 的車況判讀或 C／UI 的重拍畫面。現有 `photo.py` 儲存介面與 `/photos` 流程未改動。完整限制及後續交接見 [比較計畫](../docs/tasks/borrow-return-difference-heatmap-plan.md)。
-
-比較功能測試：**6 passed**。完整套件曾在本輪新增比較功能後通過 **382 passed、1 個既有警告、0 failed**；後續其他工作同時改動教練與模板，最新完整測試為 **364 passed、19 failed、1 個既有警告**，失敗集中在教練與照片路由測試。
-
 第一版保留於 [legacy/capture-coach-v1](../legacy/capture-coach-v1/)。第二版修改本資料夾，沿用 `A_legalityAI`，再透過 PR 合併至 `main`。
 
 ## 主線整合（2026-10-01）
 
-E 已啟用真實教練。`CaptureContext.source` 在 `final` 模式另外接受 `uploaded_photo`，表示提交的圖片檔案，不宣稱是即時相機原圖；預覽仍使用 `camera_raw`。快門不受預覽判定限制，正式上傳重新檢核。模板未校正仍不會自動 PASS。車內僅保留左側車門模板；API 格式仍接受 `entry_side='right'`，但會提示改從左側拍攝。詳見 [整合紀錄](../docs/tasks/main-coach-integration.md)。
+E 已啟用真實教練。`CaptureContext.source` 在 `final` 模式另外接受 `uploaded_photo`，表示提交的圖片檔案，不宣稱是即時相機原圖；預覽仍使用 `camera_raw`。快門不受預覽判定限制，正式上傳重新檢核。模板目前已啟用，通過所有適用檢查即可 PASS。車內僅保留左側車門模板；API 格式仍接受 `entry_side='right'`，但會提示改從左側拍攝。詳見 [整合紀錄](../docs/tasks/main-coach-integration.md)。
