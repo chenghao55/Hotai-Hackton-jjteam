@@ -87,7 +87,7 @@ flowchart TB
 | 項目 | 資料與結果 | 解讀 |
 |---|---|---|
 | 拍攝指導 | 366 張既有驗證影像、1,461 個物件標註；物件偵測 recall 99.7%、precision 98.8%；7 張 Demo 判定一致 7/7 | 模型能穩定找出拍攝指導所需的車輛零件，7 張 Demo 的結果也一致；完整還車流程仍需更多現場照片驗證 |
-| 和泰車損 locked test | 21 張：5/5 損傷照找出、正常照 11/16 判對；precision 50.0%、specificity 68.8%、balanced accuracy 84.4% | 測試中的 5 張損傷照都有找出，但 16 張正常照中有 5 張被誤判，因此尚無法大幅取代多數人工覆核 |
+| 和泰車損 locked test | 21 張：5/5 損傷照找出、正常照 11/16 判對；precision 50.0%、specificity 68.8%、balanced accuracy 84.4% | 5 張損傷照皆成功辨識，但 16 張正常照中仍有 5 張遭誤判；模型可協助標記疑似損傷並提供覆核線索，最終仍由營運人員判定 |
 | 外部車損分割 locked test | 163 張；scratch recall 100%、precision 63.8%；collision recall 100%、precision 96.9% | - |
 | 車內清潔實驗 | 729 組 final test；污漬找出 88.5%、髒污找出 91.5% | - |
 
