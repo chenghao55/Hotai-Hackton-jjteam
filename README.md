@@ -1,120 +1,190 @@
-# Hotai iRent AI Prototype
+# iRent AI 車況智環
 
-本專案是車輛借還照片與車況處理的 MVP。前端透過 Module E 的 HTTP API 上傳照片及建立案件；A、B、D 在同一個 Python 後端程序中以 Python API 協作。
+> 在使用者離開車輛前取得可用證據，讓 AI 協助篩出疑似異常，最終決策仍由營運人員完成。
 
-開始修改前，請先閱讀 [AGENTS.md](AGENTS.md) 與 [docs/STATUS.md](docs/STATUS.md)。前者說明跨模組開發規則，後者記錄團隊目前進度與最近一次測試檢查點。
+**2026 和泰 AI 黑客松｜團隊：松鼠愛青椒**
 
-## 架構與責任
+[觀看專案影片介紹](https://youtu.be/QBDsVe79QPU)
 
-```text
-UI ──HTTP──> Module E ──Python──> Module A：照片、拍攝指導
-                         ├──────> Module B：車況 AI、案件建置
-                         └──────> Module D：案件領域規則
+iRent AI 車況智環把還車拍照、影像品質、AI 車損初篩、人工覆核與後續處置串成同一宗可追溯案件。它的重點不只是辨識刮痕，而是讓每張照片、每筆 AI 判讀與每次人工決策都有來源可查。
+
+## 為什麼需要車況智環
+
+自助還車常在使用者離開後才發現照片模糊、角度錯誤或車況有疑義。證據不足時，客服與營運人員只能回頭比對大量照片，處理時間拉長，也更容易產生爭議。
+
+車況智環將流程前移：拍攝當下就提示如何修正，合格照片才進入證據鏈；AI 只負責初篩疑似車損，營運人員保留確認、修正、派工、付款與結案權限。
+
+## 核心體驗
+
+### 1. 引導拍攝與品質檢核
+
+拍攝畫面會依指定角度顯示取景框，協助使用者對齊車身、確認完整入鏡與光線狀況。若照片尚未符合要求，畫面下方會立即說明原因並提示如何重拍。
+
+![拍攝引導介面](docs/images/image.png)
+
+### 2. AI 車損初篩
+
+現行模型針對單張還車照片辨識可見的 `scratch` 與 `collision_damage`，並保留判讀之信心分數、偵測編號與來源照片。
+
+![AI 車損初篩與來源照片](docs/images/ai-damage-screening.jpg)
+
+### 3. 營運人員覆核與處置
+
+後台以案件佇列呈現待覆核項目。營運人員可查看照片與 AI 判讀，確認或修正損傷類別與嚴重程度，再依案件狀態派工、處理、設定付款或結案。原型目前以 0.70 為門檻：低於 0.70 的判讀會進入人工覆核；達到或高於 0.70 時先標記為自動接受。此門檻可調整，尚不是正式營運規則。
+
+![營運人員案件覆核後台](docs/images/staff-review-dashboard.jpg)
+
+> 圖片擷取自團隊最終簡報中的實機 Demo；車輛影像來自 iRent 提供的訓練資料，因此保留原始車牌畫面。
+
+## 端到端流程
+
+```mermaid
+flowchart LR
+    A[引導拍攝] --> B[品質檢核]
+    B -->|不通過| A
+    B -->|通過並儲存| C[AI 車損初篩]
+    C --> D[建立可追溯 Case]
+    D --> E[營運人員覆核]
+    E --> F[派工／維修／付款／結案]
 ```
 
-| 區域 | 負責內容 |
+目前顧客端為 **RETURN-only** 流程，共拍攝油卡、前座、後座與四個車外角度。油卡與車內照會保存，但不送入現行車外損傷模型；四張車外照與選填的其他損傷照才會成為 Case evidence。
+
+每筆 AI finding 都帶有 `source_photo_id`，Module B 轉為 Module D 的 `DetectionInput` 後，由 Module E 建立並保存 Case。系統不以陣列順序猜測照片來源，也不建立假的租前照片。
+
+## 系統架構
+
+```mermaid
+flowchart TB
+    Client[UI_client<br/>顧客拍攝流程] <-->|HTTP| E[Module E<br/>FastAPI／整合層]
+    Staff[UI_backstage<br/>營運覆核後台] <-->|HTTP| E
+    E <--> A[Module A<br/>照片儲存／拍攝指導]
+    E <--> B[Module B<br/>車況 AI 初篩]
+    B <--> D[Module D<br/>Case／Detection 領域規則]
+    E <--> D
+```
+
+| 模組 | 已實作責任 |
 |---|---|
-| Module A | 照片儲存與 metadata、拍攝教練、照片比較原型 |
-| Module B | 車況模型推論、`AIFinding`，將分析結果交給 D 建立案件 |
-| Module C | 尚未定義穩定的團隊責任；需先由團隊明確指定 |
-| Module D | `Case`、`Detection`、審核、優先級、流程與付款規則 |
-| Module E | FastAPI、HTTP schema/routes、模組轉接與應用組裝 |
-| UI | 使用者及工作人員介面，只透過 E 的 HTTP API 連接後端 |
+| Module A | 照片儲存、拍攝欄位與品質／構圖指導，以及離線借還影像比較原型 |
+| Module B | 可見車損 AI、`AIFinding`、來源照片追溯與 Case 建立協調 |
+| Module D | Case、Detection、人工覆核、優先度、流程與付款規則 |
+| Module E | FastAPI、HTTP schema／route、模組轉接與 in-memory Case 狀態 |
+| UI_client | 顧客還車拍攝、上傳與 Case 結果畫面 |
+| UI_backstage | 案件佇列、人工覆核與營運處置 |
 
-跨模組轉換優先放在 E 的 adapter。不要在 A、B、E 重複實作 D 的案件規則，也不要讓 A/B/D 直接處理 HTTP。
+## AI 與技術棧
 
-## 目前主要流程
+- 拍攝指導：YOLOv8 Nano、OpenCV／幾何規則、六層級品質提示。
+- 借還影像比較原型：以車輛偵測、特徵對位、比較區遮罩與候選熱圖協助離線檢查；尚未接入正式還車流程。
+- 車外損傷：LR-ASPP + MobileNetV3-Large，共享 backbone 的 visible-damage gate 與像素分割 head。
+- 後端：Python 3.10+、FastAPI、Pydantic；MVP 使用記憶體內 Case 儲存。
+- 前端：React、TypeScript／JavaScript、Vinext／Vite。
+- 測試：pytest、Vitest、Playwright。
 
-### 拍照與建立案件
+## 驗證結果摘要
 
-目前 `UI_client` 的 RETURN 流程收集七張必要照片：油卡／停車卡、前排、後排，以及車外左前、右前、左後、右後；車損照片可另外補上。前端先呼叫即時指導，再於使用者按下快門後上傳實際照片。快門不會被 AI 鎖住；正式上傳會重新分析該張照片，拒絕時提示重拍，不建立照片 ID。
+| 項目 | 資料與結果 | 解讀 |
+|---|---|---|
+| 拍攝指導 | 366 張既有驗證影像、1,461 個物件標註；物件偵測 recall 99.7%、precision 98.8%；7 張 Demo 判定一致 7/7 | 模型能穩定找出拍攝指導所需的車輛零件，7 張 Demo 的結果也一致；完整還車流程仍需更多現場照片驗證 |
+| 和泰車損 locked test | 21 張：5/5 損傷照找出、正常照 11/16 判對；precision 50.0%、specificity 68.8%、balanced accuracy 84.4% | 測試中的 5 張損傷照都有找出，但 16 張正常照中有 5 張被誤判，因此尚無法大幅取代多數人工覆核 |
+| 外部車損分割 locked test | 163 張；scratch recall 100%、precision 63.8%；collision recall 100%、precision 96.9% | - |
+| 車內清潔實驗 | 729 組 final test；污漬找出 88.5%、髒污找出 91.5% | - |
 
-```text
-UI → POST /photo-guidance（即時建議，不儲存）
-UI → POST /photos（正式照片重新檢查；通過後儲存並取得 photo_id）
-UI → POST /cases/from-photos（交付已儲存照片 ID）
-E → A 儲存／指導；E → B 分析；B → D 建立 Case
+完整資料切分、指標定義與限制見 [驗證與模型限制](docs/EVALUATION.md)。車損模型細節見 [Module B 架構與 fine-tuning 紀錄](module_b/ARCHITECTURE.md)。
+
+## 借還影像比較原型
+
+Module A 另提供 `compare_stored_photos(borrow_photo_id, return_photo_id, detector=...)`，可讀取同一車外視角的已儲存借車與還車照片，回傳影像是否可比較、對位診斷、實際比較區遮罩與候選變化熱圖。呼叫端必須先透過可信租借資料確認兩張照片屬於同一車輛及同一次租借；系統不以檔名或照片順序猜測來源。
+
+這項功能目前是離線原型，尚未接入 Module E、Module B 或 UI。候選熱區不是車損判定，也不能直接作為重拍結論；現有樣本與合成測試不足以代表實車準確率。詳細契約與限制見 [Module A 說明](module_a/README.md#借還影像比較原型)及[比較計畫](docs/tasks/borrow-return-difference-heatmap-plan.md)。
+
+## Quick Start
+
+### 環境需求
+
+- Python 3.10+
+- Node.js 22.13+
+
+### 1. 啟動後端
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[coach,ml,test]"
+python -m uvicorn backend.main:app --reload
 ```
 
-前端不自行產生 `photo_id` 或 `case_id`。油卡與內裝照片會儲存，但不送入車損模型；案件證據使用車外照片及可選的 `OTHER_DAMAGE` 照片。Module B 目前逐張推論，並非借還照片差異模型。
+後端預設位於 `http://127.0.0.1:8000`。首次使用模型時會載入 checkpoint，CPU 環境可能需要較長時間。
 
-### 模組邊界
+### 2. 啟動顧客端
 
-- `POST /photo-guidance` 和 `POST /photos` 接受 multipart 圖片及拍攝情境。教練槽位需要 `photo_type`、`capture_slot`、`vehicle_type`（`sedan`／`suv`）、`session_id`、遞增的 `frame_id`；內裝另需 `entry_side`。API 接受左右側欄位，但教練只提供駕駛側左門模板，收到右側時會提示改從左側拍攝。即時分析不儲存照片。
-- `POST /photos` 以正式模式重新跑教練；通過才儲存並回傳 `photo_id`。`accepted=false` 是正常的檢查結果，不是 HTTP 傳輸錯誤。
-- `GET /photos/{photo_id}` 讀取已儲存照片。
-- `POST /cases/from-photos` 接受已儲存的 `photo_ids`，由 E 產生案件 ID、呼叫 B，再保存 D 回傳的案件。
-- 即時指導及上傳的欄位定義以 `backend/schemas/` 和 `backend/routes/` 的實作為準。
+另開終端機：
 
-## Module A 拍攝教練
-
-教練核心為 `module_a.PhotoCoach`，由 E 的 `backend/services/photo_guidance.py` 轉接。YOLO 服務類別 ID 為：`car=0`、`headlight=1`、`license_plate=2`、`rear_seat_bench=3`、`steering_wheel=4`、`wheel=5`、`mirror=6`。模型類別依名稱對應服務 ID；舊模型中額外的 `car-coach-yolo` 類別不納入服務類別。
-
-教練支援四個車外角度與前、後排內裝槽位；`REAR`、`FUEL_PARKING_CARD`、`OTHER_DAMAGE` 不使用角度教練。這些非教練槽位仍可依 HTTP 流程驗證圖片並儲存。模板設定目前標記為 `calibrated`，但尚未以真實車輛照片完成驗證；合成資料測試不能證明實車準確率。
-
-外觀模板依轎車／休旅車及四個車身角度設定。前方模板使用車牌、近側車輪、近側頭燈，以及近側後照鏡；左前的近側鏡在影像右側，右前的近側鏡在影像左側。只有載入支援 `mirror` 的模型時才要求後照鏡。新模型已由使用者提供，轎車前角鏡框位置依 demo 的四張照片調整，左右後角車牌及後輪也依 demo 各兩張借還照片校正；休旅車尚無實拍校正。可查看[前角模板](docs/coach-front-templates.svg)及[後角模板](docs/coach-rear-templates.svg)。必要特徵仍須被模型偵測到，並符合模板的位置及大小；車身及特徵可部分出框。外觀車身沒有高度下限，寬度及最大尺寸仍受檢查。內裝前排只需偵測到方向盤、後排只需偵測到後座座椅，仍先通過影像品質檢查；方向盤不代表前排座椅完整，也不代表已精確量出 45 度或手機離地高度。
-
-`best.pt` 由伺服器端載入，不應由 API 使用者上傳模型。E 以 `HOTAI_MODULE_A_CHECKPOINT_PATH` 指定模型路徑；未設定時尋找專案內的 `artifacts/module_a/best.pt`（目前為含 `mirror` 的新權重）。可用 `HOTAI_MODULE_A_DEVICE` 設定推論裝置，預設為 `cpu`。
-
-模板校正狀態不再產生拍攝提示或阻擋上傳；照片仍需通過畫質與構圖規則。通過時提示「照片可提交。」。現有模板尚未經真實照片驗證，demo 結果不能當作實車準確率。
-
-本機展示可設定 `HOTAI_ENABLE_DEV_FORCE_SAVE=1` 啟用 `POST /dev/photos/force-save`，直接將測試照片交給既有儲存介面。此路由預設關閉，不改變正式 `POST /photos` 的教練判斷；正式上傳會以 `uploaded_photo` 記錄提交來源。
-
-## 車損比較原型
-
-`module_a.compare_stored_photos(borrow_photo_id, return_photo_id, detector=...)` 是離線實驗功能：讀取已保存的借／還車外觀照片、檢查槽位並估算影像對位，回傳可比較性、候選變化區、透明熱圖及實際比較區遮罩。呼叫端必須先以可信資料確認照片屬於同一車輛及同一租借。
-
-此原型尚未接入 E 的 HTTP、B 的車損判讀或 UI 的重拍流程。候選熱區不是車損判定，也不是重拍結論；現有樣本與合成測試不足以證明真實準確率。細節與限制記錄於[比較計畫](docs/tasks/borrow-return-difference-heatmap-plan.md)。
-
-本機工具 `module_a/evaluation/pair_manifest.py` 和 `evaluate_pairs.py` 可依明確指定的本機資料夾建立候選配對清單及執行技術檢查。檔名不能證明照片來源；含照片路徑或車牌資訊的清單應留在 Git 忽略的 `tmp/`，不要提交至 GitHub。
-
-## 專案位置
-
-```text
-backend/       Module E：FastAPI、routes、schemas、services、state
-module_a/      照片儲存、拍攝教練、比較原型
-module_b/      車況 AI 與案件建置
-module_d/      案件領域模型與規則
-UI_client/     使用者端 RETURN 拍照流程
-UI_backstage/  工作人員端介面
-legacy/        第一版獨立拍攝教練，僅供參考
-tests/         Python 測試
-docs/STATUS.md 團隊狀態及整合待辦
+```powershell
+cd UI_client
+npm install
+$env:NEXT_PUBLIC_MODULE_E_BASE_URL = "http://127.0.0.1:8000"
+npm run dev
 ```
 
-`backend.main:app` 是正式 FastAPI 組裝入口。`module_d.api` 保留為舊匯入相容層，不是新的後端入口。MVP 案件狀態使用記憶體保存，重啟服務可能清空；目前不含資料庫與認證。
+依終端機顯示的網址開啟 `/capture`。
 
-## 本機啟動
+### 3. 啟動營運後台
 
-在專案根目錄準備 Python 環境，安裝 API、拍攝教練與測試相依套件：
+另開終端機：
 
-```bash
-python -m pip install -e ".[coach,test]"
+```powershell
+cd UI_backstage
+npm install
+npm run dev
 ```
 
-設定 `HOTAI_MODULE_A_CHECKPOINT_PATH` 指向本機 `best.pt`，再啟動 API：
+後台目前固定連線到 `http://127.0.0.1:8000`。
 
-```bash
-uvicorn backend.main:app --reload
-```
+### 驗證指令
 
-教練模型會在第一次教練請求時載入。若服務回報模型不可用，先確認模型檔存在、路徑可讀，且目前 Python 環境的 PyTorch／Ultralytics 相依套件可正常載入。
-
-## 測試與目前待辦
-
-執行 Python 測試：
-
-```bash
+```powershell
 python -m pytest -q
+cd UI_client; npm test; npm run build
+cd ..\UI_backstage; npm test; npm run build
 ```
 
-最近記錄的完整測試檢查點為 **474 passed、1 warning、0 failed**（2026-10-12；包含近側後照鏡準備與內裝特徵偵測規則，警告為 Starlette TestClient/httpx 的第三方棄用提醒）。最新團隊紀錄請查 [docs/STATUS.md](docs/STATUS.md)。
+## 倉庫結構
 
-目前主要待辦：
+```text
+backend/          Module E：FastAPI 與跨模組整合
+module_a/         照片儲存與拍攝指導
+module_b/         車外損傷 AI 與模型評估
+module_d/         Case／Detection 領域規則
+UI_client/        顧客端拍攝流程
+UI_backstage/     營運覆核後台
+artifacts/        已審核的模型 checkpoint 與指標
+docs/             狀態、驗證、交接與 README 圖片
+legacy/           第一版拍攝教練參考實作
+tests/            Python 測試
+```
 
-1. 以真實車輛照片校正 Module A 的模板、畫質門檻及誤判情形，並保留獨立驗證資料。
-2. 規劃工作人員端原型資料的正式整合。
-3. 完成端到端展示，涵蓋拍照、上傳、建立案件及後續工作流程。
-4. 初賽先展示 A 的借還比對離線流程及自動批次技術報告；真實照片人工標註、門檻校正及產品化串接留待決賽或上線前。
+文件入口與保留理由見 [文件索引](docs/README.md)。
 
-不要在 MVP 尚未確認前自行加入資料庫或改動其他模組的公開契約。模組完成度與團隊下一步以 [docs/STATUS.md](docs/STATUS.md) 為準；模組 A 的實作細節見 [module_a/README.md](module_a/README.md)。
+## 目前限制
+
+- 目前設定含 10 組已啟用模板（8 組車外、2 組駕駛側車內）；但仍不可把規則通過宣稱為精確 45 度、相機高度或完整場域準確率。
+- 八類拍攝模型已支援近側後照鏡；轎車四個外觀角度曾以 Demo 照片校正並通過，但休旅車與獨立實拍驗證仍未完成。
+- 單張影像分數是模型輸出，不是校準後機率；AI 不判斷損傷新舊、肇責、理賠或維修金額。
+- 和泰 locked test 只有 21 張，且損傷正例只有 5 張，仍需更大規模場域驗證。
+- Case 使用 in-memory 儲存，重啟後端會清空；MVP 尚未加入資料庫。
+- API 尚未提供完整租借人、車籍與照片 gallery contract，後台部分欄位仍以缺值呈現。
+- `POST /dev/photos/force-save` 僅供本機 Demo，預設關閉，不能視為正常顧客功能。
+- 借還影像比較只提供候選變化與可比較性診斷，尚未驗證為車損判定，也未接入正式 API 或 UI。
+
+## 團隊與致謝
+
+- 團隊：**松鼠愛青椒**
+- 專案：**2026 和泰 AI 黑客松｜iRent AI 車況智環**
+- 車損特徵資料：Humans in the Loop Car Parts and Car Damages Dataset v2（CC0 1.0）
+- 車內清潔實驗資料：MoLa-VI（CC BY 4.0；僅實驗，未部署）
+
+---
+
+本專案是黑客松原型。任何正式上線、理賠或責任判定都需要額外的資安、隱私、法遵、模型校正與場域驗證。

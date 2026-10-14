@@ -2,13 +2,14 @@
 
 This file records shared repository status. It is not an individual agent checkpoint or a branch diary.
 
-## Last verified checkpoint
+## Latest recorded verification
 
 - Verified on: 2026-10-12
-- Verified against: the previous Module A mirror-ready configuration, interior presence rules, sedan front demo pilots, and current Module E integration; this checkpoint predates the new model replacement
+- Verified against: the Module A mirror-ready configuration, interior presence rules, sedan demo pilots, and Module E integration current on that date; this checkpoint predates later model and template changes
 - Full Python suite: **474 passed, 1 warning, 0 failed**
 - Command: `python -m pytest -q`
 - The warning is a third-party Starlette TestClient/httpx deprecation in the validation environment.
+- A later documentation-cleanup run recorded `UI_client` **33 passed** with a successful production build and `UI_backstage` **58 passed** with a successful production build.
 
 ## Current cross-module flow
 
@@ -121,6 +122,7 @@ Open:
 Current repository state:
 
 - `UI_backstage` calls existing Case endpoints for staff workflows.
+- The active `UI_backstage` queue uses the real Case endpoints for dispatch, review, appeal, workflow, payment, and no-action completion. Vehicle and gallery decorations remain placeholders because the Case API does not yet expose rental/customer metadata or a photo-gallery contract.
 - `UI_client` uses the canonical Module E routes for the RETURN-only capture flow.
 - Live guidance uses `POST /photo-guidance`; final captures use `POST /photos`; Case creation uses `POST /cases/from-photos`.
 - Seven required photos are uploaded. Card/front-cabin/rear-cabin IDs are stored but excluded from Case evidence; four exterior IDs and optional `OTHER_DAMAGE` IDs are included.
@@ -139,13 +141,14 @@ Implemented integration:
 - Return-only damage evidence is supported end to end. Module D accepts an explicitly supplied
   `borrow_photo_id=None`, and Module B uses it for RETURN exterior/damage photos without
   fabricating borrow evidence.
-- Module A's coach replaces the fixed-PASS stub. Template calibration is still required.
-- The staff-side `UI_backstage` and `/review` experience still contain prototype data pending a separately scoped production integration.
+- Ten templates are enabled for the six coached slots (8 exterior vehicle-specific templates and 2 shared driver-side cabin templates). Demo calibration exists, but broader field validation, SUV calibration, and reliable front/rear disambiguation remain open.
+- Card, other-damage, and legacy rear slots receive image-format validation only. Final files use `uploaded_photo` provenance rather than claiming a live camera origin.
+- The staff UI uses real workflow endpoints, but its vehicle/gallery decorations remain placeholders until the Case API provides rental/customer and photo-gallery data.
 
 ## Team-level next steps
 
-1. Calibrate Module A templates with real vehicle photos.
-2. Plan the staff-side production integration without moving Module D rules into the UI.
+1. Expand Module A field validation, including SUV templates, front/rear disambiguation, and the deployed UI against the real model service.
+2. Replace staff-side vehicle/gallery placeholders when the Case API gains rental/customer and photo-gallery data, without moving Module D rules into the UI.
 3. Run an end-to-end demo covering capture, upload, Case creation, review, workflow, and payment.
 
 ## Differences from the previous written checkpoint
@@ -155,7 +158,7 @@ Repository inspection found three differences from the supplied starting notes:
 - Module B now follows the deployed single-image model: return-only exterior evidence is valid,
   while card and interior photos are filtered out before inference.
 - Module D already supports nullable borrow evidence for generic return-only detections, so that contract is no longer blocking integration.
-- The confirmed full pytest checkpoint is now 408 passed, including 44 guidance/close-up tests, 10 comparison tests, 1 batch-runner test and 2 candidate-manifest tests.
+- The latest recorded all-green Python checkpoint is 474 passed (2026-10-12). It includes 53 guidance/close-up tests, 10 comparison tests, 1 batch-runner test, and 2 candidate-manifest tests, but predates later model and template changes.
 
 ## Status-recording rule
 

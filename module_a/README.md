@@ -1,8 +1,8 @@
 # Module A｜車輛拍攝 AI 教練第二版
 
-更新日期：2026-09-30。開發分支：`A_legalityAI`。
+更新日期：2026-10-14。主線分支：`main`。
 
-**Python 教練核心已接上 E 的 HTTP 介面；構圖模板仍待照片校正。** 本文件供隊友快速了解功能與接線待辦，完整契約見 [整合文件](../docs/tasks/module-a-coach.md)，整體進度見 [STATUS](../docs/STATUS.md)。
+**Python 教練核心已接上 E 的 HTTP 介面；10 組構圖模板目前已啟用，仍需擴大實車場域驗證。** 本文件供隊友快速了解功能與接線待辦，歷史契約見 [整合文件](../docs/tasks/module-a-coach.md)，整體進度見 [STATUS](../docs/STATUS.md)。
 
 ## 第二版已完成
 
@@ -12,7 +12,7 @@
 | 主線格式 | 沿用 `PhotoType`、`CaptureSlot` 與既有照片儲存／讀取介面 |
 | YOLO 推論 | 載入一次伺服器指定的 `best.pt`；依類別名稱映射服務 ID，忽略 `car-coach-yolo`；新八類模型含 `mirror` |
 | 畫質檢查 | JPEG/PNG 解碼、EXIF 校正、大小限制、光線／曝光／背光與單張清晰度 |
-| 車外構圖 | 轎車／休旅車各四角；檢查主體數量、近拍占比、構圖及必要特徵；允许車身出框、近側輪胎與車牌須完整 |
+| 車外構圖 | 轎車／休旅車各四角；檢查主體數量、近拍占比、構圖及必要特徵；允許車身出框，近側輪胎與車牌須完整 |
 | 車內構圖 | 前排與後排皆由駕駛側左門斜拍；共 10 組模板（外觀 8 組、內裝 2 組） |
 | 漏斗式建議 | 回傳第一個阻擋原因，保留各層檢查狀態 |
 | 快門決策 | 使用者隨時可按快門；即時建議不鎖住快門 |
@@ -68,7 +68,7 @@
 
 ## 給 E 的 Python 呼叫範例
 
-倉庫根目錄安裝：`python -m pip install -e ".[coach,test]"`。`best.pt` 另行提供、未放入 GitHub；路徑由伺服器設定。
+倉庫根目錄安裝：`python -m pip install -e ".[coach,test]"`。預設 checkpoint 位於 `artifacts/module_a/best.pt`；只有另放他處時才以伺服器設定覆寫路徑。
 
 ```python
 from pathlib import Path
@@ -160,4 +160,8 @@ python -m module_a.evaluation.evaluate_pairs --manifest tmp/pair_candidates.json
 
 比較功能測試：**10 passed**；批次評估測試 **1 passed**；資料清單測試 **2 passed**。最新完整 Python 測試：**474 passed、1 個既有第三方警告、0 failed**（2026-10-12；包含近側後照鏡準備與內裝特徵偵測規則）。
 
-第一版保留於 [legacy/capture-coach-v1](../legacy/capture-coach-v1/)。第二版修改本資料夾，沿用 `A_legalityAI`，再透過 PR 合併至 `main`。
+第一版保留於 [legacy/capture-coach-v1](../legacy/capture-coach-v1/)。第二版已透過 PR 合併至 `main`。
+
+## 主線整合補充
+
+E 已啟用真實教練。`CaptureContext.source` 在 `final` 模式另外接受 `uploaded_photo`，表示使用者提交的圖片檔案，不宣稱是即時相機原圖；預覽仍使用 `camera_raw`。快門不受預覽判定限制，正式上傳會重新檢核。車內僅保留左側車門模板；API 格式仍接受 `entry_side='right'`，但會提示改從左側拍攝。詳見 [整合紀錄](../docs/tasks/main-coach-integration.md)。
