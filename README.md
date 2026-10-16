@@ -177,7 +177,7 @@ legacy/           第一版拍攝教練參考實作
 tests/            Python 測試
 ```
 
-文件入口與保留理由見 [文件索引](docs/README.md)。
+需要追溯拍攝教練的整合歷程時，可參考 [主流程整合說明](docs/tasks/main-coach-integration.md)與 [Module A 拍攝教練交接](docs/tasks/module-a-coach.md)；兩者均不作目前產品狀態來源。
 
 ## 目前限制
 
